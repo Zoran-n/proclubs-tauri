@@ -9,7 +9,9 @@ function aggregateMatchPlayers(matches: Match[], clubId: string): Player[] {
   for (const m of matches) {
     const clubPlayers = m.players[clubId] as Record<string, Record<string, string>> | undefined;
     if (!clubPlayers || typeof clubPlayers !== "object") continue;
-    for (const [name, s] of Object.entries(clubPlayers)) {
+    for (const [_id, s] of Object.entries(clubPlayers)) {
+      // EA returns numeric IDs as keys; actual name is inside the stats object
+      const name = s.name || s.playername || s.playerName || _id;
       if (!acc[name]) acc[name] = { goals: 0, assists: 0, passesMade: 0 };
       acc[name].goals      += Number(s.goals)      || 0;
       acc[name].assists    += Number(s.assists)     || 0;
