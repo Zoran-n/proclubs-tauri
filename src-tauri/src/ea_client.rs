@@ -105,6 +105,10 @@ impl EaClient {
             .or_else(|| resp.get("data"))
             .and_then(|v| v.as_array()).cloned()
             .unwrap_or_else(|| resp.as_array().cloned().unwrap_or_default());
+        // Debug: log first club object so we can see the field names
+        if let Some(first) = clubs.first() {
+            self.emit_log(format!("[search debug] first club obj: {}", first.to_string()));
+        }
         Ok(clubs.into_iter().filter_map(|v| self.parse_club(&v, platform)).collect())
     }
 
