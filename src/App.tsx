@@ -4,6 +4,7 @@ import { TitleBar } from "./components/Layout/TitleBar";
 import { Sidebar } from "./components/Layout/Sidebar";
 import { MainPanel } from "./components/Layout/MainPanel";
 import { DevPanel } from "./components/DevPanel/DevPanel";
+import { SearchModal } from "./components/ui/SearchModal";
 import { useAppStore } from "./store/useAppStore";
 import { checkProxy } from "./api/tauri";
 
@@ -55,6 +56,7 @@ function App() {
         <MainPanel />
       </div>
       {showDevPanel && <DevPanel />}
+      <SearchModal />
     </div>
   );
 }

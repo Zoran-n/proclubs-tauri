@@ -32,6 +32,8 @@ interface AppState {
   rawLogs: string[];
   showDevPanel: boolean;
   proxyInfo: string | null;
+  searchResults: Club[];
+  showSearchModal: boolean;
 
   setClub: (club: Club, players: Player[], matches: Match[]) => void;
   addHistory: (club: Club) => void;
@@ -59,6 +61,8 @@ interface AppState {
   clearRawLogs: () => void;
   toggleDevPanel: () => void;
   setProxyInfo: (v: string | null) => void;
+  setSearchResults: (clubs: Club[], show: boolean) => void;
+  closeSearchModal: () => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
@@ -77,6 +81,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   rawLogs: [],
   showDevPanel: false,
   proxyInfo: null,
+  searchResults: [],
+  showSearchModal: false,
 
   setClub: (club, players, matches) => set({ currentClub: club, players, matches, error: null }),
   addHistory: (club) => set((s) => ({
@@ -139,6 +145,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearRawLogs: () => set({ rawLogs: [] }),
   toggleDevPanel: () => set((s) => ({ showDevPanel: !s.showDevPanel })),
   setProxyInfo: (proxyInfo) => set({ proxyInfo }),
+  setSearchResults: (searchResults, show) => set({ searchResults, showSearchModal: show }),
+  closeSearchModal: () => set({ showSearchModal: false, searchResults: [] }),
 
   applyProxy: async (url: string) => {
     await apiSetProxy(url.trim() || null);

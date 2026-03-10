@@ -1,15 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { Star, RefreshCw, Search, Hash } from "lucide-react";
+import { RefreshCw, Search, Hash } from "lucide-react";
 import { searchClub, detectPlatform } from "../../api/tauri";
 import { useAppStore } from "../../store/useAppStore";
 import { useClub } from "../../hooks/useClub";
-import { PLATFORMS, type Club } from "../../types";
 
 export function SearchTab() {
-  const { history, favs, toggleFav, showIdSearch, showLogs, logs, addLog, persistSettings } = useAppStore();
+  const { history, favs, toggleFav, showIdSearch, showLogs, logs, addLog, persistSettings, setSearchResults } = useAppStore();
   const [query, setQuery] = useState("");
-  const [platform, setPlatform] = useState("common-gen5");
-  const [results, setResults] = useState<Club[]>([]);
   const [searching, setSearching] = useState(false);
   const [directId, setDirectId] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -24,12 +21,11 @@ export function SearchTab() {
     setSearching(true);
     addLog(`Recherche: "${q}"…`);
     try {
-      const clubs = await searchClub(q.trim(), platform === "all" ? undefined : platform);
-      setResults(clubs);
+      const clubs = await searchClub(q.trim());
+      setSearchResults(clubs, true);
       addLog(`${clubs.length} résultat(s)`);
     } catch (e) {
       addLog(`Erreur recherche: ${String(e)}`);
-      setResults([]);
     } finally { setSearching(false); }
   };
 
@@ -60,8 +56,7 @@ export function SearchTab() {
     } catch (e) { addLog(`Erreur: ${String(e)}`); }
   };
 
-  const isFav = (c: Club) => favs.some((f) => f.id === c.id);
-
+  const isFav = (id: string) => favs.some((f) => f.id === id);
   const s = { section: { padding: "10px 12px", borderBottom: "1px solid var(--border)" } as React.CSSProperties };
 
   return (
@@ -74,36 +69,13 @@ export function SearchTab() {
         <input value={query} onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && doSearch()}
           placeholder="Nom du club..."
-          style={{ width: "100%", background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)", padding: "7px 10px", borderRadius: 4, fontSize: 13, marginBottom: 8, outline: "none" }}
+          style={{ width: "100%", background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)", padding: "7px 10px", borderRadius: 4, fontSize: 13, marginBottom: 8, outline: "none", boxSizing: "border-box" }}
         />
-        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-          <select value={platform} onChange={(e) => setPlatform(e.target.value)}
-            style={{ flex: 1, background: "var(--card)", border: "1px solid var(--border)", color: "var(--muted)", padding: "4px 6px", borderRadius: 4, fontSize: 11, outline: "none" }}>
-            <option value="all">Toutes plateformes</option>
-            {PLATFORMS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-        </div>
         <button onClick={() => doSearch()} disabled={searching}
           style={{ width: "100%", padding: "8px", background: "var(--accent)", color: "#000", border: "none", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", opacity: searching ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
           {searching ? <><Search size={14} className="spin" /> RECHERCHE…</> : <><Search size={14} /> RECHERCHER</>}
         </button>
       </div>
-
-      {/* Results */}
-      {results.length > 0 && (
-        <div style={{ ...s.section, background: "var(--card)", borderLeft: "3px solid var(--accent)" }}>
-          <label style={{ fontSize: 10, color: "var(--accent)", letterSpacing: "0.1em", fontFamily: "'Bebas Neue', sans-serif", display: "block", marginBottom: 8 }}>
-            RÉSULTATS ({results.length})
-          </label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {results.map((club) => (
-              <ClubCard key={`${club.id}_${club.platform}`} club={club} isFav={isFav(club)}
-                onLoad={() => { load(club.id, club.platform); persistSettings(); setResults([]); setQuery(""); }}
-                onToggleFav={() => { toggleFav(club); persistSettings(); }} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Direct ID */}
       {showIdSearch && (
@@ -130,11 +102,28 @@ export function SearchTab() {
           <label style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.08em", fontFamily: "'Bebas Neue', sans-serif", display: "block", marginBottom: 6 }}>
             CLUBS RÉCENTS
           </label>
-          {history.map((club) => (
-            <ClubCard key={`${club.id}_${club.platform}`} club={club} isFav={isFav(club)}
-              onLoad={() => { load(club.id, club.platform); persistSettings(); }}
-              onToggleFav={() => { toggleFav(club); persistSettings(); }} />
-          ))}
+          {history.map((club) => {
+            const pLabel: Record<string, string> = { "common-gen5": "PS5", "common-gen4": "PS4", "pc": "PC" };
+            const pColor: Record<string, string> = { "common-gen5": "#3b82f6", "common-gen4": "#8b5cf6", "pc": "#22c55e" };
+            return (
+              <div key={`${club.id}_${club.platform}`} onClick={() => { load(club.id, club.platform); persistSettings(); }}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", cursor: "pointer", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 5, marginBottom: 5, transition: "border-color 0.15s" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--accent)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{club.name || `Club #${club.id}`}</div>
+                  <div style={{ fontSize: 10, color: "var(--muted)" }}>ID {club.id}</div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#000", background: pColor[club.platform] ?? "var(--muted)", padding: "2px 6px", borderRadius: 3, flexShrink: 0 }}>
+                  {pLabel[club.platform] ?? club.platform}
+                </span>
+                <button onClick={(e) => { e.stopPropagation(); toggleFav(club); persistSettings(); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: isFav(club.id) ? "var(--gold, #f59e0b)" : "var(--muted)", flexShrink: 0, fontSize: 13 }}>
+                  {isFav(club.id) ? "★" : "☆"}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -163,34 +152,6 @@ export function SearchTab() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function ClubCard({ club, isFav, onLoad, onToggleFav }: { club: Club; isFav: boolean; onLoad: () => void; onToggleFav: () => void; }) {
-  const pLabel: Record<string, string> = { "common-gen5": "PS5", "common-gen4": "PS4", "pc": "PC" };
-  const pColor: Record<string, string> = { "common-gen5": "#3b82f6", "common-gen4": "#8b5cf6", "pc": "#22c55e" };
-  const color = pColor[club.platform] ?? "var(--muted)";
-  return (
-    <div onClick={onLoad} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", cursor: "pointer", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, transition: "border-color 0.15s" }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--accent)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{club.name || `Club #${club.id}`}</div>
-        <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
-          {club.wins !== undefined && club.wins + club.losses + club.ties > 0 && (
-            <span>{club.wins}W {club.losses}L {club.ties}D · </span>
-          )}
-          <span>ID {club.id}</span>
-        </div>
-      </div>
-      <span style={{ fontSize: 10, fontWeight: 700, color: "#000", background: color, padding: "2px 6px", borderRadius: 3, flexShrink: 0 }}>
-        {pLabel[club.platform] ?? club.platform}
-      </span>
-      <button onClick={(e) => { e.stopPropagation(); onToggleFav(); }}
-        style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: isFav ? "var(--gold, #f59e0b)" : "var(--muted)", flexShrink: 0 }}>
-        <Star size={13} fill={isFav ? "currentColor" : "none"} />
-      </button>
     </div>
   );
 }
