@@ -91,15 +91,17 @@ export function SearchTab() {
 
       {/* Results */}
       {results.length > 0 && (
-        <div style={s.section}>
-          <label style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.08em", fontFamily: "'Bebas Neue', sans-serif", display: "block", marginBottom: 6 }}>
+        <div style={{ ...s.section, background: "var(--card)", borderLeft: "3px solid var(--accent)" }}>
+          <label style={{ fontSize: 10, color: "var(--accent)", letterSpacing: "0.1em", fontFamily: "'Bebas Neue', sans-serif", display: "block", marginBottom: 8 }}>
             RÉSULTATS ({results.length})
           </label>
-          {results.map((club) => (
-            <ClubRow key={`${club.id}_${club.platform}`} club={club} isFav={isFav(club)}
-              onLoad={() => { load(club.id, club.platform); persistSettings(); }}
-              onToggleFav={() => { toggleFav(club); persistSettings(); }} />
-          ))}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {results.map((club) => (
+              <ClubCard key={`${club.id}_${club.platform}`} club={club} isFav={isFav(club)}
+                onLoad={() => { load(club.id, club.platform); persistSettings(); }}
+                onToggleFav={() => { toggleFav(club); persistSettings(); }} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -129,7 +131,7 @@ export function SearchTab() {
             CLUBS RÉCENTS
           </label>
           {history.map((club) => (
-            <ClubRow key={`${club.id}_${club.platform}`} club={club} isFav={isFav(club)}
+            <ClubCard key={`${club.id}_${club.platform}`} club={club} isFav={isFav(club)}
               onLoad={() => { load(club.id, club.platform); persistSettings(); }}
               onToggleFav={() => { toggleFav(club); persistSettings(); }} />
           ))}
@@ -165,17 +167,29 @@ export function SearchTab() {
   );
 }
 
-function ClubRow({ club, isFav, onLoad, onToggleFav }: { club: Club; isFav: boolean; onLoad: () => void; onToggleFav: () => void; }) {
-  const pLabel: Record<string, string> = { "common-gen5": "gen5", "common-gen4": "gen4", "pc": "pc" };
+function ClubCard({ club, isFav, onLoad, onToggleFav }: { club: Club; isFav: boolean; onLoad: () => void; onToggleFav: () => void; }) {
+  const pLabel: Record<string, string> = { "common-gen5": "PS5", "common-gen4": "PS4", "pc": "PC" };
+  const pColor: Record<string, string> = { "common-gen5": "#3b82f6", "common-gen4": "#8b5cf6", "pc": "#22c55e" };
+  const color = pColor[club.platform] ?? "var(--muted)";
   return (
-    <div onClick={onLoad} style={{ display: "flex", alignItems: "center", padding: "5px 0", cursor: "pointer", borderBottom: "1px solid var(--border)" }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--card)")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-      <span style={{ flex: 1, fontSize: 12, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{club.name}</span>
-      <span style={{ fontSize: 9, color: "var(--muted)", marginRight: 6 }}>{pLabel[club.platform] ?? club.platform}</span>
+    <div onClick={onLoad} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", cursor: "pointer", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, transition: "border-color 0.15s" }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--accent)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{club.name || `Club #${club.id}`}</div>
+        <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
+          {club.wins !== undefined && club.wins + club.losses + club.ties > 0 && (
+            <span>{club.wins}W {club.losses}L {club.ties}D · </span>
+          )}
+          <span>ID {club.id}</span>
+        </div>
+      </div>
+      <span style={{ fontSize: 10, fontWeight: 700, color: "#000", background: color, padding: "2px 6px", borderRadius: 3, flexShrink: 0 }}>
+        {pLabel[club.platform] ?? club.platform}
+      </span>
       <button onClick={(e) => { e.stopPropagation(); onToggleFav(); }}
-        style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: isFav ? "var(--gold)" : "var(--muted)" }}>
-        <Star size={12} fill={isFav ? "currentColor" : "none"} />
+        style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: isFav ? "var(--gold, #f59e0b)" : "var(--muted)", flexShrink: 0 }}>
+        <Star size={13} fill={isFav ? "currentColor" : "none"} />
       </button>
     </div>
   );

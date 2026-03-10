@@ -181,9 +181,21 @@ impl EaClient {
 }
 
 fn extract_club_obj<'a>(v: &'a serde_json::Value, club_id: &str) -> Result<&'a serde_json::Value> {
-    v.get(club_id)
-        .or_else(|| v.as_object().and_then(|o| o.values().next()))
-        .ok_or_else(|| anyhow!("Club {} not found in response", club_id))
+    // Case 1: object keyed by club_id e.g. {"3539213": {...}}
+    if let Some(obj) = v.get(club_id) { return Ok(obj); }
+    // Case 2: first value in a non-empty object
+    if let Some(obj) = v.as_object().and_then(|o| o.values().next()) { return Ok(obj); }
+    // Case 3: array response — find by clubId or take first
+    if let Some(arr) = v.as_array() {
+        let found = arr.iter().find(|c| {
+            c.get("clubId").and_then(|id| id.as_str()) == Some(club_id)
+                || c.get("id").and_then(|id| id.as_str()) == Some(club_id)
+        });
+        if let Some(club) = found.or_else(|| arr.first()) {
+            return Ok(club);
+        }
+    }
+    Err(anyhow!("Club {} not found in response: {}", club_id, v))
 }
 
 fn parse_match(v: &serde_json::Value, match_type: &str) -> Match {

@@ -24,7 +24,10 @@ pub async fn load_club(
         ea_client.get_matches(&club_id, &platform, "leagueMatch"),
         ea_client.get_info(&club_id, &platform),
     );
-    let club = stats_r.map_err(|e| e.to_string())?;
+    let club = match stats_r {
+        Ok(c) if !c.id.is_empty() => c,
+        Ok(_) | Err(_) => Club { id: club_id.clone(), platform: platform.clone(), ..Default::default() },
+    };
     let players = members_r.unwrap_or_default();
     let matches = matches_r.unwrap_or_default();
     let info = info_r.unwrap_or(serde_json::Value::Null);
