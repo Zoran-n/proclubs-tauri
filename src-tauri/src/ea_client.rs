@@ -92,8 +92,7 @@ impl EaClient {
         let mut all: Vec<Club> = vec![];
         for res in [r1, r2, r3] {
             for club in res.unwrap_or_default() {
-                let key = format!("{}_{}", club.id, club.platform);
-                if seen.insert(key) { all.push(club); }
+                if seen.insert(club.id.clone()) { all.push(club); }
             }
         }
         Ok(all)
@@ -117,7 +116,8 @@ impl EaClient {
             .or_else(|| v.get("crestAssetId").and_then(|s| s.as_str()).map(String::from));
         Some(Club {
             id,
-            name: v.get("name").and_then(|s| s.as_str()).unwrap_or("").to_string(),
+            name: v.get("name").or_else(|| v.get("clubName"))
+                .and_then(|s| s.as_str()).unwrap_or("").to_string(),
             platform: platform.to_string(),
             skill_rating: v.get("skillRating")
                 .and_then(|n| n.as_str().map(String::from)

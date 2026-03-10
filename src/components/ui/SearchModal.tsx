@@ -1,10 +1,35 @@
+import { useState, useEffect } from "react";
 import { Star, X } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useClub } from "../../hooks/useClub";
+import { getLogo } from "../../api/tauri";
 import type { Club } from "../../types";
 
-const P_LABEL: Record<string, string> = { "common-gen5": "PS5", "common-gen4": "PS4", "pc": "PC" };
-const P_COLOR: Record<string, string> = { "common-gen5": "#3b82f6", "common-gen4": "#8b5cf6", "pc": "#22c55e" };
+function ClubLogo({ club }: { club: Club }) {
+  const [logo, setLogo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (club.crestAssetId) {
+      getLogo(club.crestAssetId).then(setLogo).catch(() => {});
+    }
+  }, [club.crestAssetId]);
+
+  return (
+    <div style={{
+      width: 44, height: 44, borderRadius: 8, background: "var(--bg)",
+      border: "1px solid var(--border)", flexShrink: 0,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      overflow: "hidden",
+    }}>
+      {logo
+        ? <img src={logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+        : <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "var(--accent)" }}>
+            {(club.name || "?")[0].toUpperCase()}
+          </span>
+      }
+    </div>
+  );
+}
 
 export function SearchModal() {
   const { searchResults, showSearchModal, closeSearchModal, favs, toggleFav, persistSettings } = useAppStore();
@@ -12,7 +37,7 @@ export function SearchModal() {
 
   if (!showSearchModal) return null;
 
-  const isFav = (c: Club) => favs.some((f) => f.id === c.id && f.platform === c.platform);
+  const isFav = (c: Club) => favs.some((f) => f.id === c.id);
 
   const handleLoad = (club: Club) => {
     load(club.id, club.platform);
@@ -33,13 +58,13 @@ export function SearchModal() {
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10,
-          width: 560, maxHeight: "70vh", display: "flex", flexDirection: "column",
+          width: 520, maxHeight: "70vh", display: "flex", flexDirection: "column",
           boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
         }}
       >
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-          <span style={{ flex: 1, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.1em", color: "var(--accent)" }}>
+          <span style={{ flex: 1, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.12em", color: "var(--accent)" }}>
             RÉSULTATS ({searchResults.length})
           </span>
           <button onClick={closeSearchModal} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4 }}>
@@ -53,10 +78,10 @@ export function SearchModal() {
             <p style={{ textAlign: "center", color: "var(--muted)", padding: "30px 0", fontSize: 13 }}>Aucun résultat</p>
           ) : searchResults.map((club) => (
             <div
-              key={`${club.id}_${club.platform}`}
+              key={club.id}
               onClick={() => handleLoad(club)}
               style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+                display: "flex", alignItems: "center", gap: 12, padding: "10px 12px",
                 cursor: "pointer", background: "var(--card)",
                 border: "1px solid var(--border)", borderRadius: 7,
                 transition: "border-color 0.15s",
@@ -64,17 +89,8 @@ export function SearchModal() {
               onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--accent)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; }}
             >
-              {/* Club initial */}
-              <div style={{
-                width: 40, height: 40, borderRadius: 8, background: "var(--bg)",
-                border: "1px solid var(--border)", flexShrink: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--accent)",
-              }}>
-                {(club.name || "?")[0].toUpperCase()}
-              </div>
+              <ClubLogo club={club} />
 
-              {/* Info */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {club.name || `Club #${club.id}`}
@@ -87,15 +103,6 @@ export function SearchModal() {
                   )}
                 </div>
               </div>
-
-              {/* Platform badge */}
-              <span style={{
-                fontSize: 11, fontWeight: 700, color: "#000",
-                background: P_COLOR[club.platform] ?? "var(--muted)",
-                padding: "3px 8px", borderRadius: 4, flexShrink: 0,
-              }}>
-                {P_LABEL[club.platform] ?? club.platform}
-              </span>
 
               {/* Fav button */}
               <button
