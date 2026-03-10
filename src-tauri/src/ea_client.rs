@@ -1,7 +1,10 @@
 use anyhow::{anyhow, Result};
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ORIGIN, REFERER, USER_AGENT};
+use reqwest::header::{
+    HeaderMap, HeaderValue,
+    ACCEPT, ACCEPT_LANGUAGE, ORIGIN, REFERER, USER_AGENT,
+};
 use tauri::Emitter;
 use crate::models::{Club, Match, Player};
 
@@ -10,37 +13,60 @@ const LOGO_BASE: &str = "https://eafc24.content.easports.com/fifa/fltOnlineAsset
 const PLATFORMS: &[&str] = &["common-gen5", "common-gen4", "pc"];
 
 pub struct EaClient {
-    http_client: reqwest::Client,
+    client: std::sync::RwLock<reqwest::Client>,
     app_handle: tauri::AppHandle,
 }
 
+fn build_headers() -> HeaderMap {
+    let mut h = HeaderMap::new();
+    h.insert(USER_AGENT, HeaderValue::from_static(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:148.0) Gecko/20100101 Firefox/148.0",
+    ));
+    h.insert(ACCEPT, HeaderValue::from_static("application/json, text/plain, */*"));
+    h.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7"));
+    h.insert(ORIGIN, HeaderValue::from_static("https://www.ea.com"));
+    h.insert(REFERER, HeaderValue::from_static("https://www.ea.com/"));
+    h.insert("sec-fetch-dest", HeaderValue::from_static("empty"));
+    h.insert("sec-fetch-mode", HeaderValue::from_static("cors"));
+    h.insert("sec-fetch-site", HeaderValue::from_static("cross-site"));
+    h.insert("dnt", HeaderValue::from_static("1"));
+    h
+}
+
+fn build_client(proxy_url: Option<&str>) -> Result<reqwest::Client> {
+    let mut builder = reqwest::Client::builder()
+        .default_headers(build_headers())
+        .timeout(std::time::Duration::from_secs(15));
+    if let Some(proxy) = proxy_url.filter(|s| !s.is_empty()) {
+        builder = builder.proxy(reqwest::Proxy::all(proxy)?);
+    }
+    Ok(builder.build()?)
+}
+
 impl EaClient {
-    pub fn new(app_handle: tauri::AppHandle) -> Self {
-        let mut headers = HeaderMap::new();
-        headers.insert(USER_AGENT, HeaderValue::from_static(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:148.0) Gecko/20100101 Firefox/148.0",
-        ));
-        headers.insert(ACCEPT, HeaderValue::from_static("application/json, text/plain, */*"));
-        headers.insert(ORIGIN, HeaderValue::from_static("https://www.ea.com"));
-        headers.insert(REFERER, HeaderValue::from_static("https://www.ea.com/"));
-
-        let http_client = reqwest::Client::builder()
-            .default_headers(headers)
-            .timeout(std::time::Duration::from_secs(15))
-            .build()
+    pub fn new(app_handle: tauri::AppHandle, proxy_url: Option<String>) -> Self {
+        let client = build_client(proxy_url.as_deref())
             .expect("Failed to build HTTP client");
+        Self { client: std::sync::RwLock::new(client), app_handle }
+    }
 
-        Self { http_client, app_handle }
+    pub fn set_proxy(&self, proxy_url: Option<String>) -> Result<()> {
+        let new_client = build_client(proxy_url.as_deref())?;
+        *self.client.write().unwrap() = new_client;
+        Ok(())
+    }
+
+    fn http(&self) -> reqwest::Client {
+        self.client.read().unwrap().clone()
     }
 
     fn emit_log(&self, msg: impl Into<String>) {
         let _ = self.app_handle.emit("api_log", msg.into());
     }
 
-    // Fetch helper: get text, log it, parse JSON
     async fn get_json(&self, url: &str) -> Result<serde_json::Value> {
         self.emit_log(format!("→ GET {}", url));
-        let resp = self.http_client.get(url).send().await?;
+        let resp = self.http().get(url).send().await?;
         let status = resp.status().as_u16();
         let text = resp.text().await?;
         let preview = &text[..text.len().min(400)];
@@ -105,7 +131,6 @@ impl EaClient {
         })
     }
 
-    // Stats
     pub async fn get_stats(&self, club_id: &str, platform: &str) -> Result<Club> {
         let url = format!("{}/clubs/overallStats?platform={}&clubIds={}", BASE_URL, platform, club_id);
         let resp = self.get_json(&url).await?;
@@ -113,13 +138,11 @@ impl EaClient {
         Ok(self.parse_club(v, platform).unwrap_or_default())
     }
 
-    // Info
     pub async fn get_info(&self, club_id: &str, platform: &str) -> Result<serde_json::Value> {
         let url = format!("{}/clubs/info?platform={}&clubIds={}", BASE_URL, platform, club_id);
         self.get_json(&url).await
     }
 
-    // Matches
     pub async fn get_matches(&self, club_id: &str, platform: &str, match_type: &str) -> Result<Vec<Match>> {
         let url = format!(
             "{}/clubs/matches?platform={}&clubIds={}&matchType={}&maxResultCount=10",
@@ -132,7 +155,6 @@ impl EaClient {
         Ok(arr.into_iter().map(|v| parse_match(&v, match_type)).collect())
     }
 
-    // Members
     pub async fn get_members(&self, club_id: &str, platform: &str) -> Result<Vec<Player>> {
         let url = format!("{}/members/stats?platform={}&clubId={}", BASE_URL, platform, club_id);
         let resp = self.get_json(&url).await?;
@@ -142,14 +164,12 @@ impl EaClient {
         Ok(arr.into_iter().filter_map(|v| parse_player(&v)).collect())
     }
 
-    // Logo
     pub async fn get_logo(&self, crest_asset_id: &str) -> Result<String> {
         let url = format!("{}{}.png", LOGO_BASE, crest_asset_id);
-        let bytes = self.http_client.get(&url).send().await?.bytes().await?;
+        let bytes = self.http().get(&url).send().await?.bytes().await?;
         Ok(format!("data:image/png;base64,{}", B64.encode(&bytes)))
     }
 
-    // Auto-detect platform
     pub async fn detect_platform(&self, club_id: &str) -> Result<String> {
         for p in PLATFORMS {
             if self.get_stats(club_id, p).await.is_ok() {

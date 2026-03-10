@@ -65,6 +65,7 @@ export interface Settings {
   eaProfile?: EaProfile;
   theme: string;
   darkMode: boolean;
+  proxyUrl?: string;
 }
 
 export interface ClubData {

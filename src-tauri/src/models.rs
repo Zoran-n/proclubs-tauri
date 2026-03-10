@@ -82,6 +82,7 @@ pub struct Settings {
     #[serde(default)] pub ea_profile: Option<EaProfile>,
     #[serde(default = "default_theme")] pub theme: String,
     #[serde(default = "default_true")] pub dark_mode: bool,
+    #[serde(default)] pub proxy_url: Option<String>,
 }
 
 fn default_theme() -> String { "cyan".to_string() }
@@ -91,7 +92,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             history: vec![], favs: vec![], tactics: vec![], sessions: vec![],
-            ea_profile: None, theme: "cyan".to_string(), dark_mode: true,
+            ea_profile: None, theme: "cyan".to_string(), dark_mode: true, proxy_url: None,
         }
     }
 }

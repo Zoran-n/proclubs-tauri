@@ -119,3 +119,12 @@ pub async fn check_proxy() -> Result<Option<String>, String> {
         .ok();
     Ok(proxy)
 }
+
+/// Dynamically update the proxy (takes effect immediately)
+#[tauri::command]
+pub async fn set_proxy(
+    proxy_url: Option<String>,
+    ea_client: State<'_, EaClient>,
+) -> Result<(), String> {
+    ea_client.set_proxy(proxy_url).map_err(|e| e.to_string())
+}

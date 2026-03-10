@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Club, Player, Match, Session, Tactic, EaProfile } from "../types";
-import { saveSettings as apiSave, loadSettings as apiLoad } from "../api/tauri";
+import { saveSettings as apiSave, loadSettings as apiLoad, setProxy as apiSetProxy } from "../api/tauri";
 
 export type ActiveTab = "players" | "matches" | "charts" | "session" | "tactics";
 export type SidebarTab = "search" | "favs" | "session" | "compare" | "settings";
@@ -21,6 +21,7 @@ interface AppState {
   showLogs: boolean;
   showIdSearch: boolean;
   fontSize: "small" | "medium" | "large";
+  proxyUrl: string;
   isLoading: boolean;
   error: string | null;
   activeTab: ActiveTab;
@@ -58,6 +59,7 @@ interface AppState {
   clearRawLogs: () => void;
   toggleDevPanel: () => void;
   setProxyInfo: (v: string | null) => void;
+  applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
 }
@@ -67,6 +69,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   history: [], favs: [], eaProfile: null,
   theme: "cyan", darkMode: true, showGrid: true, showAnimations: true,
   showLogs: true, showIdSearch: false, fontSize: "medium",
+  proxyUrl: "",
   isLoading: false, error: null,
   activeTab: "players", sidebarTab: "search",
   activeSession: null, viewingSession: null,
@@ -96,16 +99,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       date: new Date().toISOString(), matches: [],
     },
   }),
-
   addSessionMatch: (newMatches) => set((s) => {
     if (!s.activeSession) return {};
     return { activeSession: { ...s.activeSession, matches: [...s.activeSession.matches, ...newMatches] } };
   }),
-
   stopSession: () => set((s) => {
     if (!s.activeSession) return {};
-    const sessions = [s.activeSession, ...s.sessions].slice(0, 20);
-    return { sessions, activeSession: null };
+    return { sessions: [s.activeSession, ...s.sessions].slice(0, 20), activeSession: null };
   }),
 
   setViewingSession: (viewingSession) => set({ viewingSession }),
@@ -140,23 +140,35 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleDevPanel: () => set((s) => ({ showDevPanel: !s.showDevPanel })),
   setProxyInfo: (proxyInfo) => set({ proxyInfo }),
 
+  applyProxy: async (url: string) => {
+    await apiSetProxy(url.trim() || null);
+    set({ proxyUrl: url });
+    get().addLog(`Proxy ${url.trim() ? "activé: " + url.trim() : "désactivé"}`);
+  },
+
   loadSettings: async () => {
     try {
       const s = await apiLoad();
-      document.documentElement.setAttribute("data-theme", s.theme);
-      document.documentElement.setAttribute("data-fs", s.darkMode ? "medium" : "medium");
+      document.documentElement.setAttribute("data-theme", s.theme ?? "cyan");
+      document.documentElement.setAttribute("data-fs", "medium");
       if (!s.darkMode) document.documentElement.setAttribute("data-light", "");
       set({
         history: s.history ?? [], favs: s.favs ?? [],
         tactics: s.tactics ?? [], sessions: s.sessions ?? [],
         eaProfile: s.eaProfile ?? null, theme: s.theme ?? "cyan",
         darkMode: s.darkMode ?? true,
+        proxyUrl: s.proxyUrl ?? "",
       });
     } catch { /* first launch */ }
   },
 
   persistSettings: async () => {
-    const { history, favs, tactics, sessions, eaProfile, theme, darkMode } = get();
-    await apiSave({ history, favs, tactics, sessions, eaProfile: eaProfile ?? undefined, theme, darkMode });
+    const { history, favs, tactics, sessions, eaProfile, theme, darkMode, proxyUrl } = get();
+    await apiSave({
+      history, favs, tactics, sessions,
+      eaProfile: eaProfile ?? undefined,
+      theme, darkMode,
+      proxyUrl: proxyUrl.trim() || undefined,
+    });
   },
 }));

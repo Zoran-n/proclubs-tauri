@@ -30,3 +30,6 @@ export const detectPlatform = (clubId: string) =>
 
 export const checkProxy = () =>
   invoke<string | null>("check_proxy");
+
+export const setProxy = (proxyUrl: string | null) =>
+  invoke<void>("set_proxy", { proxyUrl });
