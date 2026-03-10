@@ -24,13 +24,28 @@ pub async fn load_club(
         ea_client.get_matches(&club_id, &platform, "leagueMatch"),
         ea_client.get_info(&club_id, &platform),
     );
-    let club = match stats_r {
+    let info = info_r.unwrap_or(serde_json::Value::Null);
+    let mut club = match stats_r {
         Ok(c) if !c.id.is_empty() => c,
         Ok(_) | Err(_) => Club { id: club_id.clone(), platform: platform.clone(), ..Default::default() },
     };
+    // Fill missing name + crest from clubs/info response
+    if club.name.is_empty() {
+        let info_club = info.get(&club_id)
+            .or_else(|| info.as_object().and_then(|o| o.values().next()));
+        if let Some(ic) = info_club {
+            if let Some(n) = ic.get("name").and_then(|v| v.as_str()) {
+                if !n.is_empty() { club.name = n.to_string(); }
+            }
+            if club.crest_asset_id.is_none() {
+                club.crest_asset_id = ic.get("customKit")
+                    .and_then(|k| k.get("crestAssetId"))
+                    .and_then(|s| s.as_str()).map(String::from);
+            }
+        }
+    }
     let players = members_r.unwrap_or_default();
     let matches = matches_r.unwrap_or_default();
-    let info = info_r.unwrap_or(serde_json::Value::Null);
     Ok(ClubData { club, players, matches, info })
 }
 

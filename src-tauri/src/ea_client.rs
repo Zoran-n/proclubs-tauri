@@ -117,11 +117,18 @@ impl EaClient {
         if id.is_empty() { return None; }
         let crest = v.get("customKit").and_then(|k| k.get("crestAssetId"))
             .and_then(|s| s.as_str()).map(String::from)
-            .or_else(|| v.get("crestAssetId").and_then(|s| s.as_str()).map(String::from));
+            .or_else(|| v.get("crestAssetId").and_then(|s| s.as_str()).map(String::from))
+            .or_else(|| v.get("clubInfo").and_then(|ci| ci.get("customKit"))
+                .and_then(|k| k.get("crestAssetId")).and_then(|s| s.as_str()).map(String::from));
+        let name = v.get("name").or_else(|| v.get("clubName"))
+            .and_then(|s| s.as_str())
+            .filter(|s| !s.is_empty())
+            .or_else(|| v.get("clubInfo").and_then(|ci| ci.get("name")).and_then(|s| s.as_str()))
+            .unwrap_or("").to_string();
+        self.emit_log(format!("[parse_club] id={} name={:?}", id, name));
         Some(Club {
             id,
-            name: v.get("name").or_else(|| v.get("clubName"))
-                .and_then(|s| s.as_str()).unwrap_or("").to_string(),
+            name,
             platform: platform.to_string(),
             skill_rating: v.get("skillRating")
                 .and_then(|n| n.as_str().map(String::from)
