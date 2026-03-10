@@ -1,15 +1,11 @@
 import { create } from "zustand";
-import type { Club, Player, Match, Session, Tactic, EaProfile, Settings } from "../types";
-import {
-  saveSettings as apiSaveSettings,
-  loadSettings as apiLoadSettings,
-} from "../api/tauri";
+import type { Club, Player, Match, Session, Tactic, EaProfile } from "../types";
+import { saveSettings as apiSave, loadSettings as apiLoad } from "../api/tauri";
 
 export type ActiveTab = "players" | "matches" | "charts" | "session" | "tactics";
-export type SidebarTab = "search" | "session" | "compare" | "settings";
+export type SidebarTab = "search" | "favs" | "session" | "compare" | "settings";
 
 interface AppState {
-  // ─── Data ──────────────────────────────────────────────────────────────────
   currentClub: Club | null;
   players: Player[];
   matches: Match[];
@@ -19,139 +15,120 @@ interface AppState {
   favs: Club[];
   eaProfile: EaProfile | null;
   theme: string;
-  // ─── UI ────────────────────────────────────────────────────────────────────
+  darkMode: boolean;
+  showGrid: boolean;
+  showAnimations: boolean;
+  showLogs: boolean;
+  showIdSearch: boolean;
+  fontSize: "small" | "medium" | "large";
   isLoading: boolean;
   error: string | null;
   activeTab: ActiveTab;
   sidebarTab: SidebarTab;
   activeSession: Session | null;
-  // ─── Actions ───────────────────────────────────────────────────────────────
+  viewingSession: Session | null;
+  logs: string[];
+
   setClub: (club: Club, players: Player[], matches: Match[]) => void;
-  addToHistory: (club: Club) => void;
+  addHistory: (club: Club) => void;
   toggleFav: (club: Club) => void;
-  setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  setActiveTab: (tab: ActiveTab) => void;
-  setSidebarTab: (tab: SidebarTab) => void;
+  setLoading: (v: boolean) => void;
+  setError: (v: string | null) => void;
+  setActiveTab: (t: ActiveTab) => void;
+  setSidebarTab: (t: SidebarTab) => void;
   startSession: (club: Club) => void;
-  stopSession: () => Session | null;
-  addMatchesToSession: (matches: Match[]) => void;
-  setTheme: (theme: string) => void;
-  setEaProfile: (profile: EaProfile) => void;
-  addTactic: (tactic: Tactic) => void;
+  addSessionMatch: (matches: Match[]) => void;
+  stopSession: () => void;
+  setViewingSession: (s: Session | null) => void;
+  setTheme: (t: string) => void;
+  setDarkMode: (v: boolean) => void;
+  setShowGrid: (v: boolean) => void;
+  setShowAnimations: (v: boolean) => void;
+  setShowLogs: (v: boolean) => void;
+  setShowIdSearch: (v: boolean) => void;
+  setFontSize: (v: "small" | "medium" | "large") => void;
+  setEaProfile: (p: EaProfile) => void;
+  saveTactic: (t: Tactic) => void;
   deleteTactic: (id: string) => void;
+  addLog: (msg: string) => void;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  // ─── Initial state ──────────────────────────────────────────────────────────
-  currentClub: null,
-  players: [],
-  matches: [],
-  sessions: [],
-  tactics: [],
-  history: [],
-  favs: [],
-  eaProfile: null,
-  theme: "cyan",
-  isLoading: false,
-  error: null,
-  activeTab: "players",
-  sidebarTab: "search",
-  activeSession: null,
+  currentClub: null, players: [], matches: [], sessions: [], tactics: [],
+  history: [], favs: [], eaProfile: null,
+  theme: "cyan", darkMode: true, showGrid: true, showAnimations: true,
+  showLogs: true, showIdSearch: false, fontSize: "medium",
+  isLoading: false, error: null,
+  activeTab: "players", sidebarTab: "search",
+  activeSession: null, viewingSession: null,
+  logs: ["Prêt."],
 
-  // ─── Actions ─────────────────────────────────────────────────────────────────
-
-  setClub: (club, players, matches) =>
-    set({ currentClub: club, players, matches, error: null }),
-
-  addToHistory: (club) =>
-    set((s) => ({
-      history: [club, ...s.history.filter((c) => c.id !== club.id)].slice(0, 8),
-    })),
-
-  toggleFav: (club) =>
-    set((s) => {
-      const exists = s.favs.some((c) => c.id === club.id);
-      return {
-        favs: exists ? s.favs.filter((c) => c.id !== club.id) : [...s.favs, club],
-      };
-    }),
-
+  setClub: (club, players, matches) => set({ currentClub: club, players, matches, error: null }),
+  addHistory: (club) => set((s) => ({
+    history: [club, ...s.history.filter((c) => c.id !== club.id)].slice(0, 8),
+  })),
+  toggleFav: (club) => set((s) => ({
+    favs: s.favs.some((c) => c.id === club.id)
+      ? s.favs.filter((c) => c.id !== club.id)
+      : [...s.favs, club],
+  })),
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
   setActiveTab: (activeTab) => set({ activeTab }),
   setSidebarTab: (sidebarTab) => set({ sidebarTab }),
 
+  startSession: (club) => set({
+    activeSession: {
+      id: Date.now().toString(),
+      clubName: club.name, clubId: club.id, platform: club.platform,
+      date: new Date().toISOString(), matches: [],
+    },
+  }),
+
+  addSessionMatch: (newMatches) => set((s) => {
+    if (!s.activeSession) return {};
+    return { activeSession: { ...s.activeSession, matches: [...s.activeSession.matches, ...newMatches] } };
+  }),
+
+  stopSession: () => set((s) => {
+    if (!s.activeSession) return {};
+    const sessions = [s.activeSession, ...s.sessions].slice(0, 20);
+    return { sessions, activeSession: null };
+  }),
+
+  setViewingSession: (viewingSession) => set({ viewingSession }),
   setTheme: (theme) => {
-    document.documentElement.dataset.theme = theme;
+    document.documentElement.setAttribute("data-theme", theme);
     set({ theme });
   },
-
+  setDarkMode: (darkMode) => set({ darkMode }),
+  setShowGrid: (showGrid) => set({ showGrid }),
+  setShowAnimations: (showAnimations) => set({ showAnimations }),
+  setShowLogs: (showLogs) => set({ showLogs }),
+  setShowIdSearch: (showIdSearch) => set({ showIdSearch }),
+  setFontSize: (fontSize) => set({ fontSize }),
   setEaProfile: (eaProfile) => set({ eaProfile }),
-
-  startSession: (club) => {
-    const session: Session = {
-      id: Date.now().toString(),
-      clubName: club.name,
-      clubId: club.id,
-      platform: club.platform,
-      date: new Date().toISOString(),
-      matches: [],
-    };
-    set({ activeSession: session });
-  },
-
-  stopSession: () => {
-    const { activeSession } = get();
-    if (!activeSession) return null;
-    set((s) => ({
-      sessions: [activeSession, ...s.sessions],
-      activeSession: null,
-    }));
-    return activeSession;
-  },
-
-  addMatchesToSession: (newMatches) =>
-    set((s) => {
-      if (!s.activeSession) return {};
-      return {
-        activeSession: {
-          ...s.activeSession,
-          matches: [...s.activeSession.matches, ...newMatches],
-        },
-      };
-    }),
-
-  addTactic: (tactic) =>
-    set((s) => ({
-      tactics: [...s.tactics.filter((t) => t.id !== tactic.id), tactic],
-    })),
-
-  deleteTactic: (id) =>
-    set((s) => ({ tactics: s.tactics.filter((t) => t.id !== id) })),
+  saveTactic: (t) => set((s) => ({ tactics: [...s.tactics.filter((x) => x.id !== t.id), t] })),
+  deleteTactic: (id) => set((s) => ({ tactics: s.tactics.filter((t) => t.id !== id) })),
+  addLog: (msg) => set((s) => ({ logs: [...s.logs.slice(-99), msg] })),
 
   loadSettings: async () => {
     try {
-      const settings = await apiLoadSettings();
-      document.documentElement.dataset.theme = settings.theme;
+      const s = await apiLoad();
+      document.documentElement.setAttribute("data-theme", s.theme);
       set({
-        history: settings.history ?? [],
-        favs: settings.favs ?? [],
-        tactics: settings.tactics ?? [],
-        sessions: settings.sessions ?? [],
-        eaProfile: settings.eaProfile ?? null,
-        theme: settings.theme ?? "cyan",
+        history: s.history ?? [], favs: s.favs ?? [],
+        tactics: s.tactics ?? [], sessions: s.sessions ?? [],
+        eaProfile: s.eaProfile ?? null, theme: s.theme ?? "cyan",
+        darkMode: s.darkMode ?? true,
       });
-    } catch {
-      // First launch — no settings file yet
-    }
+    } catch { /* first launch */ }
   },
 
   persistSettings: async () => {
-    const { history, favs, tactics, sessions, eaProfile, theme } = get();
-    const settings: Settings = { history, favs, tactics, sessions, eaProfile: eaProfile ?? undefined, theme };
-    await apiSaveSettings(settings);
+    const { history, favs, tactics, sessions, eaProfile, theme, darkMode } = get();
+    await apiSave({ history, favs, tactics, sessions, eaProfile: eaProfile ?? undefined, theme, darkMode });
   },
 }));

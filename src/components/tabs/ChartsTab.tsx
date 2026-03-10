@@ -52,7 +52,7 @@ export function ChartsTab() {
       { subject: "Buts", value: (top5.goals / max("goals")) * 100 },
       { subject: "PD", value: (top5.assists / max("assists")) * 100 },
       { subject: "Passes", value: (top5.passesMade / max("passesMade")) * 100 },
-      { subject: "Tacles", value: (top5.tackles / max("tackles")) * 100 },
+      { subject: "Tacles", value: (top5.tacklesMade / max("tacklesMade")) * 100 },
       { subject: "Note", value: (top5.rating / 10) * 100 },
     ];
   }, [players]);

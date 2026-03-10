@@ -1,31 +1,23 @@
-import { loadClub, getMatches } from "../api/tauri";
+import { loadClub } from "../api/tauri";
 import { useAppStore } from "../store/useAppStore";
-import type { Club } from "../types";
 
 export function useClub() {
-  const { setClub, setLoading, setError, addToHistory } = useAppStore();
+  const { setClub, setLoading, setError, addHistory, addLog } = useAppStore();
 
-  const load = async (clubId: string, platform: string, clubHint?: Partial<Club>) => {
+  const load = async (clubId: string, platform: string) => {
     setLoading(true);
     setError(null);
+    addLog(`Chargement club ${clubId} (${platform})…`);
     try {
-      const [clubData, leagueMatches] = await Promise.all([
-        loadClub(clubId, platform),
-        getMatches(clubId, platform, "leagueMatch"),
-      ]);
-
-      const club: Club = {
-        ...clubData.club,
-        // Preserve platform from caller if backend doesn't return it
-        platform: clubData.club.platform || platform,
-        id: clubData.club.id || clubId,
-        name: clubData.club.name || clubHint?.name || clubId,
-      };
-
-      setClub(club, clubData.players, leagueMatches);
-      addToHistory(club);
+      const data = await loadClub(clubId, platform);
+      const club = { ...data.club, platform: data.club.platform || platform, id: data.club.id || clubId };
+      setClub(club, data.players, data.matches);
+      addHistory(club);
+      addLog(`Club: ${club.name} (${platform})`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      addLog(`Erreur: ${msg}`);
     } finally {
       setLoading(false);
     }

@@ -1,45 +1,29 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X } from "lucide-react";
+import { useAppStore } from "../../store/useAppStore";
 
 const win = getCurrentWindow();
 
 export function TitleBar() {
+  const activeSession = useAppStore((s) => s.activeSession);
   return (
-    <div
-      data-tauri-drag-region=""
-      className="h-9 flex items-center justify-between px-4 bg-[#0d1117] border-b border-white/5 select-none shrink-0"
-    >
-      {/* Logo + title */}
-      <div className="flex items-center gap-2 pointer-events-none">
-        <div className="w-2 h-2 rounded-full bg-[var(--accent)]" />
-        <span
-          className="text-sm tracking-[0.2em] font-bold text-[var(--accent)]"
-          style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.25em" }}
-        >
-          PROCLUBS STATS
+    <div data-tauri-drag-region="" className="titlebar" style={{ height: 36, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", background: "var(--surface)", borderBottom: "1px solid var(--border)", flexShrink: 0, userSelect: "none" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, pointerEvents: "none" }}>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
+        <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.2em", color: "var(--accent)" }}>
+          PRO <span style={{ color: "var(--text)" }}>CLUBS</span> STATS
         </span>
+        {activeSession && (
+          <span style={{ marginLeft: 8, fontSize: 10, color: "var(--red)", display: "flex", alignItems: "center", gap: 4 }}>
+            <span className="pulse-dot" />
+            SESSION ACTIVE
+          </span>
+        )}
       </div>
-
-      {/* Window controls */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => win.minimize()}
-          className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
-        >
-          <Minus size={14} />
-        </button>
-        <button
-          onClick={() => win.toggleMaximize()}
-          className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
-        >
-          <Square size={12} />
-        </button>
-        <button
-          onClick={() => win.close()}
-          className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:bg-red-500 hover:text-white transition-colors"
-        >
-          <X size={14} />
-        </button>
+      <div style={{ display: "flex", gap: 4 }}>
+        <button className="win-btn" onClick={() => win.minimize()}><Minus size={12} /></button>
+        <button className="win-btn" onClick={() => win.toggleMaximize()}><Square size={10} /></button>
+        <button className="win-btn close-btn" onClick={() => win.close()}><X size={12} /></button>
       </div>
     </div>
   );

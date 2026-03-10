@@ -3,21 +3,14 @@ use crate::ea_client::EaClient;
 use crate::storage::StorageManager;
 use crate::models::{Club, ClubData, Match, Player, Settings};
 
-// ─── search_club ─────────────────────────────────────────────────────────────
-
 #[tauri::command]
 pub async fn search_club(
     name: String,
-    platform: String,
+    platform: Option<String>,
     ea_client: State<'_, EaClient>,
 ) -> Result<Vec<Club>, String> {
-    ea_client
-        .search_clubs(&platform, &name)
-        .await
-        .map_err(|e| e.to_string())
+    ea_client.search_club(&name, platform.as_deref()).await.map_err(|e| e.to_string())
 }
-
-// ─── load_club ────────────────────────────────────────────────────────────────
 
 #[tauri::command]
 pub async fn load_club(
@@ -25,20 +18,18 @@ pub async fn load_club(
     platform: String,
     ea_client: State<'_, EaClient>,
 ) -> Result<ClubData, String> {
-    let (stats_res, members_res, matches_res) = tokio::join!(
-        ea_client.get_club_stats(&platform, &club_id),
-        ea_client.get_members(&platform, &club_id),
-        ea_client.get_matches(&platform, &club_id, "leagueMatch"),
+    let (stats_r, members_r, matches_r, info_r) = tokio::join!(
+        ea_client.get_stats(&club_id, &platform),
+        ea_client.get_members(&club_id, &platform),
+        ea_client.get_matches(&club_id, &platform, "leagueMatch"),
+        ea_client.get_info(&club_id, &platform),
     );
-
-    let club = stats_res.map_err(|e| e.to_string())?;
-    let players = members_res.unwrap_or_default();
-    let matches = matches_res.unwrap_or_default();
-
-    Ok(ClubData { club, players, matches })
+    let club = stats_r.map_err(|e| e.to_string())?;
+    let players = members_r.unwrap_or_default();
+    let matches = matches_r.unwrap_or_default();
+    let info = info_r.unwrap_or(serde_json::Value::Null);
+    Ok(ClubData { club, players, matches, info })
 }
-
-// ─── get_matches ──────────────────────────────────────────────────────────────
 
 #[tauri::command]
 pub async fn get_matches(
@@ -47,13 +38,8 @@ pub async fn get_matches(
     match_type: String,
     ea_client: State<'_, EaClient>,
 ) -> Result<Vec<Match>, String> {
-    ea_client
-        .get_matches(&platform, &club_id, &match_type)
-        .await
-        .map_err(|e| e.to_string())
+    ea_client.get_matches(&club_id, &platform, &match_type).await.map_err(|e| e.to_string())
 }
-
-// ─── get_members ──────────────────────────────────────────────────────────────
 
 #[tauri::command]
 pub async fn get_members(
@@ -61,13 +47,16 @@ pub async fn get_members(
     platform: String,
     ea_client: State<'_, EaClient>,
 ) -> Result<Vec<Player>, String> {
-    ea_client
-        .get_members(&platform, &club_id)
-        .await
-        .map_err(|e| e.to_string())
+    ea_client.get_members(&club_id, &platform).await.map_err(|e| e.to_string())
 }
 
-// ─── save_settings ────────────────────────────────────────────────────────────
+#[tauri::command]
+pub async fn get_logo(
+    crest_id: String,
+    ea_client: State<'_, EaClient>,
+) -> Result<String, String> {
+    ea_client.get_logo(&crest_id).await.map_err(|e| e.to_string())
+}
 
 #[tauri::command]
 pub async fn save_settings(
@@ -77,8 +66,6 @@ pub async fn save_settings(
     storage.save_settings(&settings).map_err(|e| e.to_string())
 }
 
-// ─── load_settings ────────────────────────────────────────────────────────────
-
 #[tauri::command]
 pub async fn load_settings(
     storage: State<'_, StorageManager>,
@@ -86,15 +73,38 @@ pub async fn load_settings(
     Ok(storage.load_settings())
 }
 
-// ─── get_logo ─────────────────────────────────────────────────────────────────
-
+/// Returns only NEW matches (not in known_ids)
 #[tauri::command]
-pub async fn get_logo(
-    crest_id: String,
+pub async fn poll_session(
+    club_id: String,
+    platform: String,
+    known_ids: Vec<String>,
+    ea_client: State<'_, EaClient>,
+) -> Result<Vec<Match>, String> {
+    let known: std::collections::HashSet<String> = known_ids.into_iter().collect();
+    let (league, playoff, friendly) = tokio::join!(
+        ea_client.get_matches(&club_id, &platform, "leagueMatch"),
+        ea_client.get_matches(&club_id, &platform, "playoffMatch"),
+        ea_client.get_matches(&club_id, &platform, "friendlyMatch"),
+    );
+    let mut new_matches = vec![];
+    for m in league.unwrap_or_default()
+        .into_iter()
+        .chain(playoff.unwrap_or_default())
+        .chain(friendly.unwrap_or_default())
+    {
+        if !known.contains(&m.match_id) {
+            new_matches.push(m);
+        }
+    }
+    Ok(new_matches)
+}
+
+/// Auto-detect platform for a club ID
+#[tauri::command]
+pub async fn detect_platform(
+    club_id: String,
     ea_client: State<'_, EaClient>,
 ) -> Result<String, String> {
-    ea_client
-        .get_logo(&crest_id)
-        .await
-        .map_err(|e| e.to_string())
+    ea_client.detect_platform(&club_id).await.map_err(|e| e.to_string())
 }

@@ -84,11 +84,11 @@ const defaultTactic = (): Tactic => ({
 });
 
 export function TacticsTab() {
-  const { tactics, addTactic, deleteTactic, persistSettings } = useAppStore();
+  const { tactics, saveTactic, deleteTactic, persistSettings } = useAppStore();
   const [current, setCurrent] = useState<Tactic>(defaultTactic());
 
   const handleSave = () => {
-    addTactic(current);
+    saveTactic(current);
     persistSettings();
   };
 

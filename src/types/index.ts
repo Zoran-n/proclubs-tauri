@@ -7,7 +7,8 @@ export interface Club {
   losses: number;
   ties: number;
   goals: number;
-  crestId?: string;
+  crestAssetId?: string;
+  customKit?: Record<string, unknown>;
 }
 
 export interface Player {
@@ -16,7 +17,7 @@ export interface Player {
   goals: number;
   assists: number;
   passesMade: number;
-  tackles: number;
+  tacklesMade: number;
   motm: number;
   rating: number;
   gamesPlayed: number;
@@ -25,10 +26,10 @@ export interface Player {
 export interface Match {
   matchId: string;
   timestamp: string;
+  matchDuration?: number;
   clubs: Record<string, unknown>;
   players: Record<string, unknown>;
   matchType: string;
-  duration?: number;
 }
 
 export interface Tactic {
@@ -63,46 +64,30 @@ export interface Settings {
   sessions: Session[];
   eaProfile?: EaProfile;
   theme: string;
+  darkMode: boolean;
 }
 
 export interface ClubData {
   club: Club;
   players: Player[];
   matches: Match[];
+  info: unknown;
 }
 
 export const PLATFORMS = [
-  { label: "PlayStation 5", value: "common-gen5" },
-  { label: "PlayStation 4", value: "common-gen4" },
-  { label: "PC / Xbox", value: "pc" },
+  { label: "PS5 / Xbox Series X", value: "common-gen5" },
+  { label: "PS4 / Xbox One", value: "common-gen4" },
+  { label: "PC", value: "pc" },
 ] as const;
 
-export const FORMATIONS = [
-  "4-4-2",
-  "4-3-3",
-  "4-2-3-1",
-  "3-5-2",
-  "4-1-2-1-2",
-  "5-3-2",
-  "4-5-1",
-  "3-4-3",
-  "4-2-2-2",
+export const FORMATIONS = ["433", "4231", "442", "4141", "4321", "352", "343", "532", "541"] as const;
+
+export const THEMES = [
+  { id: "cyan",   color: "#00d4ff", label: "Cyan" },
+  { id: "violet", color: "#8b5cf6", label: "Violet" },
+  { id: "orange", color: "#ff6b35", label: "Orange" },
+  { id: "green",  color: "#00ff88", label: "Vert" },
+  { id: "red",    color: "#ff3355", label: "Rouge" },
 ] as const;
 
-export const THEMES = ["cyan", "purple", "green", "orange", "red"] as const;
-
-export const THEME_COLORS: Record<string, string> = {
-  cyan: "#00d4ff",
-  purple: "#a855f7",
-  green: "#22c55e",
-  orange: "#f97316",
-  red: "#ef4444",
-};
-
-export type MatchType = "leagueMatch" | "playoffMatch" | "friendlies";
-
-export const MATCH_TYPES: { label: string; value: MatchType }[] = [
-  { label: "League", value: "leagueMatch" },
-  { label: "Playoff", value: "playoffMatch" },
-  { label: "Friendly", value: "friendlies" },
-];
+export type MatchType = "leagueMatch" | "playoffMatch" | "friendlyMatch";

@@ -1,131 +1,102 @@
 import { useState, useMemo } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
-import { Modal } from "../ui/Modal";
 import type { Player } from "../../types";
 
-type SortKey = keyof Player;
-
-const COLS: { key: SortKey; label: string }[] = [
-  { key: "name", label: "Joueur" },
-  { key: "position", label: "Poste" },
-  { key: "gamesPlayed", label: "MJ" },
-  { key: "goals", label: "Buts" },
-  { key: "assists", label: "PD" },
-  { key: "passesMade", label: "Passes" },
-  { key: "tackles", label: "Tacles" },
-  { key: "motm", label: "MOTM" },
-  { key: "rating", label: "Note" },
+type Col = keyof Player;
+const COLS: { key: Col; label: string }[] = [
+  { key: "name", label: "Joueur" }, { key: "position", label: "Poste" },
+  { key: "gamesPlayed", label: "MJ" }, { key: "goals", label: "Buts" },
+  { key: "assists", label: "Passes D." }, { key: "passesMade", label: "Passes" },
+  { key: "tacklesMade", label: "Tacles" }, { key: "motm", label: "MOTM" }, { key: "rating", label: "Note" },
 ];
 
 export function PlayersTab() {
   const players = useAppStore((s) => s.players);
-  const [sortKey, setSortKey] = useState<SortKey>("goals");
+  const [sortKey, setSortKey] = useState<Col>("goals");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState<Player | null>(null);
+  const [filter, setFilter] = useState("");
 
-  const sorted = useMemo(() => {
-    return [...players]
-      .filter((p) => p.name.toLowerCase().includes(filter.toLowerCase()))
-      .sort((a, b) => {
-        const av = a[sortKey];
-        const bv = b[sortKey];
-        if (typeof av === "number" && typeof bv === "number") {
-          return sortDir === "desc" ? bv - av : av - bv;
-        }
-        return sortDir === "desc"
-          ? String(bv).localeCompare(String(av))
-          : String(av).localeCompare(String(bv));
-      });
-  }, [players, sortKey, sortDir, filter]);
+  const sorted = useMemo(() => [...players]
+    .filter((p) => p.name.toLowerCase().includes(filter.toLowerCase()))
+    .sort((a, b) => {
+      const av = a[sortKey], bv = b[sortKey];
+      if (typeof av === "number" && typeof bv === "number") return sortDir === "desc" ? bv - av : av - bv;
+      return sortDir === "desc" ? String(bv).localeCompare(String(av)) : String(av).localeCompare(String(bv));
+    }), [players, sortKey, sortDir, filter]);
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-    else { setSortKey(key); setSortDir("desc"); }
-  };
-
-  const SortIcon = ({ k }: { k: SortKey }) =>
-    sortKey === k ? (
-      sortDir === "desc" ? <ChevronDown size={12} /> : <ChevronUp size={12} />
-    ) : null;
+  const onSort = (k: Col) => { if (sortKey === k) setSortDir((d) => d === "desc" ? "asc" : "desc"); else { setSortKey(k); setSortDir("desc"); } };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-2 shrink-0">
-        <input
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filtrer par nom…"
-          className="w-64 bg-[#111820] text-slate-200 text-sm rounded px-3 py-1.5 border border-white/10 focus:outline-none focus:border-[var(--accent)]/50"
-        />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filtrer…"
+          style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)", padding: "5px 10px", borderRadius: 4, fontSize: 12, outline: "none", width: 200 }} />
       </div>
-
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-[#0d1117]">
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead style={{ position: "sticky", top: 0, background: "var(--surface)" }}>
             <tr>
+              <th style={{ padding: "6px 12px", textAlign: "center", fontSize: 10, color: "var(--muted)", fontWeight: "normal" }}>#</th>
               {COLS.map(({ key, label }) => (
-                <th
-                  key={key}
-                  onClick={() => handleSort(key)}
-                  className="px-3 py-2 text-left text-slate-500 text-xs font-medium cursor-pointer hover:text-slate-300 whitespace-nowrap select-none"
-                >
-                  <span className="flex items-center gap-1">
-                    {label}
-                    <SortIcon k={key} />
-                  </span>
+                <th key={key} onClick={() => onSort(key)} style={{ padding: "6px 10px", textAlign: "left", fontSize: 10, color: sortKey === key ? "var(--accent)" : "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "normal" }}>
+                  {label} {sortKey === key && (sortDir === "desc" ? <ChevronDown size={10} style={{ display: "inline" }} /> : <ChevronUp size={10} style={{ display: "inline" }} />)}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {sorted.map((player, i) => (
-              <tr
-                key={`${player.name}-${i}`}
-                onClick={() => setSelected(player)}
-                className="border-t border-white/5 hover:bg-white/5 cursor-pointer"
-              >
-                <td className="px-3 py-2 text-slate-200 font-medium">{player.name}</td>
-                <td className="px-3 py-2 text-slate-400 text-xs">{player.position}</td>
-                <td className="px-3 py-2 text-slate-300">{player.gamesPlayed}</td>
-                <td className="px-3 py-2 text-[var(--accent)] font-bold">{player.goals}</td>
-                <td className="px-3 py-2 text-slate-300">{player.assists}</td>
-                <td className="px-3 py-2 text-slate-300">{player.passesMade}</td>
-                <td className="px-3 py-2 text-slate-300">{player.tackles}</td>
-                <td className="px-3 py-2 text-yellow-400">{player.motm}</td>
-                <td className="px-3 py-2 text-slate-300">{player.rating.toFixed(1)}</td>
+            {sorted.map((p, i) => (
+              <tr key={`${p.name}-${i}`} onClick={() => setSelected(p)}
+                style={{ borderTop: "1px solid var(--border)", cursor: "pointer" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--card)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                <td style={{ padding: "6px 12px", textAlign: "center", color: "var(--muted)", fontSize: 11 }}>{i + 1}</td>
+                <td style={{ padding: "6px 10px", color: "var(--text)", fontWeight: "500" }}>{p.name}</td>
+                <td style={{ padding: "6px 10px", color: "var(--muted)", fontSize: 11 }}>{p.position}</td>
+                <td style={{ padding: "6px 10px", color: "var(--text)" }}>{p.gamesPlayed}</td>
+                <td style={{ padding: "6px 10px", color: "var(--accent)", fontWeight: "bold" }}>{p.goals}</td>
+                <td style={{ padding: "6px 10px", color: "var(--text)" }}>{p.assists}</td>
+                <td style={{ padding: "6px 10px", color: "var(--text)" }}>{p.passesMade}</td>
+                <td style={{ padding: "6px 10px", color: "var(--text)" }}>{p.tacklesMade}</td>
+                <td style={{ padding: "6px 10px", color: "#ffd700" }}>{p.motm}</td>
+                <td style={{ padding: "6px 10px", color: ratingColor(p.rating) }}>{p.rating.toFixed(1)}</td>
               </tr>
             ))}
-            {sorted.length === 0 && (
-              <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-slate-600">
-                  Aucun joueur
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
+      {selected && <PlayerModal player={selected} onClose={() => setSelected(null)} />}
+    </div>
+  );
+}
 
-      {selected && (
-        <Modal title={selected.name} onClose={() => setSelected(null)}>
-          <div className="grid grid-cols-2 gap-3">
-            {COLS.slice(2).map(({ key, label }) => (
-              <div key={key} className="bg-[#090c10] rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-[var(--accent)]">
-                  {typeof selected[key] === "number"
-                    ? key === "rating"
-                      ? (selected[key] as number).toFixed(1)
-                      : selected[key]
-                    : selected[key]}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">{label}</p>
-              </div>
-            ))}
-          </div>
-        </Modal>
-      )}
+function ratingColor(r: number) {
+  if (r >= 9) return "#ffd700";
+  if (r >= 7.5) return "var(--green)";
+  if (r >= 6.5) return "#eab308";
+  return "var(--red)";
+}
+
+function PlayerModal({ player, onClose }: { player: Player; onClose: () => void }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 400, border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--text)", marginBottom: 4 }}>{player.name}</h3>
+        <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>{player.position}</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          {[["MJ", player.gamesPlayed, "var(--text)"], ["Buts", player.goals, "var(--accent)"], ["Passes D.", player.assists, "var(--text)"],
+            ["Passes", player.passesMade, "var(--text)"], ["Tacles", player.tacklesMade, "var(--text)"],
+            ["MOTM", player.motm, "#ffd700"], ["Note", player.rating.toFixed(1), ratingColor(player.rating)]].map(([l, v, c]) => (
+            <div key={String(l)} style={{ background: "var(--bg)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: String(c) }}>{String(v)}</p>
+              <p style={{ fontSize: 10, color: "var(--muted)" }}>{String(l)}</p>
+            </div>
+          ))}
+        </div>
+        <button onClick={onClose} style={{ width: "100%", marginTop: 16, padding: "8px", background: "var(--card)", border: "1px solid var(--border)", color: "var(--muted)", borderRadius: 6, cursor: "pointer" }}>Fermer</button>
+      </div>
     </div>
   );
 }
