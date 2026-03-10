@@ -108,3 +108,14 @@ pub async fn detect_platform(
 ) -> Result<String, String> {
     ea_client.detect_platform(&club_id).await.map_err(|e| e.to_string())
 }
+
+/// Check if a proxy is configured via environment variables
+#[tauri::command]
+pub async fn check_proxy() -> Result<Option<String>, String> {
+    let proxy = std::env::var("HTTPS_PROXY")
+        .or_else(|_| std::env::var("HTTP_PROXY"))
+        .or_else(|_| std::env::var("https_proxy"))
+        .or_else(|_| std::env::var("http_proxy"))
+        .ok();
+    Ok(proxy)
+}

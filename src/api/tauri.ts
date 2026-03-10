@@ -27,3 +27,6 @@ export const pollSession = (clubId: string, platform: string, knownIds: string[]
 
 export const detectPlatform = (clubId: string) =>
   invoke<string>("detect_platform", { clubId });
+
+export const checkProxy = () =>
+  invoke<string | null>("check_proxy");

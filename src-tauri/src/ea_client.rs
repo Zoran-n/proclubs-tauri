@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ORIGIN, REFERER, USER_AGENT};
+use tauri::Emitter;
 use crate::models::{Club, Match, Player};
 
 const BASE_URL: &str = "https://proclubs.ea.com/api/fc";
@@ -10,15 +11,16 @@ const PLATFORMS: &[&str] = &["common-gen5", "common-gen4", "pc"];
 
 pub struct EaClient {
     http_client: reqwest::Client,
+    app_handle: tauri::AppHandle,
 }
 
 impl EaClient {
-    pub fn new() -> Self {
+    pub fn new(app_handle: tauri::AppHandle) -> Self {
         let mut headers = HeaderMap::new();
         headers.insert(USER_AGENT, HeaderValue::from_static(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:148.0) Gecko/20100101 Firefox/148.0",
         ));
-        headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
+        headers.insert(ACCEPT, HeaderValue::from_static("application/json, text/plain, */*"));
         headers.insert(ORIGIN, HeaderValue::from_static("https://www.ea.com"));
         headers.insert(REFERER, HeaderValue::from_static("https://www.ea.com/"));
 
@@ -28,10 +30,29 @@ impl EaClient {
             .build()
             .expect("Failed to build HTTP client");
 
-        Self { http_client }
+        Self { http_client, app_handle }
     }
 
-    // ── Search on all 3 platforms in parallel, deduplicate ──────────────────
+    fn emit_log(&self, msg: impl Into<String>) {
+        let _ = self.app_handle.emit("api_log", msg.into());
+    }
+
+    // Fetch helper: get text, log it, parse JSON
+    async fn get_json(&self, url: &str) -> Result<serde_json::Value> {
+        self.emit_log(format!("→ GET {}", url));
+        let resp = self.http_client.get(url).send().await?;
+        let status = resp.status().as_u16();
+        let text = resp.text().await?;
+        let preview = &text[..text.len().min(400)];
+        self.emit_log(format!("← {} ({} chars) {}", status, text.len(), preview));
+        if status >= 400 {
+            return Err(anyhow!("HTTP {} — body: {}", status, &text[..text.len().min(300)]));
+        }
+        serde_json::from_str(&text)
+            .map_err(|e| anyhow!("JSON parse error: {} | body: {}", e, &text[..text.len().min(300)]))
+    }
+
+    // Search on all 3 platforms in parallel, deduplicate
     pub async fn search_club(&self, name: &str, platform: Option<&str>) -> Result<Vec<Club>> {
         if let Some(p) = platform {
             return self.search_on_platform(name, p).await;
@@ -54,9 +75,11 @@ impl EaClient {
 
     async fn search_on_platform(&self, name: &str, platform: &str) -> Result<Vec<Club>> {
         let url = format!("{}/allTimeLeaderboard/search?platform={}&clubName={}", BASE_URL, platform, urlencoding(name));
-        let resp: serde_json::Value = self.http_client.get(&url).send().await?.json().await?;
+        let resp = self.get_json(&url).await?;
         let clubs = resp.get("clubs")
-            .and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            .or_else(|| resp.get("data"))
+            .and_then(|v| v.as_array()).cloned()
+            .unwrap_or_else(|| resp.as_array().cloned().unwrap_or_default());
         Ok(clubs.into_iter().filter_map(|v| self.parse_club(&v, platform)).collect())
     }
 
@@ -70,62 +93,63 @@ impl EaClient {
             id,
             name: v.get("name").and_then(|s| s.as_str()).unwrap_or("").to_string(),
             platform: platform.to_string(),
-            skill_rating: v.get("skillRating").and_then(|s| s.as_str().or_else(|| s.as_u64().map(|_| "").ok_or(()).err().and_then(|_| None))).map(String::from)
-                .or_else(|| v.get("skillRating").and_then(|n| n.as_u64()).map(|n| n.to_string())),
+            skill_rating: v.get("skillRating")
+                .and_then(|n| n.as_str().map(String::from)
+                    .or_else(|| n.as_u64().map(|n| n.to_string()))),
             wins: parse_u32(v, "wins"),
             losses: parse_u32(v, "losses"),
             ties: parse_u32(v, "ties"),
             goals: parse_u32(v, "goals"),
-            crest_asset_id: crest.clone(),
+            crest_asset_id: crest,
             custom_kit: v.get("customKit").cloned(),
         })
     }
 
-    // ── Stats ────────────────────────────────────────────────────────────────
+    // Stats
     pub async fn get_stats(&self, club_id: &str, platform: &str) -> Result<Club> {
         let url = format!("{}/clubs/overallStats?platform={}&clubIds={}", BASE_URL, platform, club_id);
-        let resp: serde_json::Value = self.http_client.get(&url).send().await?.json().await?;
+        let resp = self.get_json(&url).await?;
         let v = extract_club_obj(&resp, club_id)?;
         Ok(self.parse_club(v, platform).unwrap_or_default())
     }
 
-    // ── Info ─────────────────────────────────────────────────────────────────
+    // Info
     pub async fn get_info(&self, club_id: &str, platform: &str) -> Result<serde_json::Value> {
         let url = format!("{}/clubs/info?platform={}&clubIds={}", BASE_URL, platform, club_id);
-        Ok(self.http_client.get(&url).send().await?.json().await?)
+        self.get_json(&url).await
     }
 
-    // ── Matches ──────────────────────────────────────────────────────────────
+    // Matches
     pub async fn get_matches(&self, club_id: &str, platform: &str, match_type: &str) -> Result<Vec<Match>> {
         let url = format!(
             "{}/clubs/matches?platform={}&clubIds={}&matchType={}&maxResultCount=10",
             BASE_URL, platform, club_id, match_type
         );
-        let resp: serde_json::Value = self.http_client.get(&url).send().await?.json().await?;
+        let resp = self.get_json(&url).await?;
         let arr = if let Some(a) = resp.as_array() { a.clone() }
             else if let Some(a) = resp.get("data").and_then(|v| v.as_array()) { a.clone() }
             else { return Ok(vec![]); };
         Ok(arr.into_iter().map(|v| parse_match(&v, match_type)).collect())
     }
 
-    // ── Members ──────────────────────────────────────────────────────────────
+    // Members
     pub async fn get_members(&self, club_id: &str, platform: &str) -> Result<Vec<Player>> {
         let url = format!("{}/members/stats?platform={}&clubId={}", BASE_URL, platform, club_id);
-        let resp: serde_json::Value = self.http_client.get(&url).send().await?.json().await?;
+        let resp = self.get_json(&url).await?;
         let arr = if let Some(a) = resp.get("members").and_then(|v| v.as_array()) { a.clone() }
             else if let Some(a) = resp.as_array() { a.clone() }
             else { return Ok(vec![]); };
         Ok(arr.into_iter().filter_map(|v| parse_player(&v)).collect())
     }
 
-    // ── Logo ─────────────────────────────────────────────────────────────────
+    // Logo
     pub async fn get_logo(&self, crest_asset_id: &str) -> Result<String> {
         let url = format!("{}{}.png", LOGO_BASE, crest_asset_id);
         let bytes = self.http_client.get(&url).send().await?.bytes().await?;
         Ok(format!("data:image/png;base64,{}", B64.encode(&bytes)))
     }
 
-    // ── Auto-detect platform ─────────────────────────────────────────────────
+    // Auto-detect platform
     pub async fn detect_platform(&self, club_id: &str) -> Result<String> {
         for p in PLATFORMS {
             if self.get_stats(club_id, p).await.is_ok() {

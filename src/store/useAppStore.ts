@@ -28,6 +28,9 @@ interface AppState {
   activeSession: Session | null;
   viewingSession: Session | null;
   logs: string[];
+  rawLogs: string[];
+  showDevPanel: boolean;
+  proxyInfo: string | null;
 
   setClub: (club: Club, players: Player[], matches: Match[]) => void;
   addHistory: (club: Club) => void;
@@ -51,6 +54,10 @@ interface AppState {
   saveTactic: (t: Tactic) => void;
   deleteTactic: (id: string) => void;
   addLog: (msg: string) => void;
+  addRawLog: (msg: string) => void;
+  clearRawLogs: () => void;
+  toggleDevPanel: () => void;
+  setProxyInfo: (v: string | null) => void;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
 }
@@ -64,6 +71,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeTab: "players", sidebarTab: "search",
   activeSession: null, viewingSession: null,
   logs: ["Prêt."],
+  rawLogs: [],
+  showDevPanel: false,
+  proxyInfo: null,
 
   setClub: (club, players, matches) => set({ currentClub: club, players, matches, error: null }),
   addHistory: (club) => set((s) => ({
@@ -103,21 +113,39 @@ export const useAppStore = create<AppState>((set, get) => ({
     document.documentElement.setAttribute("data-theme", theme);
     set({ theme });
   },
-  setDarkMode: (darkMode) => set({ darkMode }),
-  setShowGrid: (showGrid) => set({ showGrid }),
-  setShowAnimations: (showAnimations) => set({ showAnimations }),
+  setDarkMode: (darkMode) => {
+    document.documentElement.toggleAttribute("data-light", !darkMode);
+    set({ darkMode });
+  },
+  setShowGrid: (showGrid) => {
+    document.documentElement.toggleAttribute("data-no-grid", !showGrid);
+    set({ showGrid });
+  },
+  setShowAnimations: (showAnimations) => {
+    document.documentElement.toggleAttribute("data-no-anim", !showAnimations);
+    set({ showAnimations });
+  },
   setShowLogs: (showLogs) => set({ showLogs }),
   setShowIdSearch: (showIdSearch) => set({ showIdSearch }),
-  setFontSize: (fontSize) => set({ fontSize }),
+  setFontSize: (fontSize) => {
+    document.documentElement.setAttribute("data-fs", fontSize);
+    set({ fontSize });
+  },
   setEaProfile: (eaProfile) => set({ eaProfile }),
   saveTactic: (t) => set((s) => ({ tactics: [...s.tactics.filter((x) => x.id !== t.id), t] })),
   deleteTactic: (id) => set((s) => ({ tactics: s.tactics.filter((t) => t.id !== id) })),
   addLog: (msg) => set((s) => ({ logs: [...s.logs.slice(-99), msg] })),
+  addRawLog: (msg) => set((s) => ({ rawLogs: [...s.rawLogs.slice(-199), msg] })),
+  clearRawLogs: () => set({ rawLogs: [] }),
+  toggleDevPanel: () => set((s) => ({ showDevPanel: !s.showDevPanel })),
+  setProxyInfo: (proxyInfo) => set({ proxyInfo }),
 
   loadSettings: async () => {
     try {
       const s = await apiLoad();
       document.documentElement.setAttribute("data-theme", s.theme);
+      document.documentElement.setAttribute("data-fs", s.darkMode ? "medium" : "medium");
+      if (!s.darkMode) document.documentElement.setAttribute("data-light", "");
       set({
         history: s.history ?? [], favs: s.favs ?? [],
         tactics: s.tactics ?? [], sessions: s.sessions ?? [],

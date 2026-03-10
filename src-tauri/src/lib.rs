@@ -13,7 +13,7 @@ pub fn run() {
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()
                 .expect("Failed to resolve app data dir");
-            app.manage(ea_client::EaClient::new());
+            app.manage(ea_client::EaClient::new(app.handle().clone()));
             app.manage(storage::StorageManager::new(app_data_dir));
             Ok(())
         })
@@ -27,6 +27,7 @@ pub fn run() {
             load_settings,
             poll_session,
             detect_platform,
+            check_proxy,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
