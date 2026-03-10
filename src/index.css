@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #090c10;
+  --color-surface: #0d1117;
+  --color-card: #111820;
+  --font-heading: "Bebas Neue", sans-serif;
+  --font-body: "Barlow", sans-serif;
+}
+
+/* ─── Theme accent via CSS custom property ─────────────────────────────────── */
+:root {
+  --accent: #00d4ff;
+}
+[data-theme="purple"] { --accent: #a855f7; }
+[data-theme="green"]  { --accent: #22c55e; }
+[data-theme="orange"] { --accent: #f97316; }
+[data-theme="red"]    { --accent: #ef4444; }
+
+/* ─── Base ─────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: #090c10;
+  color: #e2e8f0;
+  font-family: "Barlow", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Scrollbar styling ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ffffff20;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* ─── Range input ────────────────────────────────────────────────────────────  */
+input[type="range"] {
+  appearance: none;
+  background: #ffffff15;
+  border-radius: 4px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
