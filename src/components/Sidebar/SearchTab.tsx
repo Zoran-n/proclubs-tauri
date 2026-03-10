@@ -98,7 +98,7 @@ export function SearchTab() {
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {results.map((club) => (
               <ClubCard key={`${club.id}_${club.platform}`} club={club} isFav={isFav(club)}
-                onLoad={() => { load(club.id, club.platform); persistSettings(); }}
+                onLoad={() => { load(club.id, club.platform); persistSettings(); setResults([]); setQuery(""); }}
                 onToggleFav={() => { toggleFav(club); persistSettings(); }} />
             ))}
           </div>
