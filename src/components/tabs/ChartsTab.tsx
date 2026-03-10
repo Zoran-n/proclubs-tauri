@@ -1,7 +1,26 @@
 import { useState, useMemo } from "react";
 import { PieChart, Pie, Cell, Label, ResponsiveContainer } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
-import type { Player } from "../../types";
+import type { Match, Player } from "../../types";
+
+/** Aggregate per-player goals/assists/passesMade from a list of matches for a given club */
+function aggregateMatchPlayers(matches: Match[], clubId: string): Player[] {
+  const acc: Record<string, { goals: number; assists: number; passesMade: number }> = {};
+  for (const m of matches) {
+    const clubPlayers = m.players[clubId] as Record<string, Record<string, string>> | undefined;
+    if (!clubPlayers || typeof clubPlayers !== "object") continue;
+    for (const [name, s] of Object.entries(clubPlayers)) {
+      if (!acc[name]) acc[name] = { goals: 0, assists: 0, passesMade: 0 };
+      acc[name].goals      += Number(s.goals)      || 0;
+      acc[name].assists    += Number(s.assists)     || 0;
+      acc[name].passesMade += Number(s.passesMade) || Number(s.passesmade) || 0;
+    }
+  }
+  return Object.entries(acc).map(([name, s]) => ({
+    name, goals: s.goals, assists: s.assists, passesMade: s.passesMade,
+    position: "", tacklesMade: 0, motm: 0, rating: 0, gamesPlayed: 0,
+  }));
+}
 
 type Mode = "last10" | "alltime";
 
@@ -169,9 +188,15 @@ export function ChartsTab() {
     };
   }, [currentClub, mode, last10, allTimeAssists]);
 
-  const topScorers = useMemo(() => [...players].sort((a, b) => b.goals      - a.goals).slice(0, 5),     [players]);
-  const topAssists = useMemo(() => [...players].sort((a, b) => b.assists     - a.assists).slice(0, 5),   [players]);
-  const topPasses  = useMemo(() => [...players].sort((a, b) => b.passesMade  - a.passesMade).slice(0, 5),[players]);
+  const playerSource = useMemo(() => {
+    if (mode === "alltime" || !currentClub) return players;
+    const sorted = [...matches].sort((a, b) => Number(a.timestamp) - Number(b.timestamp)).slice(-10);
+    return aggregateMatchPlayers(sorted, currentClub.id);
+  }, [mode, players, matches, currentClub]);
+
+  const topScorers = useMemo(() => [...playerSource].sort((a, b) => b.goals      - a.goals).slice(0, 5),     [playerSource]);
+  const topAssists = useMemo(() => [...playerSource].sort((a, b) => b.assists     - a.assists).slice(0, 5),   [playerSource]);
+  const topPasses  = useMemo(() => [...playerSource].sort((a, b) => b.passesMade  - a.passesMade).slice(0, 5),[playerSource]);
 
   if (!currentClub) return null;
 
