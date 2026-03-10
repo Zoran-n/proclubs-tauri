@@ -1,4 +1,5 @@
-import { Users, List, BarChart2, Play, Crosshair } from "lucide-react";
+import { useState, useEffect } from "react";
+import { BarChart2, Download, FileSpreadsheet } from "lucide-react";
 import { useAppStore, type ActiveTab } from "../../store/useAppStore";
 import { PlayersTab } from "../tabs/PlayersTab";
 import { MatchesTab } from "../tabs/MatchesTab";
@@ -6,95 +7,152 @@ import { ChartsTab } from "../tabs/ChartsTab";
 import { SessionTab } from "../tabs/SessionTab";
 import { TacticsTab } from "../tabs/TacticsTab";
 import { Spinner } from "../ui/Spinner";
+import { getLogo } from "../../api/tauri";
 
-const TABS: { id: ActiveTab; icon: React.ReactNode; label: string }[] = [
-  { id: "players", icon: <Users size={15} />, label: "Joueurs" },
-  { id: "matches", icon: <List size={15} />, label: "Matchs" },
-  { id: "charts", icon: <BarChart2 size={15} />, label: "Graphiques" },
-  { id: "session", icon: <Play size={15} />, label: "Session" },
-  { id: "tactics", icon: <Crosshair size={15} />, label: "Tactiques" },
+const TABS: { id: ActiveTab; label: string }[] = [
+  { id: "players",  label: "JOUEURS" },
+  { id: "matches",  label: "MATCHS" },
+  { id: "charts",   label: "GRAPHIQUES" },
+  { id: "session",  label: "SESSION" },
+  { id: "tactics",  label: "TACTIQUES" },
 ];
 
 export function MainPanel() {
-  const { currentClub, activeTab, setActiveTab, isLoading, error } = useAppStore();
+  const { currentClub, activeTab, setActiveTab, isLoading, error, activeSession } = useAppStore();
+  const [logo, setLogo] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLogo(null);
+    if (currentClub?.crestAssetId) {
+      getLogo(currentClub.crestAssetId).then(setLogo).catch(() => {});
+    }
+  }, [currentClub?.id]);
+
+  const total  = (currentClub?.wins ?? 0) + (currentClub?.losses ?? 0) + (currentClub?.ties ?? 0);
+  const winPct = total > 0 ? Math.round(((currentClub?.wins ?? 0) / total) * 100) : 0;
+
+  const KPIS = currentClub ? [
+    { label: "MATCHS",      value: total,                     color: "var(--accent)" },
+    { label: "VICTOIRES",   value: currentClub.wins,          color: "var(--green)" },
+    { label: "NULS",        value: currentClub.ties,          color: "var(--gold)" },
+    { label: "DEFAITES",    value: currentClub.losses,        color: "var(--red)" },
+    { label: "% VICTOIRES", value: `${winPct}%`,              color: "var(--orange)" },
+    { label: "BUTS",        value: currentClub.goals,         color: "var(--gold)" },
+  ] : [];
 
   return (
-    <main className="flex-1 flex flex-col overflow-hidden bg-[#090c10]">
-      {/* Club banner */}
+    <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)" }}>
+
+      {/* ── Club banner ─────────────────────────────────────────────── */}
       {currentClub && (
-        <div className="flex items-center gap-4 px-6 py-3 bg-[#0d1117] border-b border-white/5 shrink-0">
-          <div className="flex flex-col">
-            <span
-              className="text-xl text-white tracking-wider"
-              style={{ fontFamily: "'Bebas Neue', sans-serif" }}
-            >
-              {currentClub.name}
-            </span>
-            <span className="text-xs text-slate-500">
-              {currentClub.platform} · SR {currentClub.skillRating ?? "—"}
-            </span>
+        <div style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+          {/* Top row: logo + name + live */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 20px 10px" }}>
+            {/* Logo */}
+            <div style={{ width: 52, height: 52, borderRadius: 10, background: "var(--card)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+              {logo
+                ? <img src={logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                : <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--accent)" }}>
+                    {(currentClub.name || "?")[0].toUpperCase()}
+                  </span>
+              }
+            </div>
+
+            {/* Name + platform */}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: "var(--text)", letterSpacing: "0.05em", lineHeight: 1 }}>
+                {currentClub.name || `Club #${currentClub.id}`}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 11, color: "var(--accent)", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em" }}>
+                  {currentClub.platform.toUpperCase()}
+                </span>
+                {currentClub.skillRating && (
+                  <>
+                    <span style={{ color: "var(--border)" }}>·</span>
+                    <span style={{ fontSize: 11, color: "var(--gold)" }}>★ {currentClub.skillRating} SR</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* LIVE badge */}
+            {activeSession && (
+              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--green)", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", padding: "4px 10px", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.1em" }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)", display: "inline-block" }} />
+                LIVE
+              </div>
+            )}
           </div>
-          <div className="ml-auto flex gap-6 text-center">
-            {[
-              { label: "V", value: currentClub.wins, color: "text-green-400" },
-              { label: "N", value: currentClub.ties, color: "text-yellow-400" },
-              { label: "D", value: currentClub.losses, color: "text-red-400" },
-              { label: "Buts", value: currentClub.goals, color: "text-[var(--accent)]" },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="flex flex-col">
-                <span className={`text-lg font-bold ${color}`}>{value}</span>
-                <span className="text-[10px] text-slate-500">{label}</span>
+
+          {/* KPI cards row */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, padding: "0 20px 14px" }}>
+            {KPIS.map(({ label, value, color }) => (
+              <div key={label} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, padding: "10px 8px", textAlign: "center", borderBottom: `2px solid ${color}` }}>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color, lineHeight: 1 }}>{value}</div>
+                <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.08em", marginTop: 4 }}>{label}</div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Tab bar */}
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-white/5 bg-[#0d1117] shrink-0">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
-              activeTab === tab.id
-                ? "bg-[var(--accent)]/15 text-[var(--accent)]"
-                : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+      {/* ── Tab bar ─────────────────────────────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", background: "var(--surface)", borderBottom: "1px solid var(--border)", flexShrink: 0, padding: "0 16px" }}>
+        <div style={{ display: "flex", flex: 1, gap: 0 }}>
+          {TABS.map((tab) => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+              padding: "10px 14px", fontSize: 11, letterSpacing: "0.1em",
+              fontFamily: "'Bebas Neue', sans-serif",
+              color: activeTab === tab.id ? "var(--accent)" : "var(--muted)",
+              background: "none", border: "none", cursor: "pointer",
+              borderBottom: activeTab === tab.id ? "2px solid var(--accent)" : "2px solid transparent",
+              transition: "color 0.15s",
+            }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {/* Export buttons */}
+        {currentClub && (
+          <div style={{ display: "flex", gap: 6 }}>
+            <button title="Exporter PNG" style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", fontSize: 10, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em", background: "var(--card)", border: "1px solid var(--border)", color: "var(--muted)", borderRadius: 4, cursor: "pointer" }}>
+              <Download size={11} /> PNG
+            </button>
+            <button title="Exporter XLS" style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", fontSize: 10, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em", background: "var(--card)", border: "1px solid var(--border)", color: "var(--muted)", borderRadius: 4, cursor: "pointer" }}>
+              <FileSpreadsheet size={11} /> XLS
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Content area */}
-      <div className="flex-1 overflow-hidden relative">
+      {/* ── Content ─────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         {isLoading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
+          <div style={{ position: "absolute", inset: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }}>
             <Spinner size={40} />
           </div>
         )}
         {error && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-red-900/80 text-red-200 px-4 py-2 rounded-lg text-sm border border-red-500/40">
+          <div style={{ position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(127,29,29,0.9)", color: "#fca5a5", padding: "8px 16px", borderRadius: 8, fontSize: 12, border: "1px solid rgba(239,68,68,0.4)" }}>
             {error}
           </div>
         )}
 
         {!currentClub && !isLoading ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-3">
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--muted)", gap: 12 }}>
             <BarChart2 size={48} />
-            <p className="text-lg" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.1em" }}>
+            <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em" }}>
               RECHERCHE UN CLUB POUR COMMENCER
             </p>
           </div>
         ) : (
           <>
-            {activeTab === "players" && <PlayersTab />}
-            {activeTab === "matches" && <MatchesTab />}
-            {activeTab === "charts" && <ChartsTab />}
-            {activeTab === "session" && <SessionTab />}
-            {activeTab === "tactics" && <TacticsTab />}
+            {activeTab === "players"  && <PlayersTab />}
+            {activeTab === "matches"  && <MatchesTab />}
+            {activeTab === "charts"   && <ChartsTab />}
+            {activeTab === "session"  && <SessionTab />}
+            {activeTab === "tactics"  && <TacticsTab />}
           </>
         )}
       </div>

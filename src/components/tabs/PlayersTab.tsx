@@ -52,9 +52,15 @@ export function PlayersTab() {
                 style={{ borderTop: "1px solid var(--border)", cursor: "pointer" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--card)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                <td style={{ padding: "6px 12px", textAlign: "center", color: "var(--muted)", fontSize: 11 }}>{i + 1}</td>
+                <td style={{ padding: "6px 12px", textAlign: "center" }}>
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, background: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7c3b" : "var(--card)", color: i < 3 ? "#000" : "var(--muted)", border: i >= 3 ? "1px solid var(--border)" : "none" }}>
+                    {i + 1}
+                  </div>
+                </td>
                 <td style={{ padding: "6px 10px", color: "var(--text)", fontWeight: "500" }}>{p.name}</td>
-                <td style={{ padding: "6px 10px", color: "var(--muted)", fontSize: 11 }}>{p.position}</td>
+                <td style={{ padding: "6px 10px" }}>
+                  <span style={{ background: "var(--card)", border: "1px solid var(--border)", padding: "2px 6px", borderRadius: 3, fontSize: 10, color: "var(--muted)" }}>{p.position}</span>
+                </td>
                 <td style={{ padding: "6px 10px", color: "var(--text)" }}>{p.gamesPlayed}</td>
                 <td style={{ padding: "6px 10px", color: "var(--accent)", fontWeight: "bold" }}>{p.goals}</td>
                 <td style={{ padding: "6px 10px", color: "var(--text)" }}>{p.assists}</td>
