@@ -3,8 +3,8 @@ import { Play, Square, Trophy, Trash2, Archive, Download } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useSession } from "../../hooks/useSession";
 import { Badge } from "../ui/Badge";
-import { exportCsv, exportPng } from "../../utils/export";
-import type { Match, Session } from "../../types";
+import { ExportModal } from "../ui/ExportModal";
+import type { Match } from "../../types";
 
 function sessionKpis(matches: Match[]) {
   let goals = 0, assists = 0, passes = 0, tackles = 0, motm = 0;
@@ -23,16 +23,9 @@ function sessionKpis(matches: Match[]) {
 }
 
 const BTN: React.CSSProperties = {
-  padding: "5px 9px",
-  background: "var(--card)",
-  border: "1px solid var(--border)",
-  borderRadius: 5,
-  cursor: "pointer",
-  color: "var(--muted)",
-  fontSize: 11,
-  display: "flex",
-  alignItems: "center",
-  gap: 4,
+  padding: "5px 9px", background: "var(--card)", border: "1px solid var(--border)",
+  borderRadius: 5, cursor: "pointer", color: "var(--muted)", fontSize: 11,
+  display: "flex", alignItems: "center", gap: 4,
 };
 
 function KpiGrid({ kpis }: { kpis: ReturnType<typeof sessionKpis> }) {
@@ -45,8 +38,8 @@ function KpiGrid({ kpis }: { kpis: ReturnType<typeof sessionKpis> }) {
         { label: "Tacles", value: kpis.tackles },
         { label: "MOTM",   value: kpis.motm    },
       ].map(({ label, value }) => (
-        <div key={label} style={{ textAlign: "center", background: "var(--bg)", borderRadius: 8, padding: "8px 4px",
-          border: "1px solid var(--border)" }}>
+        <div key={label} style={{ textAlign: "center", background: "var(--bg)", borderRadius: 8,
+          padding: "8px 4px", border: "1px solid var(--border)" }}>
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "var(--accent)", lineHeight: 1 }}>
             {value}
           </div>
@@ -62,29 +55,21 @@ export function SessionTab() {
   const { activeSession, sessions, currentClub, startSession, stopSession, persistSettings,
     deleteSession, archiveSession } = useAppStore();
   const [showArchived, setShowArchived] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const handleStop = () => { stopSession(); persistSettings(); };
 
-  const handlePng = async () => {
-    if (!contentRef.current) return;
-    setExporting(true);
-    await exportPng(contentRef.current, `session-${new Date().toISOString().slice(0, 10)}`).finally(() => setExporting(false));
-  };
-
-  const handleCsv = (sessList: Session[]) => {
-    const headers = ["Date", "Club", "MJ", "Buts", "PD", "Passes", "Tacles", "MOTM"];
-    const rows = sessList.map((s) => {
-      const k = sessionKpis(s.matches);
-      return [new Date(s.date).toLocaleDateString(), s.clubName,
-        s.matches.length, k.goals, k.assists, k.passes, k.tackles, k.motm];
-    });
-    exportCsv(headers, rows, `sessions-${new Date().toISOString().slice(0, 10)}`);
-  };
-
   const visible = sessions.filter((s) => showArchived ? s.archived : !s.archived);
   const kpis    = activeSession ? sessionKpis(activeSession.matches) : null;
+
+  const csvHeaders = ["Date", "Club", "MJ", "Buts", "PD", "Passes", "Tacles", "MOTM"];
+  const csvRows = visible.map((s) => {
+    const k = sessionKpis(s.matches);
+    return [new Date(s.date).toLocaleDateString(), s.clubName,
+      s.matches.length, k.goals, k.assists, k.passes, k.tackles, k.motm];
+  });
+  const dateStr = new Date().toISOString().slice(0, 10);
 
   return (
     <div ref={contentRef} style={{ display: "flex", flexDirection: "column", height: "100%",
@@ -111,8 +96,6 @@ export function SessionTab() {
             </button>
           </div>
           {kpis && <KpiGrid kpis={kpis} />}
-
-          {/* Matches in session */}
           {activeSession.matches.length > 0 && (
             <div style={{ marginTop: 10 }}>
               <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
@@ -140,10 +123,9 @@ export function SessionTab() {
           <Trophy size={36} style={{ color: "var(--muted)" }} />
           <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>Aucune session active</p>
           <button onClick={() => startSession(currentClub)} style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "8px 18px", background: "rgba(0,212,255,0.12)",
-            border: "1px solid rgba(0,212,255,0.3)", borderRadius: 8,
-            color: "var(--accent)", fontSize: 13, cursor: "pointer" }}>
+            display: "flex", alignItems: "center", gap: 6, padding: "8px 18px",
+            background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.3)",
+            borderRadius: 8, color: "var(--accent)", fontSize: 13, cursor: "pointer" }}>
             <Play size={14} /> Démarrer
           </button>
         </div>
@@ -155,7 +137,7 @@ export function SessionTab() {
       )}
 
       {/* Past sessions header */}
-      {(sessions.length > 0) && (
+      {sessions.length > 0 && (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
@@ -165,10 +147,10 @@ export function SessionTab() {
             <button onClick={() => setShowArchived((v) => !v)} style={{ ...BTN }}>
               <Archive size={11} /> {showArchived ? "Actives" : "Archivées"}
             </button>
-            <button onClick={handlePng} disabled={exporting} style={{ ...BTN }}>
+            <button onClick={() => setExportModal("png")} style={{ ...BTN }}>
               <Download size={11} /> PNG
             </button>
-            <button onClick={() => handleCsv(visible)} style={{ ...BTN }}>
+            <button onClick={() => setExportModal("csv")} style={{ ...BTN }}>
               <Download size={11} /> CSV
             </button>
           </div>
@@ -183,16 +165,11 @@ export function SessionTab() {
             const k = sessionKpis(s.matches);
             return (
               <div key={s.id} style={{ background: "var(--card)", border: "1px solid var(--border)",
-                borderRadius: 8, padding: 14, position: "relative" }}>
-
-                {/* Session header */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-                  marginBottom: 8 }}>
+                borderRadius: 8, padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div>
                     <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "var(--text)",
-                      letterSpacing: "0.06em" }}>
-                      {s.clubName}
-                    </div>
+                      letterSpacing: "0.06em" }}>{s.clubName}</div>
                     <div style={{ fontSize: 11, color: "var(--muted)" }}>
                       {new Date(s.date).toLocaleDateString()} · {s.matches.length} match{s.matches.length !== 1 ? "s" : ""}
                     </div>
@@ -200,11 +177,10 @@ export function SessionTab() {
                   <div style={{ display: "flex", gap: 5 }}>
                     <button onClick={() => { archiveSession(s.id); persistSettings(); }}
                       title={s.archived ? "Désarchiver" : "Archiver"}
-                      style={{ ...BTN, color: s.archived ? "var(--accent)" : "var(--muted)" as string }}>
+                      style={{ ...BTN, color: (s.archived ? "var(--accent)" : "var(--muted)") as string }}>
                       <Archive size={11} />
                     </button>
-                    <button onClick={() => { deleteSession(s.id); persistSettings(); }}
-                      title="Supprimer"
+                    <button onClick={() => { deleteSession(s.id); persistSettings(); }} title="Supprimer"
                       style={{ ...BTN }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
                       onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}>
@@ -212,8 +188,6 @@ export function SessionTab() {
                     </button>
                   </div>
                 </div>
-
-                {/* KPIs */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4, textAlign: "center" }}>
                   {[
                     { l: "MJ",     v: s.matches.length },
@@ -223,8 +197,7 @@ export function SessionTab() {
                     { l: "MOTM",   v: k.motm           },
                   ].map(({ l, v }) => (
                     <div key={l}>
-                      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16,
-                        color: "var(--accent)" }}>{v}</div>
+                      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "var(--accent)" }}>{v}</div>
                       <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em" }}>{l}</div>
                     </div>
                   ))}
@@ -233,6 +206,15 @@ export function SessionTab() {
             );
           })}
         </>
+      )}
+
+      {exportModal === "png" && (
+        <ExportModal type="png" pngSourceEl={contentRef.current}
+          defaultFilename={`session-${dateStr}`} onClose={() => setExportModal(null)} />
+      )}
+      {exportModal === "csv" && (
+        <ExportModal type="csv" csvHeaders={csvHeaders} csvRows={csvRows}
+          defaultFilename={`sessions-${dateStr}`} onClose={() => setExportModal(null)} />
       )}
     </div>
   );

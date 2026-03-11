@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { Search, Download, ChevronUp, ChevronDown } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
-import { exportCsv, exportPng } from "../../utils/export";
+import { ExportModal } from "../ui/ExportModal";
 import type { Player } from "../../types";
 
 type Col = keyof Player;
@@ -67,7 +67,7 @@ export function PlayersTab() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<Player | null>(null);
   const [filter, setFilter] = useState("");
-  const [exporting, setExporting] = useState(false);
+  const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const sorted = useMemo(() => [...players]
@@ -78,23 +78,12 @@ export function PlayersTab() {
       return sortDir === "desc" ? String(bv).localeCompare(String(av)) : String(av).localeCompare(String(bv));
     }), [players, sortKey, sortDir, filter]);
 
-  const handlePng = async () => {
-    if (!contentRef.current) return;
-    setExporting(true);
-    const date = new Date().toISOString().slice(0, 10);
-    await exportPng(contentRef.current, `joueurs-${date}`).finally(() => setExporting(false));
-  };
-
-  const handleCsv = () => {
-    const headers = ["Joueur", "Poste", "MJ", "Buts", "PD", "Passes", "Tacles", "MOTM", "Note"];
-    const rows = sorted.map((p) => [
-      p.name,
-      POS_LABELS[p.position] || p.position || "—",
-      p.gamesPlayed, p.goals, p.assists, p.passesMade, p.tacklesMade, p.motm,
-      p.rating.toFixed(1),
-    ]);
-    exportCsv(headers, rows, `joueurs-${new Date().toISOString().slice(0, 10)}`);
-  };
+  const csvHeaders = ["Joueur", "Poste", "MJ", "Buts", "PD", "Passes", "Tacles", "MOTM", "Note"];
+  const csvRows = sorted.map((p) => [
+    p.name, POS_LABELS[p.position] || p.position || "—",
+    p.gamesPlayed, p.goals, p.assists, p.passesMade, p.tacklesMade, p.motm, p.rating.toFixed(1),
+  ]);
+  const dateStr = new Date().toISOString().slice(0, 10);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -130,10 +119,10 @@ export function PlayersTab() {
           {sortDir === "desc" ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
         </button>
 
-        <button onClick={handlePng} disabled={exporting} style={{ ...BTN }}>
+        <button onClick={() => setExportModal("png")} style={{ ...BTN }}>
           <Download size={11} /> PNG
         </button>
-        <button onClick={handleCsv} style={{ ...BTN }}>
+        <button onClick={() => setExportModal("csv")} style={{ ...BTN }}>
           <Download size={11} /> CSV
         </button>
       </div>
@@ -213,6 +202,14 @@ export function PlayersTab() {
       </div>
 
       {selected && <PlayerModal player={selected} onClose={() => setSelected(null)} />}
+      {exportModal === "png" && (
+        <ExportModal type="png" pngSourceEl={contentRef.current}
+          defaultFilename={`joueurs-${dateStr}`} onClose={() => setExportModal(null)} />
+      )}
+      {exportModal === "csv" && (
+        <ExportModal type="csv" csvHeaders={csvHeaders} csvRows={csvRows}
+          defaultFilename={`joueurs-${dateStr}`} onClose={() => setExportModal(null)} />
+      )}
     </div>
   );
 }

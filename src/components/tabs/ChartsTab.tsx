@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import { Download } from "lucide-react";
 import { PieChart, Pie, Cell, Label, ResponsiveContainer } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
-import { exportPng } from "../../utils/export";
+import { ExportModal } from "../ui/ExportModal";
 import type { Match, Player } from "../../types";
 
 function aggregateMatchPlayers(matches: Match[], clubId: string): Player[] {
@@ -27,25 +27,16 @@ function aggregateMatchPlayers(matches: Match[], clubId: string): Player[] {
 type Mode = "last10" | "alltime";
 
 const BTN: React.CSSProperties = {
-  padding: "6px 10px",
-  background: "var(--card)",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  cursor: "pointer",
-  color: "var(--muted)",
-  fontSize: 11,
-  display: "flex",
-  alignItems: "center",
-  gap: 4,
+  padding: "6px 10px", background: "var(--card)", border: "1px solid var(--border)",
+  borderRadius: 6, cursor: "pointer", color: "var(--muted)", fontSize: 11,
+  display: "flex", alignItems: "center", gap: 4,
 };
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px" }}>
       <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
-        fontFamily: "'Bebas Neue', sans-serif", marginBottom: 10 }}>
-        {title}
-      </p>
+        fontFamily: "'Bebas Neue', sans-serif", marginBottom: 10 }}>{title}</p>
       {children}
     </div>
   );
@@ -55,8 +46,7 @@ function DonutCenter({ viewBox, value, sub }: { viewBox?: { cx: number; cy: numb
   const cx = viewBox?.cx ?? 0, cy = viewBox?.cy ?? 0;
   return (
     <g>
-      <text x={cx} y={cy - 4} textAnchor="middle" fill="#fff"
-        fontFamily="'Bebas Neue', sans-serif" fontSize={30} dominantBaseline="auto">{value}</text>
+      <text x={cx} y={cy - 4} textAnchor="middle" fill="#fff" fontFamily="'Bebas Neue', sans-serif" fontSize={30} dominantBaseline="auto">{value}</text>
       <text x={cx} y={cy + 14} textAnchor="middle" fill="#64748b" fontSize={10} dominantBaseline="auto">{sub}</text>
     </g>
   );
@@ -104,7 +94,7 @@ function WdlLegend({ data, total }: { data: { name: string; value: number; color
 }
 
 const GRADIENTS: Record<string, string> = {
-  cyan:   "linear-gradient(90deg, #0098b8, #00d4ff)",
+  cyan: "linear-gradient(90deg, #0098b8, #00d4ff)",
   orange: "linear-gradient(90deg, #c2410c, #f97316)",
   purple: "linear-gradient(90deg, #6d28d9, #a855f7)",
 };
@@ -123,15 +113,12 @@ function HBarChart({ players, valueKey, color }: {
         return (
           <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 82, textAlign: "right", fontSize: 11, color: "var(--muted)",
-              flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {p.name}
-            </div>
+              flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
             <div style={{ flex: 1, background: "var(--bg)", borderRadius: 3, height: 30, overflow: "hidden" }}>
               <div style={{ width: `${(val / maxVal) * 100}%`, height: "100%",
                 background: GRADIENTS[color], borderRadius: "0 3px 3px 0", transition: "width 0.5s ease" }} />
             </div>
-            <div style={{ width: 32, fontSize: 13, fontWeight: 700,
-              color: VALUE_COLORS[color], flexShrink: 0, textAlign: "right" }}>{val}</div>
+            <div style={{ width: 32, fontSize: 13, fontWeight: 700, color: VALUE_COLORS[color], flexShrink: 0, textAlign: "right" }}>{val}</div>
           </div>
         );
       })}
@@ -141,7 +128,7 @@ function HBarChart({ players, valueKey, color }: {
 
 export function ChartsTab() {
   const [mode, setMode] = useState<Mode>("last10");
-  const [exporting, setExporting] = useState(false);
+  const [exportModal, setExportModal] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const { currentClub, players, matches } = useAppStore();
 
@@ -153,7 +140,7 @@ export function ChartsTab() {
     for (const m of sorted) {
       const c = m.clubs[currentClub.id] as Record<string, string> | undefined;
       if (!c) continue;
-      if (Number(c.wins)  > 0) wins++;
+      if (Number(c.wins) > 0) wins++;
       else if (Number(c.ties) > 0) ties++;
       else losses++;
       goals   += Number(c.goals)   || 0;
@@ -197,15 +184,9 @@ export function ChartsTab() {
     return aggregateMatchPlayers(sorted, currentClub.id);
   }, [mode, players, matches, currentClub]);
 
-  const topScorers = useMemo(() => [...playerSource].sort((a, b) => b.goals      - a.goals).slice(0, 5),      [playerSource]);
-  const topAssists = useMemo(() => [...playerSource].sort((a, b) => b.assists     - a.assists).slice(0, 5),    [playerSource]);
-  const topPasses  = useMemo(() => [...playerSource].sort((a, b) => b.passesMade  - a.passesMade).slice(0, 5), [playerSource]);
-
-  const handlePng = async () => {
-    if (!contentRef.current) return;
-    setExporting(true);
-    await exportPng(contentRef.current, `graphiques-${new Date().toISOString().slice(0, 10)}`).finally(() => setExporting(false));
-  };
+  const topScorers = useMemo(() => [...playerSource].sort((a, b) => b.goals     - a.goals).slice(0, 5),     [playerSource]);
+  const topAssists = useMemo(() => [...playerSource].sort((a, b) => b.assists    - a.assists).slice(0, 5),   [playerSource]);
+  const topPasses  = useMemo(() => [...playerSource].sort((a, b) => b.passesMade - a.passesMade).slice(0, 5), [playerSource]);
 
   if (!currentClub) return null;
 
@@ -219,20 +200,18 @@ export function ChartsTab() {
             padding: "6px 18px", borderRadius: 20, fontSize: 11,
             fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.1em", cursor: "pointer",
             border: `1px solid ${mode === m ? "var(--accent)" : "var(--border)"}`,
-            background: "transparent",
-            color: mode === m ? "var(--accent)" : "var(--muted)",
+            background: "transparent", color: mode === m ? "var(--accent)" : "var(--muted)",
             transition: "all 0.15s",
           }}>
             {m === "last10" ? "10 DERNIERS MATCHS" : "ALL TIME"}
           </button>
         ))}
-        <button onClick={handlePng} disabled={exporting} style={{ ...BTN, marginLeft: 8 }}>
+        <button onClick={() => setExportModal(true)} style={{ ...BTN, marginLeft: 8 }}>
           <Download size={11} /> PNG
         </button>
       </div>
 
       <div ref={contentRef} style={{ background: "var(--bg)" }}>
-        {/* Row 1 */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
           <ChartCard title="VICTOIRES / NULS / DEFAITES">
             <DonutChart data={wdlData} centerValue={wdlTotal} centerSub="MATCHS" />
@@ -246,8 +225,6 @@ export function ChartsTab() {
             <HBarChart players={topScorers} valueKey="goals" color="cyan" />
           </ChartCard>
         </div>
-
-        {/* Row 2 */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <ChartCard title="TOP PASSES DECISIVES">
             <HBarChart players={topAssists} valueKey="assists" color="orange" />
@@ -257,6 +234,12 @@ export function ChartsTab() {
           </ChartCard>
         </div>
       </div>
+
+      {exportModal && (
+        <ExportModal type="png" pngSourceEl={contentRef.current}
+          defaultFilename={`graphiques-${new Date().toISOString().slice(0, 10)}`}
+          onClose={() => setExportModal(false)} />
+      )}
     </div>
   );
 }

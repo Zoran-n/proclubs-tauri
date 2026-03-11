@@ -3,7 +3,6 @@ import { Save, Trash2, Plus } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { FORMATIONS, type Tactic } from "../../types";
 
-// Formation positions: [x, y] in SVG coords (0-100% of pitch)
 const FORMATION_POSITIONS: Record<string, { x: number; y: number; role: string }[]> = {
   "4-4-2": [
     { x: 50, y: 90, role: "GK" },
@@ -67,11 +66,11 @@ const FORMATION_POSITIONS: Record<string, { x: number; y: number; role: string }
 
 const SLIDERS = [
   { key: "defensiveStyle", label: "Style défensif" },
-  { key: "defensiveWidth", label: "Largeur (déf)" },
+  { key: "defensiveWidth", label: "Largeur déf." },
   { key: "defensiveDepth", label: "Profondeur" },
   { key: "offensiveStyle", label: "Style offensif" },
-  { key: "offensiveWidth", label: "Largeur (off)" },
-  { key: "playersInBox", label: "Joueurs dans la boîte" },
+  { key: "offensiveWidth", label: "Largeur off." },
+  { key: "playersInBox",   label: "Joueurs ds la boîte" },
 ];
 
 const defaultTactic = (): Tactic => ({
@@ -83,15 +82,24 @@ const defaultTactic = (): Tactic => ({
   eaCode: "",
 });
 
+const INPUT: React.CSSProperties = {
+  width: "100%",
+  background: "var(--bg)",
+  border: "1px solid var(--border)",
+  color: "var(--text)",
+  padding: "7px 10px",
+  borderRadius: 6,
+  fontSize: 12,
+  outline: "none",
+  transition: "border-color 0.15s",
+  boxSizing: "border-box",
+};
+
 export function TacticsTab() {
   const { tactics, saveTactic, deleteTactic, persistSettings } = useAppStore();
   const [current, setCurrent] = useState<Tactic>(defaultTactic());
 
-  const handleSave = () => {
-    saveTactic(current);
-    persistSettings();
-  };
-
+  const handleSave = () => { saveTactic(current); persistSettings(); };
   const handleLoad = (t: Tactic) => setCurrent({ ...t });
   const handleDelete = (id: string) => {
     deleteTactic(id);
@@ -102,146 +110,163 @@ export function TacticsTab() {
   const positions = FORMATION_POSITIONS[current.formation] ?? FORMATION_POSITIONS["4-3-3"];
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Left: pitch */}
-      <div className="flex-1 flex flex-col p-4 gap-3 overflow-y-auto">
-        {/* Formation selector */}
-        <div className="grid grid-cols-3 gap-1.5">
-          {FORMATIONS.map((f) => (
-            <button
-              key={f}
-              onClick={() => setCurrent((c) => ({ ...c, formation: f }))}
-              className={`py-1.5 rounded text-xs font-medium transition-colors ${
-                current.formation === f
-                  ? "bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30"
-                  : "bg-[#111820] text-slate-400 border border-white/10 hover:border-[var(--accent)]/20"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+    <div style={{ display: "flex", height: "100%", overflow: "hidden", background: "var(--bg)" }}>
+
+      {/* ── Left: pitch ──────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 16, gap: 12,
+        overflow: "hidden", minWidth: 0 }}>
+
+        {/* Formation dropdown */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <label style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em",
+            fontFamily: "'Bebas Neue', sans-serif", whiteSpace: "nowrap" }}>
+            FORMATION
+          </label>
+          <select
+            value={current.formation}
+            onChange={(e) => setCurrent((c) => ({ ...c, formation: e.target.value }))}
+            style={{ ...INPUT, width: "auto", flex: 1, cursor: "pointer" }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+          >
+            {FORMATIONS.map((f) => (
+              <option key={f} value={f}>{f}</option>
+            ))}
+          </select>
         </div>
 
-        {/* SVG Pitch */}
-        <div className="bg-[#0a1f0a] rounded-xl border border-white/10 overflow-hidden">
-          <svg viewBox="0 0 100 100" className="w-full" style={{ aspectRatio: "3/4" }}>
-            {/* Pitch markings */}
-            <rect x="0" y="0" width="100" height="100" fill="#0d2010" />
-            {/* Stripes */}
-            {Array.from({ length: 6 }).map((_, i) => (
-              <rect key={i} x="0" y={i * 17} width="100" height="8" fill="#0f2312" />
+        {/* SVG pitch — fills remaining space */}
+        <div style={{ flex: 1, background: "#0a1f0a", borderRadius: 10, border: "1px solid var(--border)",
+          overflow: "hidden", minHeight: 0, display: "flex", alignItems: "stretch" }}>
+          <svg viewBox="0 0 100 130" style={{ width: "100%", height: "100%", display: "block" }}
+            preserveAspectRatio="xMidYMid meet">
+            {/* Pitch background */}
+            <rect x="0" y="0" width="100" height="130" fill="#0d2010" />
+            {Array.from({ length: 7 }).map((_, i) => (
+              <rect key={i} x="0" y={i * 18 + 5} width="100" height="9" fill="#0f2312" />
             ))}
-            {/* Lines */}
-            <rect x="5" y="5" width="90" height="90" fill="none" stroke="#1a4020" strokeWidth="0.8" />
-            <line x1="5" y1="50" x2="95" y2="50" stroke="#1a4020" strokeWidth="0.5" />
-            <circle cx="50" cy="50" r="10" fill="none" stroke="#1a4020" strokeWidth="0.5" />
-            {/* Penalty areas */}
-            <rect x="22" y="5" width="56" height="15" fill="none" stroke="#1a4020" strokeWidth="0.5" />
-            <rect x="22" y="80" width="56" height="15" fill="none" stroke="#1a4020" strokeWidth="0.5" />
-            {/* Goal areas */}
-            <rect x="35" y="5" width="30" height="6" fill="none" stroke="#1a4020" strokeWidth="0.5" />
-            <rect x="35" y="89" width="30" height="6" fill="none" stroke="#1a4020" strokeWidth="0.5" />
+            {/* Outer lines */}
+            <rect x="5" y="5" width="90" height="120" fill="none" stroke="#1a4020" strokeWidth="0.8" />
+            {/* Centre line */}
+            <line x1="5" y1="65" x2="95" y2="65" stroke="#1a4020" strokeWidth="0.5" />
+            <circle cx="50" cy="65" r="10" fill="none" stroke="#1a4020" strokeWidth="0.5" />
+            <circle cx="50" cy="65" r="0.8" fill="#1a4020" />
+            {/* Top penalty area */}
+            <rect x="22" y="5" width="56" height="18" fill="none" stroke="#1a4020" strokeWidth="0.5" />
+            <rect x="35" y="5" width="30" height="7" fill="none" stroke="#1a4020" strokeWidth="0.5" />
+            <circle cx="50" cy="16" r="0.8" fill="#1a4020" />
+            {/* Bottom penalty area */}
+            <rect x="22" y="107" width="56" height="18" fill="none" stroke="#1a4020" strokeWidth="0.5" />
+            <rect x="35" y="118" width="30" height="7" fill="none" stroke="#1a4020" strokeWidth="0.5" />
+            <circle cx="50" cy="114" r="0.8" fill="#1a4020" />
 
-            {/* Player positions */}
-            {positions.map((pos, i) => (
-              <g key={i}>
-                <circle
-                  cx={pos.x}
-                  cy={pos.y}
-                  r="4.5"
-                  fill="var(--accent)"
-                  opacity="0.9"
-                />
-                <text
-                  x={pos.x}
-                  y={pos.y + 0.5}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontSize="2.8"
-                  fill="#000"
-                  fontWeight="bold"
-                >
-                  {pos.role}
-                </text>
-              </g>
-            ))}
+            {/* Player positions — remap y from 0-100 → 10-120 */}
+            {positions.map((pos, i) => {
+              const px = pos.x;
+              const py = 10 + (pos.y / 100) * 110;
+              return (
+                <g key={i}>
+                  <circle cx={px} cy={py} r="5" fill="var(--accent)" opacity="0.92" />
+                  <text x={px} y={py + 0.5} textAnchor="middle" dominantBaseline="middle"
+                    fontSize="3" fill="#000" fontWeight="bold">
+                    {pos.role}
+                  </text>
+                </g>
+              );
+            })}
           </svg>
         </div>
       </div>
 
-      {/* Right: controls */}
-      <div className="w-56 flex flex-col gap-2 p-3 border-l border-white/5 overflow-y-auto bg-[#0d1117]">
-        <input
-          value={current.name}
+      {/* ── Right: controls ──────────────────────────────────────── */}
+      <div style={{ width: 220, display: "flex", flexDirection: "column", gap: 10, padding: 14,
+        borderLeft: "1px solid var(--border)", overflowY: "auto", background: "var(--surface)" }}>
+
+        {/* Tactic name */}
+        <input value={current.name}
           onChange={(e) => setCurrent((c) => ({ ...c, name: e.target.value }))}
           placeholder="Nom de la tactique"
-          className="w-full bg-[#111820] text-slate-200 text-sm rounded px-2 py-1.5 border border-white/10 focus:outline-none focus:border-[var(--accent)]/50"
+          style={INPUT}
+          onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+          onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
         />
 
         {/* Sliders */}
-        {SLIDERS.map(({ key, label }) => (
-          <div key={key}>
-            <div className="flex justify-between mb-0.5">
-              <span className="text-[10px] text-slate-500">{label}</span>
-              <span className="text-[10px] text-slate-400">{Math.round(current.sliders[key] ?? 50)}</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {SLIDERS.map(({ key, label }) => (
+            <div key={key}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                <span style={{ fontSize: 10, color: "var(--muted)" }}>{label}</span>
+                <span style={{ fontSize: 10, color: "var(--text)", fontWeight: 600 }}>
+                  {Math.round(current.sliders[key] ?? 50)}
+                </span>
+              </div>
+              <input type="range" min={0} max={100} value={current.sliders[key] ?? 50}
+                onChange={(e) => setCurrent((c) => ({
+                  ...c, sliders: { ...c.sliders, [key]: Number(e.target.value) },
+                }))}
+                style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer" }}
+              />
             </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={current.sliders[key] ?? 50}
-              onChange={(e) =>
-                setCurrent((c) => ({
-                  ...c,
-                  sliders: { ...c.sliders, [key]: Number(e.target.value) },
-                }))
-              }
-              className="w-full h-1.5 accent-[var(--accent)] cursor-pointer"
-            />
-          </div>
-        ))}
+          ))}
+        </div>
 
         {/* EA Code */}
-        <input
-          value={current.eaCode ?? ""}
+        <input value={current.eaCode ?? ""}
           onChange={(e) => setCurrent((c) => ({ ...c, eaCode: e.target.value }))}
-          placeholder="Code EA (8 car.)"
-          maxLength={8}
-          className="w-full bg-[#111820] text-slate-200 text-sm rounded px-2 py-1.5 border border-white/10 focus:outline-none focus:border-[var(--accent)]/50 font-mono uppercase"
+          placeholder="Code EA (8 car.)" maxLength={8}
+          style={{ ...INPUT, textTransform: "uppercase", fontFamily: "monospace" }}
+          onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+          onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
         />
 
         {/* Notes */}
-        <textarea
-          value={current.notes}
+        <textarea value={current.notes}
           onChange={(e) => setCurrent((c) => ({ ...c, notes: e.target.value }))}
-          placeholder="Notes…"
-          rows={3}
-          className="w-full bg-[#111820] text-slate-300 text-xs rounded px-2 py-1.5 border border-white/10 focus:outline-none resize-none"
+          placeholder="Notes…" rows={3}
+          style={{ ...INPUT, resize: "none", lineHeight: 1.5 }}
+          onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+          onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
         />
 
-        {/* Actions */}
-        <button
-          onClick={handleSave}
-          className="flex items-center justify-center gap-1.5 py-1.5 bg-[var(--accent)]/20 text-[var(--accent)] rounded text-sm hover:bg-[var(--accent)]/30 transition-colors"
+        {/* Save button */}
+        <button onClick={handleSave} style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          padding: "8px 14px", background: "rgba(0,212,255,0.12)",
+          border: "1px solid rgba(0,212,255,0.3)", borderRadius: 6,
+          color: "var(--accent)", fontSize: 12, cursor: "pointer",
+          fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em",
+          transition: "background 0.15s",
+        }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,212,255,0.2)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(0,212,255,0.12)")}
         >
-          <Save size={13} /> Sauvegarder
+          <Save size={13} /> SAUVEGARDER
         </button>
 
+        {/* Saved tactics list */}
         {tactics.length > 0 && (
-          <div className="border-t border-white/5 pt-2">
-            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Sauvegardées</p>
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+            <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+              fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>
+              SAUVEGARDÉES
+            </p>
             {tactics.map((t) => (
-              <div key={t.id} className="flex items-center gap-1 group py-1">
-                <button
-                  onClick={() => handleLoad(t)}
-                  className="flex-1 text-left text-xs text-slate-400 hover:text-slate-200 truncate"
-                >
-                  {t.name} <span className="text-slate-600">{t.formation}</span>
+              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 4,
+                padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
+                <button onClick={() => handleLoad(t)} style={{
+                  flex: 1, textAlign: "left", background: "none", border: "none",
+                  cursor: "pointer", padding: 0,
+                }}>
+                  <span style={{ fontSize: 12, color: "var(--text)" }}>{t.name}</span>
+                  <span style={{ fontSize: 10, color: "var(--muted)", marginLeft: 6 }}>{t.formation}</span>
                 </button>
-                <button
-                  onClick={() => handleDelete(t.id)}
-                  className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400"
-                >
+                <button onClick={() => handleDelete(t.id)} style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "var(--muted)", padding: 2, display: "flex",
+                }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}>
                   <Trash2 size={11} />
                 </button>
               </div>
@@ -249,10 +274,12 @@ export function TacticsTab() {
           </div>
         )}
 
-        <button
-          onClick={() => setCurrent(defaultTactic())}
-          className="flex items-center justify-center gap-1.5 py-1.5 bg-white/5 text-slate-400 rounded text-xs hover:bg-white/10 transition-colors"
-        >
+        {/* New tactic button */}
+        <button onClick={() => setCurrent(defaultTactic())} style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          padding: "6px 14px", background: "var(--card)", border: "1px solid var(--border)",
+          borderRadius: 6, color: "var(--muted)", fontSize: 11, cursor: "pointer",
+        }}>
           <Plus size={11} /> Nouvelle
         </button>
       </div>

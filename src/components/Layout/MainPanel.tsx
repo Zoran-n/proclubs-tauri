@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BarChart2, Download, FileSpreadsheet } from "lucide-react";
+import { BarChart2 } from "lucide-react";
 import { useAppStore, type ActiveTab } from "../../store/useAppStore";
 import { PlayersTab } from "../tabs/PlayersTab";
 import { MatchesTab } from "../tabs/MatchesTab";
@@ -128,17 +128,6 @@ export function MainPanel() {
             </button>
           ))}
         </div>
-        {/* Export buttons */}
-        {currentClub && (
-          <div style={{ display: "flex", gap: 6 }}>
-            <button title="Exporter PNG" style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", fontSize: 10, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em", background: "var(--card)", border: "1px solid var(--border)", color: "var(--muted)", borderRadius: 4, cursor: "pointer" }}>
-              <Download size={11} /> PNG
-            </button>
-            <button title="Exporter XLS" style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", fontSize: 10, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em", background: "var(--card)", border: "1px solid var(--border)", color: "var(--muted)", borderRadius: 4, cursor: "pointer" }}>
-              <FileSpreadsheet size={11} /> XLS
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ── Content ─────────────────────────────────────────────────── */}

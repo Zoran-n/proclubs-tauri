@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Download } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { getMatches } from "../../api/tauri";
-import { exportCsv, exportPng } from "../../utils/export";
+import { ExportModal } from "../ui/ExportModal";
 import type { Match } from "../../types";
 
 const TYPES = [
@@ -31,17 +31,9 @@ function formatDuration(secs?: number) {
 }
 
 const BTN: React.CSSProperties = {
-  padding: "6px 10px",
-  background: "var(--card)",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  cursor: "pointer",
-  color: "var(--muted)",
-  fontSize: 11,
-  display: "flex",
-  alignItems: "center",
-  gap: 4,
-  flexShrink: 0,
+  padding: "6px 10px", background: "var(--card)", border: "1px solid var(--border)",
+  borderRadius: 6, cursor: "pointer", color: "var(--muted)", fontSize: 11,
+  display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
 };
 
 export function MatchesTab() {
@@ -50,7 +42,7 @@ export function MatchesTab() {
   const [cache, setCache] = useState<Partial<Record<string, Match[]>>>({ leagueMatch: leagueCache });
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Match | null>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setCache((c) => ({ ...c, leagueMatch: leagueCache })); }, [leagueCache]);
@@ -86,20 +78,12 @@ export function MatchesTab() {
     return String(det?.["name"] ?? opp?.["name"] ?? "Adversaire");
   };
 
-  const handlePng = async () => {
-    if (!contentRef.current) return;
-    setExporting(true);
-    await exportPng(contentRef.current, `matchs-${new Date().toISOString().slice(0, 10)}`).finally(() => setExporting(false));
-  };
-
-  const handleCsv = () => {
-    const headers = ["Date", "Adversaire", "Score", "Résultat", "Type"];
-    const rows = list.map((m) => [
-      formatDate(m.timestamp), getOppName(m), getScore(m),
-      RESULT_LABEL[getResult(m)].text, type,
-    ]);
-    exportCsv(headers, rows, `matchs-${new Date().toISOString().slice(0, 10)}`);
-  };
+  const csvHeaders = ["Date", "Adversaire", "Score", "Résultat", "Type"];
+  const csvRows = list.map((m) => [
+    formatDate(m.timestamp), getOppName(m), getScore(m),
+    RESULT_LABEL[getResult(m)].text, type,
+  ]);
+  const dateStr = new Date().toISOString().slice(0, 10);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg)" }}>
@@ -112,25 +96,23 @@ export function MatchesTab() {
             const active = type === t.value;
             return (
               <button key={t.value} onClick={() => setType(t.value)} style={{
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "6px 14px", borderRadius: 20,
+                display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20,
                 border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
                 background: active ? "rgba(0,212,255,0.08)" : "transparent",
                 color: active ? "var(--accent)" : "var(--muted)",
                 fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: 1,
                 cursor: "pointer", whiteSpace: "nowrap",
               }}>
-                <span>{t.icon}</span>
-                {t.label}
+                <span>{t.icon}</span>{t.label}
               </button>
             );
           })}
           {loading && <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>Chargement…</span>}
         </div>
-        <button onClick={handlePng} disabled={exporting} style={BTN}>
+        <button onClick={() => setExportModal("png")} style={BTN}>
           <Download size={11} /> PNG
         </button>
-        <button onClick={handleCsv} style={BTN}>
+        <button onClick={() => setExportModal("csv")} style={BTN}>
           <Download size={11} /> CSV
         </button>
       </div>
@@ -146,8 +128,7 @@ export function MatchesTab() {
           const rl  = RESULT_LABEL[res];
           return (
             <div key={m.matchId} style={{
-              display: "flex", alignItems: "center", gap: 16,
-              padding: "14px 18px",
+              display: "flex", alignItems: "center", gap: 16, padding: "14px 18px",
               background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
               transition: "border-color 0.15s",
             }}
@@ -188,6 +169,14 @@ export function MatchesTab() {
       {selected && (
         <MatchModal match={selected} clubId={currentClub?.id ?? ""} onClose={() => setSelected(null)} />
       )}
+      {exportModal === "png" && (
+        <ExportModal type="png" pngSourceEl={contentRef.current}
+          defaultFilename={`matchs-${dateStr}`} onClose={() => setExportModal(null)} />
+      )}
+      {exportModal === "csv" && (
+        <ExportModal type="csv" csvHeaders={csvHeaders} csvRows={csvRows}
+          defaultFilename={`matchs-${dateStr}`} onClose={() => setExportModal(null)} />
+      )}
     </div>
   );
 }
@@ -222,34 +211,26 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
       <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 580,
         maxHeight: "82vh", overflowY: "auto", border: "1px solid var(--border)" }}
         onClick={(e) => e.stopPropagation()}>
-
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
           <div>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32,
-              color: "#eab308", letterSpacing: 2 }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: "#eab308", letterSpacing: 2 }}>
               {myGoals} — {oppGoals}
             </div>
-            <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginTop: 2 }}>
-              vs {oppName}
-            </div>
+            <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginTop: 2 }}>vs {oppName}</div>
             <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
               {formatDate(match.timestamp)}
               {match.matchDuration ? ` · ${formatDuration(match.matchDuration)}` : ""}
-              <span style={{ color: rl.color, fontFamily: "'Bebas Neue', sans-serif",
-                marginLeft: 10, letterSpacing: 1 }}>{rl.text}</span>
+              <span style={{ color: rl.color, fontFamily: "'Bebas Neue', sans-serif", marginLeft: 10, letterSpacing: 1 }}>{rl.text}</span>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none",
-            color: "var(--muted)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
         </div>
-
         {myPlayers.length > 0 ? (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 {["Joueur", "Note", "Buts", "PD", "Passes", "MOTM"].map((h) => (
-                  <th key={h} style={{ padding: "4px 8px", textAlign: "left", fontSize: 10,
-                    color: "var(--muted)", fontWeight: "normal" }}>{h}</th>
+                  <th key={h} style={{ padding: "4px 8px", textAlign: "left", fontSize: 10, color: "var(--muted)", fontWeight: "normal" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -257,10 +238,7 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
               {myPlayers.map((p, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
                   <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.name}</td>
-                  <td style={{ padding: "6px 8px", fontWeight: "bold",
-                    color: p.rating >= 7.5 ? "var(--green)" : p.rating >= 6 ? "#eab308" : "var(--red)" }}>
-                    {p.rating.toFixed(1)}
-                  </td>
+                  <td style={{ padding: "6px 8px", fontWeight: "bold", color: p.rating >= 7.5 ? "var(--green)" : p.rating >= 6 ? "#eab308" : "var(--red)" }}>{p.rating.toFixed(1)}</td>
                   <td style={{ padding: "6px 8px", color: "var(--accent)" }}>{p.goals || "—"}</td>
                   <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.assists || "—"}</td>
                   <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.passes}</td>
@@ -270,9 +248,7 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
             </tbody>
           </table>
         ) : (
-          <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, marginTop: 16 }}>
-            Pas de stats joueurs
-          </p>
+          <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, marginTop: 16 }}>Pas de stats joueurs</p>
         )}
       </div>
     </div>
