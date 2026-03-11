@@ -33,6 +33,7 @@ jobs:
         run: npm ci
 
       - name: Build & publish release
+        id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,3 +55,65 @@ jobs:
           releaseDraft: false
           prerelease: false
           updaterJsonKeepUniversal: true
+
+      - name: Generate latest.json for updater
+        shell: pwsh
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          $tag = "v$version"
+          $repo = "${{ github.repository }}"
+
+          # Find the NSIS .sig file
+          $nsisZipSig = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*.nsis.zip.sig" | Select-Object -First 1
+          $nsisZip = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*.nsis.zip" | Where-Object { $_.Name -notmatch '\.sig$' } | Select-Object -First 1
+
+          if (-not $nsisZipSig -or -not $nsisZip) {
+            Write-Error "Could not find NSIS zip or signature files"
+            exit 1
+          }
+
+          $signature = Get-Content $nsisZipSig.FullName -Raw
+          $downloadUrl = "https://github.com/$repo/releases/download/$tag/$($nsisZip.Name -replace ' ', '.')"
+
+          # Upload the .nsis.zip to the release (not uploaded by default)
+          gh release upload $tag "$($nsisZip.FullName)" --repo $repo --clobber 2>$null
+
+          # Build the actual download URL from the release asset
+          $assets = gh release view $tag --repo $repo --json assets --jq '.assets[].name' | Out-String
+          # Find the nsis.zip asset name
+          $nsisAssetName = ($assets -split "`n" | Where-Object { $_ -match 'nsis\.zip' -and $_ -notmatch '\.sig' } | Select-Object -First 1).Trim()
+
+          if (-not $nsisAssetName) {
+            Write-Host "nsis.zip not found in release assets, using exe instead"
+            # Fallback: use the setup.exe with its sig
+            $exeSig = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*-setup.exe.sig" | Select-Object -First 1
+            $exeAssetName = ($assets -split "`n" | Where-Object { $_ -match 'setup\.exe' } | Select-Object -First 1).Trim()
+
+            if ($exeSig -and $exeAssetName) {
+              $signature = Get-Content $exeSig.FullName -Raw
+              $downloadUrl = "https://github.com/$repo/releases/download/$tag/$exeAssetName"
+            }
+          } else {
+            $downloadUrl = "https://github.com/$repo/releases/download/$tag/$nsisAssetName"
+          }
+
+          $json = @{
+            version = $version
+            notes = "ProClubs Stats $tag"
+            pub_date = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+            platforms = @{
+              "windows-x86_64" = @{
+                signature = $signature.Trim()
+                url = $downloadUrl
+              }
+            }
+          } | ConvertTo-Json -Depth 4
+
+          $json | Out-File -FilePath "latest.json" -Encoding UTF8
+          Write-Host "Generated latest.json:"
+          Write-Host $json
+
+          # Upload latest.json to the release
+          gh release upload $tag "latest.json" --repo $repo --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
