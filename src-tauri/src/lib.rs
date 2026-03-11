@@ -36,6 +36,7 @@ pub fn run() {
             set_proxy,
             get_season_history,
             get_leaderboard,
+            check_for_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

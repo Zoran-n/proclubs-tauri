@@ -169,6 +169,36 @@ pub async fn get_season_history(
     ea_client.get_season_history(&club_id, &platform).await.map_err(|e| e.to_string())
 }
 
+/// Check for app updates by fetching latest.json from GitHub
+#[tauri::command]
+pub async fn check_for_update(
+    current_version: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let resp = client
+        .get("https://github.com/Zoran-n/proclubs-tauri/releases/latest/download/latest.json")
+        .header("User-Agent", "ProClubs-Stats-Updater")
+        .send()
+        .await
+        .map_err(|e| format!("Requête échouée: {}", e))?;
+    let json: serde_json::Value = resp.json().await.map_err(|e| format!("JSON invalide: {}", e))?;
+    let remote_version = json.get("version").and_then(|v| v.as_str()).unwrap_or("0.0.0");
+    let has_update = remote_version != current_version;
+    Ok(serde_json::json!({
+        "available": has_update,
+        "version": remote_version,
+        "notes": json.get("notes").and_then(|v| v.as_str()).unwrap_or(""),
+        "url": json.get("platforms")
+            .and_then(|p| p.get("windows-x86_64"))
+            .and_then(|w| w.get("url"))
+            .and_then(|u| u.as_str())
+            .unwrap_or("")
+    }))
+}
+
 /// Fetch the all-time leaderboard for a platform
 #[tauri::command]
 pub async fn get_leaderboard(

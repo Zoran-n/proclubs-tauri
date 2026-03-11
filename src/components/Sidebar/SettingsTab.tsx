@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { Check, RefreshCw, Download } from "lucide-react";
+import { Check, RefreshCw, Download, ExternalLink } from "lucide-react";
 import { check as checkUpdate } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { getVersion } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAppStore } from "../../store/useAppStore";
 import { THEMES } from "../../types";
 
@@ -22,11 +24,15 @@ export function SettingsTab() {
 
   const apply = (fn: () => void) => { fn(); persistSettings(); };
 
+  const [updateUrl, setUpdateUrl] = useState<string | null>(null);
+
   const handleCheckUpdate = async () => {
     setUpdateStatus("checking");
     setUpdateVersion(null);
     setUpdateError(null);
+    setUpdateUrl(null);
     try {
+      // Try plugin updater first (supports auto-install)
       const update = await checkUpdate();
       if (update?.available) {
         setUpdateVersion(update.version);
@@ -37,12 +43,28 @@ export function SettingsTab() {
         setUpdateStatus("up-to-date");
         setTimeout(() => setUpdateStatus("idle"), 3000);
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("[updater]", msg);
-      setUpdateError(msg);
-      setUpdateStatus("error");
-      setTimeout(() => { setUpdateStatus("idle"); setUpdateError(null); }, 10000);
+    } catch (pluginErr) {
+      console.warn("[updater] plugin failed, trying manual check...", pluginErr);
+      try {
+        // Fallback: check via our own Rust backend (reqwest)
+        const result = await invoke<{ available: boolean; version: string; notes: string; url: string }>(
+          "check_for_update", { currentVersion: appVersion }
+        );
+        if (result.available) {
+          setUpdateVersion(result.version);
+          setUpdateUrl(`https://github.com/Zoran-n/proclubs-tauri/releases/latest`);
+          setUpdateStatus("downloading");
+        } else {
+          setUpdateStatus("up-to-date");
+          setTimeout(() => setUpdateStatus("idle"), 3000);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[updater]", msg);
+        setUpdateError(msg);
+        setUpdateStatus("error");
+        setTimeout(() => { setUpdateStatus("idle"); setUpdateError(null); }, 10000);
+      }
     }
   };
 
@@ -182,11 +204,23 @@ export function SettingsTab() {
           transition: "all 0.2s",
         }}>
         {updateStatus === "checking" && <><RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> VÉRIFICATION…</>}
-        {updateStatus === "downloading" && <><Download size={12} /> INSTALLATION v{updateVersion}…</>}
+        {updateStatus === "downloading" && !updateUrl && <><Download size={12} /> INSTALLATION v{updateVersion}…</>}
+        {updateStatus === "downloading" && updateUrl && <><ExternalLink size={12} /> v{updateVersion} DISPONIBLE</>}
         {updateStatus === "up-to-date" && <><Check size={12} /> À JOUR</>}
         {updateStatus === "error" && <><RefreshCw size={12} /> ERREUR — RÉESSAYER</>}
         {updateStatus === "idle" && <><RefreshCw size={12} /> VÉRIFIER LES MISES À JOUR</>}
       </button>
+      {updateStatus === "downloading" && updateUrl && (
+        <button onClick={() => openUrl(updateUrl)} style={{
+          width: "100%", marginTop: 6, padding: "8px 10px",
+          background: "var(--accent)", color: "#000", border: "none",
+          borderRadius: 6, cursor: "pointer", display: "flex",
+          alignItems: "center", justifyContent: "center", gap: 6,
+          fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em",
+        }}>
+          <Download size={12} /> TÉLÉCHARGER v{updateVersion}
+        </button>
+      )}
       {updateStatus === "error" && updateError && (
         <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(239,68,68,0.08)",
           border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6 }}>
