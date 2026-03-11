@@ -87,19 +87,9 @@ jobs:
           if (-not $exe) { Write-Error "No NSIS exe found"; exit 1 }
           Write-Host "Found: $($exe.Name)"
 
-          # Create zip for updater (use .NET ZipFile with Deflate — Tauri requires it)
-          $zipName = $exe.Name -replace '-setup\.exe$', '-setup.nsis.zip'
-          $zipPath = Join-Path $exe.DirectoryName $zipName
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-          $zip = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
-          [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $exe.FullName, $exe.Name, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
-          $zip.Dispose()
-          Write-Host "Created zip: $zipName"
-
-          # Sign the zip with tauri signer
-          $sigPath = "$zipPath.sig"
-          npm run tauri -- signer sign $zipPath
+          # Sign the exe directly with tauri signer (no zip needed for NSIS)
+          $sigPath = "$($exe.FullName).sig"
+          npm run tauri -- signer sign $exe.FullName
           if (-not (Test-Path $sigPath)) {
             Write-Error "Signing failed - no .sig file generated"
             exit 1
@@ -121,12 +111,8 @@ jobs:
             Write-Host "Uploaded: $($msi.Name)"
           }
 
-          # Upload nsis.zip (for updater downloads)
-          gh release upload $tag $zipPath --repo $repo --clobber
-          Write-Host "Uploaded: $zipName"
-
           # Generate latest.json — GitHub replaces spaces with dots in asset names
-          $assetName = $zipName -replace ' ', '.'
+          $assetName = $exe.Name -replace ' ', '.'
           $downloadUrl = "https://github.com/$repo/releases/download/$tag/$assetName"
           $json = @"
           {
