@@ -72,77 +72,58 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Tauri app (with signing)
+      - name: Build Tauri app
         run: npm run tauri build
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      - name: List build artifacts
-        shell: pwsh
-        run: |
-          Write-Host "=== NSIS ==="
-          Get-ChildItem "src-tauri/target/release/bundle/nsis" | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
-          Write-Host "=== MSI ==="
-          Get-ChildItem "src-tauri/target/release/bundle/msi" | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
-
-      - name: Create release and upload artifacts
+      - name: Sign, release and generate updater JSON
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.TAG }}"
           $version = "${{ steps.version.outputs.VERSION }}"
           $repo = "${{ github.repository }}"
 
-          # Create release (or update if exists)
-          gh release create $tag --repo $repo --title "ProClubs Stats $tag" --notes @"
-          ## ProClubs Stats $tag
-
-          Application desktop pour les statistiques EA FC Pro Clubs.
-
-          ### Installation Windows
-          Telecharge le fichier .msi ou .exe ci-dessous.
-
-          ### Mise a jour automatique
-          Si tu as deja une version installee, l'app proposera la mise a jour automatiquement.
-          "@ 2>$null
-
-          # Upload NSIS exe
+          # Find NSIS exe
           $exe = Get-ChildItem "src-tauri/target/release/bundle/nsis" | Where-Object { $_.Name -match '-setup\.exe$' } | Select-Object -First 1
-          if ($exe) {
-            gh release upload $tag $exe.FullName --repo $repo --clobber
-            Write-Host "Uploaded: $($exe.Name)"
+          if (-not $exe) { Write-Error "No NSIS exe found"; exit 1 }
+          Write-Host "Found: $($exe.Name)"
+
+          # Create zip for updater
+          $zipName = $exe.Name -replace '-setup\.exe$', '-setup.nsis.zip'
+          $zipPath = Join-Path $exe.DirectoryName $zipName
+          Compress-Archive -Path $exe.FullName -DestinationPath $zipPath -Force
+          Write-Host "Created zip: $zipName"
+
+          # Sign the zip with tauri signer
+          $sigPath = "$zipPath.sig"
+          npm run tauri -- signer sign $zipPath
+          if (-not (Test-Path $sigPath)) {
+            Write-Error "Signing failed - no .sig file generated"
+            exit 1
           }
+          $signature = [IO.File]::ReadAllText($sigPath).Trim()
+          Write-Host "Signed! Signature: $($signature.Substring(0, 20))..."
+
+          # Create GitHub release
+          gh release create $tag --repo $repo --title "ProClubs Stats $tag" --notes "## ProClubs Stats $tag`n`nApplication desktop pour les statistiques EA FC Pro Clubs.`n`n### Installation Windows`nTelecharge le fichier .exe ci-dessous.`n`n### Mise a jour automatique`nSi tu as deja une version installee, l'app proposera la mise a jour automatiquement." 2>$null
+
+          # Upload exe
+          gh release upload $tag $exe.FullName --repo $repo --clobber
+          Write-Host "Uploaded: $($exe.Name)"
 
           # Upload MSI
-          $msi = Get-ChildItem "src-tauri/target/release/bundle/msi" | Where-Object { $_.Name -match '\.msi$' -and $_.Name -notmatch '\.sig' } | Select-Object -First 1
+          $msi = Get-ChildItem "src-tauri/target/release/bundle/msi" | Where-Object { $_.Name -match '\.msi$' } | Select-Object -First 1
           if ($msi) {
             gh release upload $tag $msi.FullName --repo $repo --clobber
             Write-Host "Uploaded: $($msi.Name)"
           }
 
-          # Upload nsis.zip (for updater)
-          $nsisZip = Get-ChildItem "src-tauri/target/release/bundle/nsis" | Where-Object { $_.Name -match '\.nsis\.zip$' } | Select-Object -First 1
-          if ($nsisZip) {
-            gh release upload $tag $nsisZip.FullName --repo $repo --clobber
-            Write-Host "Uploaded: $($nsisZip.Name)"
-          }
+          # Upload nsis.zip (for updater downloads)
+          gh release upload $tag $zipPath --repo $repo --clobber
+          Write-Host "Uploaded: $zipName"
 
-          # Find signature for latest.json
-          $nsisZipSig = Get-ChildItem "src-tauri/target/release/bundle/nsis" | Where-Object { $_.Name -match '\.nsis\.zip\.sig$' } | Select-Object -First 1
-
-          if ($nsisZip -and $nsisZipSig) {
-            $signature = [IO.File]::ReadAllText($nsisZipSig.FullName).Trim()
-            $url = "https://github.com/$repo/releases/download/$tag/$([Uri]::EscapeDataString($nsisZip.Name))"
-          } elseif ($exe) {
-            $exeSig = Get-ChildItem "src-tauri/target/release/bundle/nsis" | Where-Object { $_.Name -match '-setup\.exe\.sig$' } | Select-Object -First 1
-            if ($exeSig) {
-              $signature = [IO.File]::ReadAllText($exeSig.FullName).Trim()
-              $url = "https://github.com/$repo/releases/download/$tag/$([Uri]::EscapeDataString($exe.Name))"
-            }
-          }
-
-          if ($signature -and $url) {
-            $json = @"
+          # Generate latest.json
+          $downloadUrl = "https://github.com/$repo/releases/download/$tag/$([Uri]::EscapeDataString($zipName))"
+          $json = @"
           {
             "version": "$version",
             "notes": "ProClubs Stats $tag",
@@ -150,20 +131,19 @@ jobs:
             "platforms": {
               "windows-x86_64": {
                 "signature": "$signature",
-                "url": "$url"
+                "url": "$downloadUrl"
               }
             }
           }
           "@
-            [IO.File]::WriteAllText("latest.json", $json.Trim())
-            Write-Host "=== latest.json ==="
-            Get-Content latest.json
-            gh release upload $tag "latest.json" --repo $repo --clobber
-            Write-Host "latest.json uploaded!"
-          } else {
-            Write-Host "WARNING: No signature found, latest.json not generated"
-            Write-Host "Signing may have failed. Check TAURI_SIGNING_PRIVATE_KEY secret."
-          }
+          [IO.File]::WriteAllText("latest.json", $json.Trim())
+          Write-Host "=== latest.json ==="
+          Get-Content latest.json
+
+          gh release upload $tag "latest.json" --repo $repo --clobber
+          Write-Host "Done! Release $tag with latest.json uploaded."
           exit 0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
