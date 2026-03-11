@@ -15,6 +15,47 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Auto-increment version if tag exists
+        id: version
+        shell: pwsh
+        run: |
+          $conf = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
+          $base = $conf.version
+          $parts = $base -split '\.'
+          $major = [int]$parts[0]
+          $minor = [int]$parts[1]
+          $patch = [int]$parts[2]
+
+          # Check if tag already exists, if so increment patch
+          $version = "$major.$minor.$patch"
+          while ($true) {
+            $tag = "v$version"
+            $exists = gh release view $tag --repo ${{ github.repository }} 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              break
+            }
+            $patch++
+            $version = "$major.$minor.$patch"
+            Write-Host "Tag $tag exists, trying v$version..."
+          }
+
+          Write-Host "Final version: $version"
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+
+          # Patch all 3 config files with the final version
+          $conf.version = $version
+          $conf | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json -Encoding UTF8
+
+          $cargo = Get-Content src-tauri/Cargo.toml -Raw
+          $cargo = $cargo -replace 'version = "[\d\.]+"', "version = `"$version`""
+          Set-Content src-tauri/Cargo.toml -Value $cargo -Encoding UTF8 -NoNewline
+
+          $pkg = Get-Content package.json | ConvertFrom-Json
+          $pkg.version = $version
+          $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json -Encoding UTF8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -59,7 +100,7 @@ jobs:
       - name: Generate latest.json for updater
         shell: pwsh
         run: |
-          $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          $version = "${{ steps.version.outputs.VERSION }}"
           $tag = "v$version"
           $repo = "${{ github.repository }}"
 
@@ -73,19 +114,16 @@ jobs:
           }
 
           $signature = Get-Content $nsisZipSig.FullName -Raw
-          $downloadUrl = "https://github.com/$repo/releases/download/$tag/$($nsisZip.Name -replace ' ', '.')"
 
-          # Upload the .nsis.zip to the release (not uploaded by default)
+          # Upload the .nsis.zip to the release
           gh release upload $tag "$($nsisZip.FullName)" --repo $repo --clobber 2>$null
 
-          # Build the actual download URL from the release asset
+          # Get the actual asset name from the release
           $assets = gh release view $tag --repo $repo --json assets --jq '.assets[].name' | Out-String
-          # Find the nsis.zip asset name
           $nsisAssetName = ($assets -split "`n" | Where-Object { $_ -match 'nsis\.zip' -and $_ -notmatch '\.sig' } | Select-Object -First 1).Trim()
 
           if (-not $nsisAssetName) {
             Write-Host "nsis.zip not found in release assets, using exe instead"
-            # Fallback: use the setup.exe with its sig
             $exeSig = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*-setup.exe.sig" | Select-Object -First 1
             $exeAssetName = ($assets -split "`n" | Where-Object { $_ -match 'setup\.exe' } | Select-Object -First 1).Trim()
 
@@ -113,7 +151,7 @@ jobs:
           Write-Host "Generated latest.json:"
           Write-Host $json
 
-          # Upload latest.json to the release
+          # Upload latest.json to the release (always to 'latest' tag too)
           gh release upload $tag "latest.json" --repo $repo --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
