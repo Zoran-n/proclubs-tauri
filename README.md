@@ -1,4 +1,6 @@
-# ProClubs Stats
+# ProClubs Stats `v0.2.0`
+
+> Créé par **Tatsuki**
 
 Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. Construite avec **Tauri 2** (Rust) + **React** + **TypeScript**.
 

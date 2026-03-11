@@ -24,8 +24,13 @@ export function useSession() {
       const current = useAppStore.getState().activeSession;
       if (!current) return;
       const knownIds = current.matches.map((m) => m.matchId);
+      // Only keep matches played AFTER the session started
+      const sessionStartSec = Math.floor(new Date(current.date).getTime() / 1000);
       try {
-        const newMatches = await pollSession(clubId, platform, knownIds);
+        const fetched = await pollSession(clubId, platform, knownIds);
+        const newMatches = fetched.filter(
+          (m) => Number(m.timestamp) >= sessionStartSec
+        );
         if (newMatches.length > 0) {
           addSessionMatch(newMatches);
           addLog(`Session: ${newMatches.length} nouveau(x) match(s)`);
