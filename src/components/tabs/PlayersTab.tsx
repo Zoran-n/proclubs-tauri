@@ -119,7 +119,7 @@ export function PlayersTab() {
           </thead>
           <tbody>
             {sorted.map((p, i) => {
-              const posLabel = POS_LABELS[p.position] ?? p.position ?? "—";
+              const posLabel = POS_LABELS[p.position] || p.position || "—";
               return (
                 <tr key={`${p.name}-${i}`} className="player-row"
                   onClick={() => setSelected(p)}>

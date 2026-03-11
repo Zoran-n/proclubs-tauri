@@ -2,8 +2,8 @@ import { create } from "zustand";
 import type { Club, Player, Match, Session, Tactic, EaProfile } from "../types";
 import { saveSettings as apiSave, loadSettings as apiLoad, setProxy as apiSetProxy } from "../api/tauri";
 
-export type ActiveTab = "players" | "matches" | "charts" | "session" | "tactics";
-export type SidebarTab = "search" | "favs" | "session" | "compare" | "settings";
+export type ActiveTab = "players" | "matches" | "charts" | "session" | "tactics" | "compare";
+export type SidebarTab = "search" | "favs" | "settings";
 
 interface AppState {
   currentClub: Club | null;

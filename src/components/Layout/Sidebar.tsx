@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Star } from "lucide-react";
+import { Star, Search, Settings } from "lucide-react";
 import { useAppStore, type SidebarTab } from "../../store/useAppStore";
 import { SearchTab } from "../Sidebar/SearchTab";
-import { CompareTab } from "../Sidebar/CompareTab";
 import { SettingsTab } from "../Sidebar/SettingsTab";
 import { useClub } from "../../hooks/useClub";
 import { getLogo } from "../../api/tauri";
 import type { Club } from "../../types";
+import type { ReactNode } from "react";
 
 function ClubLogo({ club, size = 36 }: { club: Club; size?: number }) {
   const [logo, setLogo] = useState<string | null>(null);
@@ -28,11 +28,10 @@ function ClubLogo({ club, size = 36 }: { club: Club; size?: number }) {
   );
 }
 
-const TABS: { id: SidebarTab; label: string }[] = [
-  { id: "search",   label: "RECHERCHE" },
-  { id: "favs",     label: "FAVORIS" },
-  { id: "compare",  label: "COMPARER" },
-  { id: "settings", label: "PARAMS" },
+const TABS: { id: SidebarTab; icon: ReactNode; title: string }[] = [
+  { id: "search",   icon: <Search size={16} />,   title: "Recherche" },
+  { id: "favs",     icon: <Star size={16} />,     title: "Favoris" },
+  { id: "settings", icon: <Settings size={16} />, title: "Paramètres" },
 ];
 
 export function Sidebar() {
@@ -45,27 +44,29 @@ export function Sidebar() {
       borderRight: "1px solid var(--border)",
       background: "var(--surface)",
     }}>
-      {/* Tab bar */}
+      {/* Tab bar — icons only */}
       <div style={{ display: "flex", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-        {TABS.map((tab) => (
-          <button key={tab.id} onClick={() => setSidebarTab(tab.id)} style={{
-            flex: 1, padding: "10px 4px", fontSize: 9, letterSpacing: "0.08em",
-            fontFamily: "'Bebas Neue', sans-serif",
-            color: sidebarTab === tab.id ? "var(--accent)" : "var(--muted)",
-            background: "none", border: "none", cursor: "pointer",
-            borderBottom: sidebarTab === tab.id ? "2px solid var(--accent)" : "2px solid transparent",
-            transition: "color 0.15s",
-          }}>
-            {tab.label}
-          </button>
-        ))}
+        {TABS.map((tab) => {
+          const active = sidebarTab === tab.id;
+          return (
+            <button key={tab.id} onClick={() => setSidebarTab(tab.id)} title={tab.title} style={{
+              flex: 1, padding: "12px 4px",
+              color: active ? "var(--accent)" : "var(--muted)",
+              background: "none", border: "none", cursor: "pointer",
+              borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
+              transition: "color 0.15s",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {tab.icon}
+            </button>
+          );
+        })}
       </div>
 
       {/* Content */}
       <div key={sidebarTab} className="sidebar-tab" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {sidebarTab === "search"   && <SearchTab />}
         {sidebarTab === "favs"     && <FavsTab />}
-        {sidebarTab === "compare"  && <CompareTab />}
         {sidebarTab === "settings" && <SettingsTab />}
       </div>
     </aside>

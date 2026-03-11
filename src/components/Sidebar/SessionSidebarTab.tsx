@@ -118,7 +118,7 @@ export function SessionSidebarTab() {
               return acc + Number(c?.["goals"] ?? 0);
             }, 0);
             return (
-              <div key={s.id} onClick={() => { setViewingSession(s); setActiveTab("session"); setSidebarTab("session"); }}
+              <div key={s.id} onClick={() => { setViewingSession(s); setActiveTab("session"); setSidebarTab("search"); }}
                 style={{ padding: "6px 0", borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
                 <p style={{ fontSize: 12, color: "var(--text)" }}>{s.clubName}</p>
                 <p style={{ fontSize: 10, color: "var(--muted)" }}>

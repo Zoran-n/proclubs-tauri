@@ -3,13 +3,11 @@ import { useAppStore, type SidebarTab } from "../../store/useAppStore";
 const TABS: { id: SidebarTab; label: string }[] = [
   { id: "search",   label: "CHERCHE" },
   { id: "favs",     label: "FAVORIS" },
-  { id: "session",  label: "SESSION" },
-  { id: "compare",  label: "COMPARER" },
   { id: "settings", label: "PARAMS" },
 ];
 
 export function SidebarNav() {
-  const { sidebarTab, setSidebarTab, activeSession } = useAppStore();
+  const { sidebarTab, setSidebarTab } = useAppStore();
   return (
     <div style={{ display: "flex", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
       {TABS.map((t) => (
@@ -26,9 +24,6 @@ export function SidebarNav() {
           }}
         >
           {t.label}
-          {t.id === "session" && activeSession && (
-            <span className="pulse-dot" style={{ position: "absolute", top: 4, right: 4 }} />
-          )}
         </button>
       ))}
     </div>

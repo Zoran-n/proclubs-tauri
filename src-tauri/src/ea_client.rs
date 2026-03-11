@@ -228,7 +228,8 @@ fn parse_player(v: &serde_json::Value) -> Option<Player> {
     let name = v.get("name").or_else(|| v.get("blazeId"))?.as_str()?.to_string();
     Some(Player {
         name,
-        position: v.get("position").and_then(|s| s.as_str()).unwrap_or("").to_string(),
+        position: v.get("proPos").or_else(|| v.get("position"))
+            .and_then(|s| s.as_str()).unwrap_or("").to_string(),
         goals: parse_u32(v, "goals"),
         assists: parse_u32(v, "assists"),
         passes_made: parse_u32(v, "passesMade").max(parse_u32(v, "passesmade")),
