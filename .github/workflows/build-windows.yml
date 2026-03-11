@@ -121,8 +121,9 @@ jobs:
           gh release upload $tag $zipPath --repo $repo --clobber
           Write-Host "Uploaded: $zipName"
 
-          # Generate latest.json
-          $downloadUrl = "https://github.com/$repo/releases/download/$tag/$([Uri]::EscapeDataString($zipName))"
+          # Generate latest.json — GitHub replaces spaces with dots in asset names
+          $assetName = $zipName -replace ' ', '.'
+          $downloadUrl = "https://github.com/$repo/releases/download/$tag/$assetName"
           $json = @"
           {
             "version": "$version",
