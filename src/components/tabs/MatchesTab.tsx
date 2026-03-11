@@ -4,21 +4,28 @@ import { getMatches } from "../../api/tauri";
 import type { Match } from "../../types";
 
 const TYPES = [
-  { value: "leagueMatch", label: "⚽ Championnat" },
-  { value: "playoffMatch", label: "🏆 Playoff" },
-  { value: "friendlyMatch", label: "🤝 Amical" },
+  { value: "leagueMatch",   label: "CHAMPIONNAT", icon: "⚽" },
+  { value: "playoffMatch",  label: "PLAYOFF",     icon: "🏆" },
+  { value: "friendlyMatch", label: "AMICAL",      icon: "🤝" },
 ] as const;
+
+const RESULT_LABEL: Record<string, { text: string; color: string }> = {
+  W: { text: "VICTOIRE", color: "var(--green)" },
+  D: { text: "NUL",      color: "#eab308" },
+  L: { text: "DEFAITE",  color: "var(--red)" },
+};
+
+function formatDate(ts: string | number) {
+  const n = Number(ts) * 1000 || Number(ts);
+  const d = new Date(isNaN(n) ? ts : n);
+  if (isNaN(d.getTime())) return String(ts);
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
 
 function formatDuration(secs?: number) {
   if (!secs) return "";
   const m = Math.floor(secs / 60), s = secs % 60;
   return `${m}min ${s}s`;
-}
-
-function formatDate(ts: string) {
-  const n = Number(ts) * 1000 || Number(ts);
-  const d = new Date(isNaN(n) ? ts : n);
-  return isNaN(d.getTime()) ? ts : d.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 export function MatchesTab() {
@@ -42,17 +49,16 @@ export function MatchesTab() {
 
   const getResult = (m: Match): "W" | "D" | "L" => {
     const c = m.clubs[currentClub?.id ?? ""] as Record<string, unknown> | undefined;
-    const r = c?.["matchResult"] as string | undefined;
-    if (r === "win" || c?.["wins"] === "1") return "W";
-    if (r === "loss" || c?.["losses"] === "1") return "L";
+    if (c?.["wins"] === "1") return "W";
+    if (c?.["losses"] === "1") return "L";
     return "D";
   };
 
   const getScore = (m: Match) => {
     const myId = currentClub?.id ?? "";
-    const my = m.clubs[myId] as Record<string, unknown> | undefined;
+    const my  = m.clubs[myId] as Record<string, unknown> | undefined;
     const opp = Object.entries(m.clubs).find(([k]) => k !== myId)?.[1] as Record<string, unknown> | undefined;
-    return `${my?.["goals"] ?? "?"} - ${opp?.["goals"] ?? "?"}`;
+    return `${my?.["goals"] ?? "?"}-${opp?.["goals"] ?? "?"}`;
   };
 
   const getOppName = (m: Match) => {
@@ -62,72 +68,141 @@ export function MatchesTab() {
     return String(det?.["name"] ?? opp?.["name"] ?? "Adversaire");
   };
 
-  const RC: Record<string, string> = { W: "var(--green)", D: "#eab308", L: "var(--red)" };
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ display: "flex", gap: 6, padding: "8px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-        {TYPES.map((t) => (
-          <button key={t.value} onClick={() => setType(t.value)}
-            style={{ padding: "5px 12px", background: type === t.value ? "rgba(0,212,255,0.15)" : "transparent", color: type === t.value ? "var(--accent)" : "var(--muted)", border: `1px solid ${type === t.value ? "var(--accent)" : "var(--border)"}`, borderRadius: 4, fontSize: 12, cursor: "pointer" }}>
-            {t.label}
-          </button>
-        ))}
-        {loading && <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>Chargement…</span>}
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg)" }}>
+
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 8, padding: "12px 16px", flexShrink: 0 }}>
+        {TYPES.map((t) => {
+          const active = type === t.value;
+          return (
+            <button key={t.value} onClick={() => setType(t.value)} style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "6px 14px", borderRadius: 20,
+              border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+              background: active ? "rgba(0,212,255,0.08)" : "transparent",
+              color: active ? "var(--accent)" : "var(--muted)",
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: 1,
+              cursor: "pointer", whiteSpace: "nowrap",
+            }}>
+              <span style={{ fontSize: 13 }}>{t.icon}</span>
+              {t.label}
+            </button>
+          );
+        })}
+        {loading && <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center", marginLeft: 4 }}>Chargement…</span>}
       </div>
-      <div style={{ flex: 1, overflowY: "auto" }}>
+
+      {/* Match list */}
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, padding: "0 16px 16px" }}>
+        {!loading && list.length === 0 && (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>Aucun match</div>
+        )}
         {list.map((m) => {
           const res = getResult(m);
+          const rl  = RESULT_LABEL[res];
           return (
-            <div key={m.matchId} onClick={() => setSelected(m)}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer" }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--card)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-              <span style={{ width: 26, height: 26, borderRadius: 4, background: `${RC[res]}22`, color: RC[res], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: "bold", fontFamily: "'Bebas Neue', sans-serif", flexShrink: 0 }}>{res}</span>
-              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: RC[res], minWidth: 50 }}>{getScore(m)}</span>
-              <span style={{ flex: 1, fontSize: 12, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getOppName(m)}</span>
-              <span style={{ fontSize: 10, color: "var(--muted)", flexShrink: 0 }}>{formatDate(m.timestamp)}</span>
+            <div key={m.matchId} style={{
+              display: "flex", alignItems: "center", gap: 16,
+              padding: "14px 18px",
+              background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
+            }}>
+              {/* Score */}
+              <span style={{
+                fontFamily: "'Bebas Neue', sans-serif", fontSize: 26,
+                color: "#eab308", minWidth: 56, flexShrink: 0, letterSpacing: 1,
+              }}>
+                {getScore(m)}
+              </span>
+
+              {/* Opponent + date */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  vs {getOppName(m)}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                  {formatDate(m.timestamp)}
+                </div>
+              </div>
+
+              {/* Result label */}
+              <span style={{
+                fontFamily: "'Bebas Neue', sans-serif", fontSize: 14,
+                color: rl.color, letterSpacing: 1, minWidth: 72, textAlign: "center",
+              }}>
+                {rl.text}
+              </span>
+
+              {/* Détails button */}
+              <button onClick={() => setSelected(m)} style={{
+                background: "none", border: "none", color: "var(--muted)",
+                fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", padding: "4px 8px",
+                borderRadius: 4,
+              }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
+              >
+                ▶ détails
+              </button>
             </div>
           );
         })}
-        {!loading && list.length === 0 && <div style={{ padding: 20, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>Aucun match</div>}
       </div>
-      {selected && <MatchModal match={selected} clubId={currentClub?.id ?? ""} onClose={() => setSelected(null)} />}
+
+      {selected && (
+        <MatchModal match={selected} clubId={currentClub?.id ?? ""} onClose={() => setSelected(null)} />
+      )}
     </div>
   );
 }
 
 function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; onClose: () => void }) {
-  const myData = match.clubs[clubId] as Record<string, unknown> | undefined;
+  const myData  = match.clubs[clubId] as Record<string, unknown> | undefined;
   const oppEntry = Object.entries(match.clubs).find(([k]) => k !== clubId);
-  const oppData = oppEntry?.[1] as Record<string, unknown> | undefined;
+  const oppData  = oppEntry?.[1] as Record<string, unknown> | undefined;
+  const oppDet   = oppData?.["details"] as Record<string, unknown> | undefined;
+  const oppName  = String(oppDet?.["name"] ?? oppData?.["name"] ?? "Adversaire");
 
-  const allPlayers = Object.values(match.players).flatMap((cp) =>
-    Object.values(cp as Record<string, Record<string, unknown>>).map((p) => ({
-      name: String(p["name"] ?? p["playername"] ?? "—"),
-      goals: Number(p["goals"] ?? 0),
-      assists: Number(p["assists"] ?? 0),
-      passes: Number(p["passesMade"] ?? p["passesmade"] ?? 0),
-      rating: Number(p["rating"] ?? p["ratingAve"] ?? 0),
-      motm: p["mom"] === "1" || p["manofthematch"] === "1",
-    }))
-  ).sort((a, b) => b.rating - a.rating);
+  const myPlayers = Object.entries(
+    (match.players[clubId] ?? {}) as Record<string, Record<string, unknown>>
+  ).map(([, p]) => ({
+    name:    String(p["name"] ?? p["playername"] ?? "—"),
+    goals:   Number(p["goals"]   ?? 0),
+    assists: Number(p["assists"] ?? 0),
+    passes:  Number(p["passesMade"] ?? p["passesmade"] ?? 0),
+    rating:  Number(p["rating"]  ?? p["ratingAve"] ?? 0),
+    motm:    p["mom"] === "1" || p["manofthematch"] === "1",
+  })).sort((a, b) => b.rating - a.rating);
+
+  const myGoals  = String(myData?.["goals"]  ?? "?");
+  const oppGoals = String(oppData?.["goals"] ?? "?");
+  const res = myData?.["wins"] === "1" ? "W" : myData?.["losses"] === "1" ? "L" : "D";
+  const rl  = RESULT_LABEL[res];
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 560, maxHeight: "80vh", overflowY: "auto", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
+      onClick={onClose}>
+      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 580, maxHeight: "82vh", overflowY: "auto", border: "1px solid var(--border)" }}
+        onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
           <div>
-            <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "var(--text)" }}>
-              {String(myData?.["goals"] ?? "?")} — {String(oppData?.["goals"] ?? "?")}
-            </p>
-            <p style={{ fontSize: 11, color: "var(--muted)" }}>
-              {formatDate(match.timestamp)} {match.matchDuration ? `· ${formatDuration(match.matchDuration)}` : ""} · {match.matchType}
-            </p>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: "#eab308", letterSpacing: 2 }}>
+              {myGoals} — {oppGoals}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginTop: 2 }}>vs {oppName}</div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+              {formatDate(match.timestamp)}
+              {match.matchDuration ? ` · ${formatDuration(match.matchDuration)}` : ""}
+              <span style={{ color: rl.color, fontFamily: "'Bebas Neue', sans-serif", marginLeft: 10, letterSpacing: 1 }}>{rl.text}</span>
+            </div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 18 }}>✕</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
         </div>
-        {allPlayers.length > 0 && (
+
+        {/* Players table */}
+        {myPlayers.length > 0 && (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
@@ -137,18 +212,21 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
               </tr>
             </thead>
             <tbody>
-              {allPlayers.map((p, i) => (
+              {myPlayers.map((p, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "5px 8px", color: "var(--text)" }}>{p.name}</td>
-                  <td style={{ padding: "5px 8px", color: p.rating >= 7.5 ? "var(--green)" : p.rating >= 6 ? "#eab308" : "var(--red)", fontWeight: "bold" }}>{p.rating.toFixed(1)}</td>
-                  <td style={{ padding: "5px 8px", color: "var(--accent)" }}>{p.goals}</td>
-                  <td style={{ padding: "5px 8px", color: "var(--text)" }}>{p.assists}</td>
-                  <td style={{ padding: "5px 8px", color: "var(--text)" }}>{p.passes}</td>
-                  <td style={{ padding: "5px 8px", color: "#ffd700" }}>{p.motm ? "★" : ""}</td>
+                  <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.name}</td>
+                  <td style={{ padding: "6px 8px", fontWeight: "bold", color: p.rating >= 7.5 ? "var(--green)" : p.rating >= 6 ? "#eab308" : "var(--red)" }}>{p.rating.toFixed(1)}</td>
+                  <td style={{ padding: "6px 8px", color: "var(--accent)" }}>{p.goals || "—"}</td>
+                  <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.assists || "—"}</td>
+                  <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.passes}</td>
+                  <td style={{ padding: "6px 8px", color: "#ffd700" }}>{p.motm ? "★" : ""}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+        )}
+        {myPlayers.length === 0 && (
+          <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, marginTop: 16 }}>Pas de stats joueurs</p>
         )}
       </div>
     </div>
