@@ -104,6 +104,41 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 12px; heigh
 .win-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
 .close-btn:hover { background: rgba(239,68,68,0.3); color: #ef4444; }
 
+/* ─── Tab / page transitions ─────────────────────────────────────────────── */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.tab-content  { animation: fadeSlideIn 0.18s ease-out; }
+.sidebar-tab  { animation: fadeSlideIn 0.15s ease-out; }
+
+/* ─── Player table row hover ─────────────────────────────────────────────── */
+.player-row {
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s;
+  position: relative;
+}
+.player-row::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s;
+  border-radius: 0 2px 2px 0;
+}
+.player-row:hover { background: var(--card) !important; }
+.player-row:hover::before { opacity: 1; }
+
+/* ─── Stat cell hover ────────────────────────────────────────────────────── */
+.stat-cell {
+  transition: color 0.12s, background 0.12s;
+  border-radius: 4px;
+}
+.player-row:hover .stat-cell { background: rgba(0,212,255,0.04); }
+
 /* ─── Pulse dot (session active) ─────────────────────────────────────────── */
 .pulse-dot {
   display: inline-block;

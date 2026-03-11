@@ -235,7 +235,9 @@ fn parse_player(v: &serde_json::Value) -> Option<Player> {
         tackles_made: parse_u32(v, "tacklesMade").max(parse_u32(v, "tacklesmade")),
         motm: parse_u32(v, "manOfTheMatch").max(parse_u32(v, "mom")),
         rating: v.get("ratingAve").or_else(|| v.get("rating"))
-            .and_then(|n| n.as_f64()).unwrap_or(0.0),
+            .and_then(|n| n.as_f64()
+                .or_else(|| n.as_str().and_then(|s| s.parse().ok())))
+            .unwrap_or(0.0),
         games_played: parse_u32(v, "gamesPlayed"),
     })
 }

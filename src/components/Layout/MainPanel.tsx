@@ -160,13 +160,13 @@ export function MainPanel() {
             </p>
           </div>
         ) : (
-          <>
+          <div key={activeTab} className="tab-content" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
             {activeTab === "players"  && <PlayersTab />}
             {activeTab === "matches"  && <MatchesTab />}
             {activeTab === "charts"   && <ChartsTab />}
             {activeTab === "session"  && <SessionTab />}
             {activeTab === "tactics"  && <TacticsTab />}
-          </>
+          </div>
         )}
       </div>
     </main>

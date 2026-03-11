@@ -62,7 +62,7 @@ export function Sidebar() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div key={sidebarTab} className="sidebar-tab" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {sidebarTab === "search"   && <SearchTab />}
         {sidebarTab === "favs"     && <FavsTab />}
         {sidebarTab === "compare"  && <CompareTab />}
