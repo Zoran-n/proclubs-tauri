@@ -1,4 +1,4 @@
-# ProClubs Stats `v0.2.1`
+# ProClubs Stats `v0.2.3`
 
 > Créé par **Tatsuki**
 
