@@ -87,10 +87,14 @@ jobs:
           if (-not $exe) { Write-Error "No NSIS exe found"; exit 1 }
           Write-Host "Found: $($exe.Name)"
 
-          # Create zip for updater
+          # Create zip for updater (use .NET ZipFile with Deflate — Tauri requires it)
           $zipName = $exe.Name -replace '-setup\.exe$', '-setup.nsis.zip'
           $zipPath = Join-Path $exe.DirectoryName $zipName
-          Compress-Archive -Path $exe.FullName -DestinationPath $zipPath -Force
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          $zip = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
+          [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $exe.FullName, $exe.Name, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+          $zip.Dispose()
           Write-Host "Created zip: $zipName"
 
           # Sign the zip with tauri signer
