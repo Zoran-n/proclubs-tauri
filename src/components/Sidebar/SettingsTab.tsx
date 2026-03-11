@@ -4,8 +4,8 @@ import { useAppStore } from "../../store/useAppStore";
 import { THEMES } from "../../types";
 
 export function SettingsTab() {
-  const { theme, darkMode, showGrid, showAnimations, showLogs, showIdSearch, fontSize,
-    proxyUrl, setTheme, setDarkMode, setShowGrid, setShowAnimations, setShowLogs,
+  const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize,
+    proxyUrl, setTheme, setDarkMode, setShowAnimations, setShowLogs,
     setShowIdSearch, setFontSize, persistSettings, applyProxy } = useAppStore();
 
   const [localProxy, setLocalProxy] = useState(proxyUrl);
@@ -94,8 +94,7 @@ export function SettingsTab() {
 
       {/* ── EFFETS VISUELS ── */}
       <Section label="EFFETS VISUELS" />
-      <Toggle label="Grille de fond"  value={showGrid}       onChange={setShowGrid} />
-      <Toggle label="Animations"      value={showAnimations} onChange={setShowAnimations} />
+      <Toggle label="Animations" value={showAnimations} onChange={setShowAnimations} />
 
       {/* ── INTERFACE ── */}
       <Section label="INTERFACE" />

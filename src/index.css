@@ -158,9 +158,10 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 12px; heigh
 /* Slow down Tailwind animate-spin used by Spinner.tsx */
 .animate-spin { animation: spin 1.4s linear infinite !important; }
 
-/* ─── Font size zoom ─────────────────────────────────────────────────────────── */
-[data-fs="small"]  body { zoom: 0.88; }
-[data-fs="large"]  body { zoom: 1.14; }
+/* ─── Font size (affects inherited text only) ────────────────────────────────── */
+[data-fs="small"]  html { font-size: 11px; }
+[data-fs="medium"] html { font-size: 13px; }
+[data-fs="large"]  html { font-size: 16px; }
 
 /* ─── Dev Panel ─────────────────────────────────────────────────────────────── */
 .dev-panel {
