@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, RefreshCw, Download } from "lucide-react";
 import { check as checkUpdate } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { getVersion } from "@tauri-apps/api/app";
 import { useAppStore } from "../../store/useAppStore";
 import { THEMES } from "../../types";
 
@@ -15,6 +16,9 @@ export function SettingsTab() {
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "up-to-date" | "error">("idle");
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState("…");
+
+  useEffect(() => { getVersion().then(setAppVersion).catch(() => {}); }, []);
 
   const apply = (fn: () => void) => { fn(); persistSettings(); };
 
@@ -194,7 +198,7 @@ export function SettingsTab() {
       )}
 
       <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-        <p style={{ fontSize: 10, color: "var(--muted)" }}>ProClubs Stats v0.2.1</p>
+        <p style={{ fontSize: 10, color: "var(--muted)" }}>ProClubs Stats v{appVersion}</p>
         <p style={{ fontSize: 10, color: "var(--border)" }}>Tauri 2 · Rust · React</p>
       </div>
     </div>
