@@ -7,8 +7,8 @@ export const searchClub = (name: string, platform?: string) =>
 export const loadClub = (clubId: string, platform: string) =>
   invoke<ClubData>("load_club", { clubId, platform });
 
-export const getMatches = (clubId: string, platform: string, matchType: string, maxResultCount?: number) =>
-  invoke<Match[]>("get_matches", { clubId, platform, matchType, maxResultCount: maxResultCount ?? null });
+export const getMatches = (clubId: string, platform: string, matchType: string, matchTimeVal?: string | null) =>
+  invoke<Match[]>("get_matches", { clubId, platform, matchType, matchTimeVal: matchTimeVal ?? null });
 
 export const getSeasonHistory = (clubId: string, platform: string) =>
   invoke<unknown>("get_season_history", { clubId, platform });

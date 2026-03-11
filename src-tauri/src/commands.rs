@@ -21,7 +21,7 @@ pub async fn load_club(
     let (stats_r, members_r, matches_r, info_r) = tokio::join!(
         ea_client.get_stats(&club_id, &platform),
         ea_client.get_members(&club_id, &platform),
-        ea_client.get_matches(&club_id, &platform, "leagueMatch", 10),
+        ea_client.get_matches(&club_id, &platform, "leagueMatch", 10, None),
         ea_client.get_info(&club_id, &platform),
     );
     let info = info_r.unwrap_or(serde_json::Value::Null);
@@ -54,10 +54,10 @@ pub async fn get_matches(
     club_id: String,
     platform: String,
     match_type: String,
-    max_result_count: Option<u32>,
+    match_time_val: Option<String>,
     ea_client: State<'_, EaClient>,
 ) -> Result<Vec<Match>, String> {
-    ea_client.get_matches(&club_id, &platform, &match_type, max_result_count.unwrap_or(10))
+    ea_client.get_matches(&club_id, &platform, &match_type, 10, match_time_val.as_deref())
         .await.map_err(|e| e.to_string())
 }
 
@@ -103,9 +103,9 @@ pub async fn poll_session(
 ) -> Result<Vec<Match>, String> {
     let known: std::collections::HashSet<String> = known_ids.into_iter().collect();
     let (league, playoff, friendly) = tokio::join!(
-        ea_client.get_matches(&club_id, &platform, "leagueMatch", 10),
-        ea_client.get_matches(&club_id, &platform, "playoffMatch", 10),
-        ea_client.get_matches(&club_id, &platform, "friendlyMatch", 10),
+        ea_client.get_matches(&club_id, &platform, "leagueMatch", 10, None),
+        ea_client.get_matches(&club_id, &platform, "playoffMatch", 10, None),
+        ea_client.get_matches(&club_id, &platform, "friendlyMatch", 10, None),
     );
     let mut new_matches = vec![];
     for m in league.unwrap_or_default()

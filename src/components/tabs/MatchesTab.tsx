@@ -17,8 +17,6 @@ const RESULT_LABEL: Record<string, { text: string; color: string }> = {
   L: { text: "DEFAITE",  color: "var(--red)" },
 };
 
-const PAGE_SIZES = [10, 25, 50];
-
 function formatDate(ts: string | number) {
   const n = Number(ts) * 1000 || Number(ts);
   const d = new Date(isNaN(n) ? ts : n);
@@ -32,6 +30,13 @@ function formatDuration(secs?: number) {
   return `${m}min ${s}s`;
 }
 
+/** Returns the timestamp of the oldest match in the list (used as cursor for next page) */
+function oldestTimestamp(list: Match[]): string | null {
+  if (list.length === 0) return null;
+  const oldest = [...list].sort((a, b) => Number(a.timestamp) - Number(b.timestamp))[0];
+  return oldest?.timestamp ?? null;
+}
+
 const BTN: React.CSSProperties = {
   padding: "6px 10px", background: "var(--card)", border: "1px solid var(--border)",
   borderRadius: 6, cursor: "pointer", color: "var(--muted)", fontSize: 11,
@@ -41,33 +46,71 @@ const BTN: React.CSSProperties = {
 export function MatchesTab() {
   const { currentClub, matches: leagueCache } = useAppStore();
   const [type, setType] = useState<"leagueMatch" | "playoffMatch" | "friendlyMatch">("leagueMatch");
-  const [cache, setCache] = useState<Partial<Record<string, Match[]>>>({ "leagueMatch-10": leagueCache });
-  const [count, setCount] = useState(10);
+
+  // Accumulated match list per type
+  const [pages, setPages] = useState<Partial<Record<string, Match[]>>>({
+    leagueMatch: leagueCache,
+  });
+  // Cursor (oldest timestamp) per type — null = no more pages
+  const [cursors, setCursors] = useState<Partial<Record<string, string | null>>>({});
+
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Match | null>(null);
   const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const cacheKey = `${type}-${count}`;
-
+  // Sync initial league cache
   useEffect(() => {
-    setCache((c) => ({ ...c, "leagueMatch-10": leagueCache }));
+    setPages((p) => ({ ...p, leagueMatch: leagueCache }));
   }, [leagueCache]);
 
+  // Reset on club change
   useEffect(() => {
-    if (!currentClub || cache[cacheKey]) return;
-    setLoading(true);
-    getMatches(currentClub.id, currentClub.platform, type, count)
-      .then((data) => setCache((c) => ({ ...c, [cacheKey]: data })))
-      .finally(() => setLoading(false));
-  }, [type, count, currentClub]);
-
-  useEffect(() => {
-    setCount(10);
-    setCache({ "leagueMatch-10": leagueCache });
+    setPages({ leagueMatch: leagueCache });
+    setCursors({});
   }, [currentClub?.id]);
 
-  const list = cache[cacheKey] ?? [];
+  // Load first page when switching to a type that hasn't been loaded yet
+  useEffect(() => {
+    if (!currentClub || pages[type] !== undefined) return;
+    setLoading(true);
+    getMatches(currentClub.id, currentClub.platform, type)
+      .then((data) => {
+        setPages((p) => ({ ...p, [type]: data }));
+        // Only set cursor if we got a full page (10 = max per page)
+        if (data.length >= 10) {
+          setCursors((c) => ({ ...c, [type]: oldestTimestamp(data) }));
+        } else {
+          setCursors((c) => ({ ...c, [type]: null }));
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [type, currentClub]);
+
+  const loadMore = () => {
+    if (!currentClub || loading) return;
+    const cursor = cursors[type];
+    if (!cursor) return;
+    setLoading(true);
+    getMatches(currentClub.id, currentClub.platform, type, cursor)
+      .then((data) => {
+        setPages((p) => {
+          const prev = p[type] ?? [];
+          const existing = new Set(prev.map((m) => m.matchId));
+          const fresh = data.filter((m) => !existing.has(m.matchId));
+          return { ...p, [type]: [...prev, ...fresh] };
+        });
+        if (data.length >= 10) {
+          setCursors((c) => ({ ...c, [type]: oldestTimestamp(data) }));
+        } else {
+          setCursors((c) => ({ ...c, [type]: null })); // no more pages
+        }
+      })
+      .finally(() => setLoading(false));
+  };
+
+  const list = pages[type] ?? [];
+  const hasMore = (cursors[type] ?? null) !== null && !loading;
 
   const getResult = (m: Match): "W" | "D" | "L" => {
     const c = m.clubs[currentClub?.id ?? ""] as Record<string, unknown> | undefined;
@@ -100,7 +143,7 @@ export function MatchesTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg)" }}>
 
-      {/* Tab bar + controls */}
+      {/* Tab bar */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px",
         flexShrink: 0, borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 8, flex: 1 }}>
@@ -120,22 +163,12 @@ export function MatchesTab() {
             );
           })}
           {loading && <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>Chargement…</span>}
+          {!loading && list.length > 0 && (
+            <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>
+              {list.length} match{list.length > 1 ? "s" : ""}
+            </span>
+          )}
         </div>
-
-        {/* Count selector */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          {PAGE_SIZES.map((n) => (
-            <button key={n} onClick={() => setCount(n)} style={{
-              ...BTN,
-              color: count === n ? "var(--accent)" : "var(--muted)",
-              border: `1px solid ${count === n ? "var(--accent)" : "var(--border)"}`,
-              padding: "5px 9px",
-            }}>
-              {n}
-            </button>
-          ))}
-        </div>
-
         <button onClick={() => setExportModal("png")} style={BTN}>
           <Download size={11} /> PNG
         </button>
@@ -192,10 +225,10 @@ export function MatchesTab() {
           );
         })}
 
-        {/* Load more inline button */}
-        {!loading && list.length > 0 && list.length >= count && count < 50 && (
+        {/* Cursor-based load more */}
+        {hasMore && (
           <button
-            onClick={() => setCount(Math.min(count + 15, 50))}
+            onClick={loadMore}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--accent)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--muted)"; }}
             style={{
@@ -205,8 +238,13 @@ export function MatchesTab() {
               marginTop: 4, width: "100%",
             }}
           >
-            <ChevronDown size={14} /> Charger plus
+            <ChevronDown size={14} /> Charger les 10 matchs suivants
           </button>
+        )}
+        {!hasMore && !loading && list.length > 0 && cursors[type] === null && (
+          <div style={{ textAlign: "center", fontSize: 11, color: "var(--muted)", padding: "8px 0" }}>
+            Tous les matchs affichés
+          </div>
         )}
       </div>
 

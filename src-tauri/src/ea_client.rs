@@ -164,11 +164,14 @@ impl EaClient {
         self.get_json(&url).await
     }
 
-    pub async fn get_matches(&self, club_id: &str, platform: &str, match_type: &str, max_result_count: u32) -> Result<Vec<Match>> {
-        let url = format!(
+    pub async fn get_matches(&self, club_id: &str, platform: &str, match_type: &str, max_result_count: u32, match_time_val: Option<&str>) -> Result<Vec<Match>> {
+        let mut url = format!(
             "{}/clubs/matches?platform={}&clubIds={}&matchType={}&maxResultCount={}",
             BASE_URL, platform, club_id, match_type, max_result_count
         );
+        if let Some(cursor) = match_time_val {
+            url.push_str(&format!("&matchTimeVal={}", cursor));
+        }
         let resp = self.get_json(&url).await?;
         let arr = if let Some(a) = resp.as_array() { a.clone() }
             else if let Some(a) = resp.get("data").and_then(|v| v.as_array()) { a.clone() }
