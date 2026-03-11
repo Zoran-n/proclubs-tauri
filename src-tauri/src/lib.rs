@@ -29,6 +29,7 @@ pub fn run() {
             load_settings,
             poll_session,
             detect_platform,
+            get_club_info,
             check_proxy,
             set_proxy,
         ])

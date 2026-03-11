@@ -118,6 +118,16 @@ pub async fn poll_session(
     Ok(new_matches)
 }
 
+/// Fetch raw club info JSON (for tactics import)
+#[tauri::command]
+pub async fn get_club_info(
+    club_id: String,
+    platform: String,
+    ea_client: State<'_, EaClient>,
+) -> Result<serde_json::Value, String> {
+    ea_client.get_info(&club_id, &platform).await.map_err(|e| e.to_string())
+}
+
 /// Auto-detect platform for a club ID
 #[tauri::command]
 pub async fn detect_platform(

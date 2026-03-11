@@ -1,66 +1,67 @@
 import { useState } from "react";
-import { Save, Trash2, Plus } from "lucide-react";
+import { Save, Trash2, Plus, RefreshCw } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
+import { getClubInfo } from "../../api/tauri";
 import { FORMATIONS, type Tactic } from "../../types";
 
+// Keys must match FORMATIONS values exactly (no dashes)
 const FORMATION_POSITIONS: Record<string, { x: number; y: number; role: string }[]> = {
-  "4-4-2": [
+  "442": [
     { x: 50, y: 90, role: "GK" },
     { x: 15, y: 68, role: "LB" }, { x: 37, y: 68, role: "CB" }, { x: 63, y: 68, role: "CB" }, { x: 85, y: 68, role: "RB" },
     { x: 15, y: 45, role: "LM" }, { x: 37, y: 45, role: "CM" }, { x: 63, y: 45, role: "CM" }, { x: 85, y: 45, role: "RM" },
     { x: 35, y: 20, role: "ST" }, { x: 65, y: 20, role: "ST" },
   ],
-  "4-3-3": [
+  "433": [
     { x: 50, y: 90, role: "GK" },
     { x: 15, y: 68, role: "LB" }, { x: 37, y: 68, role: "CB" }, { x: 63, y: 68, role: "CB" }, { x: 85, y: 68, role: "RB" },
     { x: 25, y: 45, role: "CM" }, { x: 50, y: 45, role: "CDM" }, { x: 75, y: 45, role: "CM" },
     { x: 15, y: 20, role: "LW" }, { x: 50, y: 20, role: "ST" }, { x: 85, y: 20, role: "RW" },
   ],
-  "4-2-3-1": [
+  "4231": [
     { x: 50, y: 90, role: "GK" },
     { x: 15, y: 68, role: "LB" }, { x: 37, y: 68, role: "CB" }, { x: 63, y: 68, role: "CB" }, { x: 85, y: 68, role: "RB" },
     { x: 35, y: 55, role: "CDM" }, { x: 65, y: 55, role: "CDM" },
     { x: 15, y: 35, role: "LM" }, { x: 50, y: 35, role: "CAM" }, { x: 85, y: 35, role: "RM" },
     { x: 50, y: 15, role: "ST" },
   ],
-  "3-5-2": [
+  "4141": [
+    { x: 50, y: 90, role: "GK" },
+    { x: 15, y: 70, role: "LB" }, { x: 37, y: 70, role: "CB" }, { x: 63, y: 70, role: "CB" }, { x: 85, y: 70, role: "RB" },
+    { x: 50, y: 57, role: "CDM" },
+    { x: 15, y: 43, role: "LM" }, { x: 37, y: 43, role: "CM" }, { x: 63, y: 43, role: "CM" }, { x: 85, y: 43, role: "RM" },
+    { x: 50, y: 18, role: "ST" },
+  ],
+  "4321": [
+    { x: 50, y: 90, role: "GK" },
+    { x: 15, y: 70, role: "LB" }, { x: 37, y: 70, role: "CB" }, { x: 63, y: 70, role: "CB" }, { x: 85, y: 70, role: "RB" },
+    { x: 25, y: 52, role: "CM" }, { x: 50, y: 52, role: "CM" }, { x: 75, y: 52, role: "CM" },
+    { x: 33, y: 33, role: "CAM" }, { x: 67, y: 33, role: "CAM" },
+    { x: 50, y: 15, role: "ST" },
+  ],
+  "352": [
     { x: 50, y: 90, role: "GK" },
     { x: 25, y: 68, role: "CB" }, { x: 50, y: 68, role: "CB" }, { x: 75, y: 68, role: "CB" },
     { x: 10, y: 45, role: "LM" }, { x: 30, y: 45, role: "CM" }, { x: 50, y: 45, role: "CDM" }, { x: 70, y: 45, role: "CM" }, { x: 90, y: 45, role: "RM" },
     { x: 35, y: 20, role: "ST" }, { x: 65, y: 20, role: "ST" },
   ],
-  "4-1-2-1-2": [
-    { x: 50, y: 90, role: "GK" },
-    { x: 15, y: 70, role: "LB" }, { x: 37, y: 70, role: "CB" }, { x: 63, y: 70, role: "CB" }, { x: 85, y: 70, role: "RB" },
-    { x: 50, y: 57, role: "CDM" },
-    { x: 25, y: 43, role: "CM" }, { x: 75, y: 43, role: "CM" },
-    { x: 50, y: 30, role: "CAM" },
-    { x: 30, y: 15, role: "ST" }, { x: 70, y: 15, role: "ST" },
-  ],
-  "5-3-2": [
-    { x: 50, y: 90, role: "GK" },
-    { x: 10, y: 68, role: "LWB" }, { x: 28, y: 68, role: "CB" }, { x: 50, y: 68, role: "CB" }, { x: 72, y: 68, role: "CB" }, { x: 90, y: 68, role: "RWB" },
-    { x: 25, y: 45, role: "CM" }, { x: 50, y: 45, role: "CM" }, { x: 75, y: 45, role: "CM" },
-    { x: 35, y: 20, role: "ST" }, { x: 65, y: 20, role: "ST" },
-  ],
-  "4-5-1": [
-    { x: 50, y: 90, role: "GK" },
-    { x: 15, y: 68, role: "LB" }, { x: 37, y: 68, role: "CB" }, { x: 63, y: 68, role: "CB" }, { x: 85, y: 68, role: "RB" },
-    { x: 10, y: 45, role: "LM" }, { x: 30, y: 45, role: "CM" }, { x: 50, y: 45, role: "CM" }, { x: 70, y: 45, role: "CM" }, { x: 90, y: 45, role: "RM" },
-    { x: 50, y: 18, role: "ST" },
-  ],
-  "3-4-3": [
+  "343": [
     { x: 50, y: 90, role: "GK" },
     { x: 25, y: 68, role: "CB" }, { x: 50, y: 68, role: "CB" }, { x: 75, y: 68, role: "CB" },
     { x: 15, y: 48, role: "LM" }, { x: 37, y: 48, role: "CM" }, { x: 63, y: 48, role: "CM" }, { x: 85, y: 48, role: "RM" },
     { x: 15, y: 20, role: "LW" }, { x: 50, y: 20, role: "ST" }, { x: 85, y: 20, role: "RW" },
   ],
-  "4-2-2-2": [
+  "532": [
     { x: 50, y: 90, role: "GK" },
-    { x: 15, y: 68, role: "LB" }, { x: 37, y: 68, role: "CB" }, { x: 63, y: 68, role: "CB" }, { x: 85, y: 68, role: "RB" },
-    { x: 35, y: 52, role: "CDM" }, { x: 65, y: 52, role: "CDM" },
-    { x: 25, y: 33, role: "CAM" }, { x: 75, y: 33, role: "CAM" },
-    { x: 35, y: 15, role: "ST" }, { x: 65, y: 15, role: "ST" },
+    { x: 10, y: 68, role: "LWB" }, { x: 28, y: 68, role: "CB" }, { x: 50, y: 68, role: "CB" }, { x: 72, y: 68, role: "CB" }, { x: 90, y: 68, role: "RWB" },
+    { x: 25, y: 45, role: "CM" }, { x: 50, y: 45, role: "CM" }, { x: 75, y: 45, role: "CM" },
+    { x: 35, y: 20, role: "ST" }, { x: 65, y: 20, role: "ST" },
+  ],
+  "541": [
+    { x: 50, y: 90, role: "GK" },
+    { x: 10, y: 68, role: "LWB" }, { x: 28, y: 68, role: "CB" }, { x: 50, y: 68, role: "CB" }, { x: 72, y: 68, role: "CB" }, { x: 90, y: 68, role: "RWB" },
+    { x: 15, y: 45, role: "LM" }, { x: 34, y: 45, role: "CM" }, { x: 50, y: 45, role: "CDM" }, { x: 66, y: 45, role: "CM" }, { x: 85, y: 45, role: "RM" },
+    { x: 50, y: 18, role: "ST" },
   ],
 };
 
@@ -76,7 +77,7 @@ const SLIDERS = [
 const defaultTactic = (): Tactic => ({
   id: Date.now().toString(),
   name: "Nouvelle tactique",
-  formation: "4-3-3",
+  formation: "433",
   sliders: Object.fromEntries(SLIDERS.map((s) => [s.key, 50])),
   notes: "",
   eaCode: "",
@@ -95,9 +96,16 @@ const INPUT: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+function genCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
 export function TacticsTab() {
-  const { tactics, saveTactic, deleteTactic, persistSettings } = useAppStore();
+  const { tactics, saveTactic, deleteTactic, persistSettings, currentClub } = useAppStore();
   const [current, setCurrent] = useState<Tactic>(defaultTactic());
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
 
   const handleSave = () => { saveTactic(current); persistSettings(); };
   const handleLoad = (t: Tactic) => setCurrent({ ...t });
@@ -107,7 +115,67 @@ export function TacticsTab() {
     if (current.id === id) setCurrent(defaultTactic());
   };
 
-  const positions = FORMATION_POSITIONS[current.formation] ?? FORMATION_POSITIONS["4-3-3"];
+  const handleImport = async () => {
+    if (!currentClub) { setImportMsg("Aucun club sélectionné"); return; }
+    setImporting(true);
+    setImportMsg(null);
+    try {
+      const info = await getClubInfo(currentClub.id, currentClub.platform) as Record<string, unknown> | null;
+      if (!info) { setImportMsg("Aucune donnée"); return; }
+
+      // EA response: { clubId: { name, customKit, tactics?: { clubFormation, ... } } }
+      const clubObj = (info[currentClub.id] ?? Object.values(info)[0]) as Record<string, unknown> | undefined;
+      if (!clubObj) { setImportMsg("Structure inconnue"); return; }
+
+      const tactics = clubObj["tactics"] as Record<string, unknown> | undefined;
+      const rawFormation = (
+        tactics?.["clubFormation"] ?? tactics?.["formation"] ?? clubObj["formation"]
+      ) as string | undefined;
+
+      // Normalize: remove dashes, lowercase to match our keys
+      const formation = rawFormation?.replace(/-/g, "") ?? null;
+
+      const updates: Partial<Tactic> = {};
+      if (formation && FORMATION_POSITIONS[formation]) {
+        updates.formation = formation;
+      }
+
+      // Try slider values if available
+      if (tactics) {
+        const sliderMap: Record<string, string> = {
+          defensiveStyle: "defensiveStyle",
+          defensiveWidth: "defensiveWidth",
+          defensiveDepth: "defensiveDepth",
+          offensiveStyle: "offensiveStyle",
+          offensiveWidth: "offensiveWidth",
+          playersInBox: "playersInBox",
+        };
+        const newSliders: Record<string, number> = { ...current.sliders };
+        let found = false;
+        for (const [key, apiKey] of Object.entries(sliderMap)) {
+          const val = tactics[apiKey];
+          if (val !== undefined) {
+            newSliders[key] = Number(val);
+            found = true;
+          }
+        }
+        if (found) updates.sliders = newSliders;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        setImportMsg("Aucune tactique trouvée dans les données EA");
+      } else {
+        setCurrent((c) => ({ ...c, ...updates }));
+        setImportMsg(`Importé : ${updates.formation ?? current.formation}`);
+      }
+    } catch {
+      setImportMsg("Erreur lors de la récupération");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const positions = FORMATION_POSITIONS[current.formation] ?? FORMATION_POSITIONS["433"];
 
   return (
     <div style={{ display: "flex", height: "100%", overflow: "hidden", background: "var(--bg)" }}>
@@ -182,6 +250,24 @@ export function TacticsTab() {
       <div style={{ width: 220, display: "flex", flexDirection: "column", gap: 10, padding: 14,
         borderLeft: "1px solid var(--border)", overflowY: "auto", background: "var(--surface)" }}>
 
+        {/* Import from current club */}
+        {currentClub && (
+          <button onClick={handleImport} disabled={importing} style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            padding: "7px 14px", background: "rgba(0,212,255,0.06)",
+            border: "1px solid var(--border)", borderRadius: 6,
+            color: importing ? "var(--muted)" : "var(--accent)", fontSize: 11, cursor: importing ? "default" : "pointer",
+            fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em",
+          }}>
+            <RefreshCw size={11} style={{ animation: importing ? "spin 1s linear infinite" : "none" }} />
+            {importing ? "IMPORT…" : "IMPORTER DU CLUB"}
+          </button>
+        )}
+        {importMsg && (
+          <p style={{ fontSize: 10, color: "var(--muted)", margin: 0, textAlign: "center",
+            fontStyle: "italic" }}>{importMsg}</p>
+        )}
+
         {/* Tactic name */}
         <input value={current.name}
           onChange={(e) => setCurrent((c) => ({ ...c, name: e.target.value }))}
@@ -212,13 +298,34 @@ export function TacticsTab() {
         </div>
 
         {/* EA Code */}
-        <input value={current.eaCode ?? ""}
-          onChange={(e) => setCurrent((c) => ({ ...c, eaCode: e.target.value }))}
-          placeholder="Code EA (8 car.)" maxLength={8}
-          style={{ ...INPUT, textTransform: "uppercase", fontFamily: "monospace" }}
-          onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-          onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-        />
+        <div>
+          <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 4 }}>CODE EA</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input value={current.eaCode ?? ""}
+              onChange={(e) => setCurrent((c) => ({ ...c, eaCode: e.target.value.toUpperCase() }))}
+              placeholder="8 caractères"
+              maxLength={8}
+              style={{ ...INPUT, textTransform: "uppercase", fontFamily: "monospace", letterSpacing: "0.12em" }}
+              onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            />
+            <button onClick={() => setCurrent((c) => ({ ...c, eaCode: genCode() }))}
+              title="Générer un code aléatoire"
+              style={{ padding: "0 10px", background: "var(--bg)", border: "1px solid var(--border)",
+                borderRadius: 6, color: "var(--accent)", cursor: "pointer", fontSize: 10,
+                flexShrink: 0, fontFamily: "'Bebas Neue', sans-serif" }}>
+              GEN
+            </button>
+          </div>
+          {current.eaCode && current.eaCode.length === 8 && (
+            <div style={{ marginTop: 6, padding: "6px 10px", background: "var(--bg)",
+              border: "1px solid var(--border)", borderRadius: 6, textAlign: "center",
+              fontFamily: "monospace", fontSize: 16, letterSpacing: "0.18em",
+              color: "var(--accent)", fontWeight: 700 }}>
+              {current.eaCode}
+            </div>
+          )}
+        </div>
 
         {/* Notes */}
         <textarea value={current.notes}

@@ -33,3 +33,6 @@ export const checkProxy = () =>
 
 export const setProxy = (proxyUrl: string | null) =>
   invoke<void>("set_proxy", { proxyUrl });
+
+export const getClubInfo = (clubId: string, platform: string) =>
+  invoke<unknown>("get_club_info", { clubId, platform });
