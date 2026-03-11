@@ -2,6 +2,8 @@
 
 > Créé par **Tatsuki**
 
+> Utilisation de claude Pour les Push et le build mais aussi de la correction en cas d'erreur manuscrite
+
 Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. Construite avec **Tauri 2** (Rust) + **React** + **TypeScript**.
 
 ---
