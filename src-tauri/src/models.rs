@@ -28,6 +28,28 @@ pub struct Player {
     #[serde(default)] pub motm: u32,
     #[serde(default)] pub rating: f64,
     #[serde(default)] pub games_played: u32,
+    // Statistiques avancées
+    #[serde(default)] pub interceptions: u32,
+    #[serde(default)] pub fouls_committed: u32,
+    #[serde(default)] pub yellow_cards: u32,
+    #[serde(default)] pub red_cards: u32,
+    #[serde(default)] pub clean_sheets: u32,
+    #[serde(default)] pub save_attempts: u32,
+    #[serde(default)] pub shots_on_target: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct SeasonStats {
+    #[serde(default)] pub season_id: String,
+    #[serde(default)] pub wins: u32,
+    #[serde(default)] pub losses: u32,
+    #[serde(default)] pub ties: u32,
+    #[serde(default)] pub goals: u32,
+    #[serde(default)] pub goals_against: u32,
+    #[serde(default)] pub skill_rating: Option<String>,
+    #[serde(default)] pub division: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

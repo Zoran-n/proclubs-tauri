@@ -214,9 +214,25 @@ export function PlayersTab() {
   );
 }
 
+function StatCell({ label, value, color }: { label: string; value: string | number; color: string }) {
+  return (
+    <div style={{ background: "var(--bg)", border: "1px solid var(--border)",
+      borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color, lineHeight: 1 }}>
+        {String(value)}
+      </div>
+      <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.08em", marginTop: 4,
+        fontFamily: "'Bebas Neue', sans-serif" }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
 function PlayerModal({ player, onClose }: { player: Player; onClose: () => void }) {
   const posLabel = POS_LABELS[player.position] ?? player.position ?? "—";
-  const stats: [string, string | number, string][] = [
+
+  const baseStats: [string, string | number, string][] = [
     ["MJ",        player.gamesPlayed,          "var(--text)"],
     ["Buts",      player.goals,                "var(--accent)"],
     ["Passes D.", player.assists,              "var(--text)"],
@@ -226,10 +242,21 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
     ["Note",      player.rating > 0 ? player.rating.toFixed(1) : "—", ratingColor(player.rating)],
   ];
 
+  // Advanced stats — only show if at least one is non-zero
+  const advStats: [string, string | number, string][] = [
+    ...(player.shotsOnTarget  ? [["Tirs cadrés",  player.shotsOnTarget,  "var(--accent)"] as [string, number, string]] : []),
+    ...(player.interceptions  ? [["Interceptions", player.interceptions,  "var(--text)"] as [string, number, string]] : []),
+    ...(player.foulsCommitted ? [["Fautes",        player.foulsCommitted, "var(--muted)"] as [string, number, string]] : []),
+    ...(player.yellowCards    ? [["Cartons J",     player.yellowCards,    "#eab308"] as [string, number, string]] : []),
+    ...(player.redCards       ? [["Cartons R",     player.redCards,       "var(--red)"] as [string, number, string]] : []),
+    ...(player.cleanSheets    ? [["Clean sheets",  player.cleanSheets,    "var(--green)"] as [string, number, string]] : []),
+    ...(player.saveAttempts   ? [["Arrêts",        player.saveAttempts,   "var(--text)"] as [string, number, string]] : []),
+  ];
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50,
       display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 420,
+      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 460,
         border: "1px solid var(--border)", animation: "fadeSlideIn 0.15s ease-out" }}
         onClick={(e) => e.stopPropagation()}>
 
@@ -250,20 +277,24 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-          {stats.map(([label, value, color]) => (
-            <div key={label} style={{ background: "var(--bg)", border: "1px solid var(--border)",
-              borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
-              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: String(color),
-                lineHeight: 1 }}>
-                {String(value)}
-              </div>
-              <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.08em", marginTop: 4,
-                fontFamily: "'Bebas Neue', sans-serif" }}>
-                {label}
-              </div>
-            </div>
+          {baseStats.map(([label, value, color]) => (
+            <StatCell key={label} label={label} value={value} color={color} />
           ))}
         </div>
+
+        {advStats.length > 0 && (
+          <>
+            <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+              fontFamily: "'Bebas Neue', sans-serif", margin: "14px 0 8px" }}>
+              STATISTIQUES AVANCÉES
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+              {advStats.map(([label, value, color]) => (
+                <StatCell key={label} label={label} value={value} color={color} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

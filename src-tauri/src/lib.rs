@@ -32,6 +32,8 @@ pub fn run() {
             get_club_info,
             check_proxy,
             set_proxy,
+            get_season_history,
+            get_leaderboard,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

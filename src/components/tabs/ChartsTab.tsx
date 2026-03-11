@@ -1,8 +1,9 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Download } from "lucide-react";
 import { PieChart, Pie, Cell, Label, ResponsiveContainer } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
 import { ExportModal } from "../ui/ExportModal";
+import { getSeasonHistory, getLeaderboard } from "../../api/tauri";
 import type { Match, Player } from "../../types";
 
 function aggregateMatchPlayers(matches: Match[], clubId: string): Player[] {
@@ -126,6 +127,188 @@ function HBarChart({ players, valueKey, color }: {
   );
 }
 
+interface SeasonRow { wins: number; losses: number; ties: number; goals: number; goalDiff: number; label: string }
+interface LeaderRow { rank: number; name: string; wins: number; losses: number; ties: number; goals: number; sr: string }
+
+function parseSeasonHistory(raw: unknown, clubId: string): SeasonRow[] {
+  if (!raw || typeof raw !== "object") return [];
+  const obj = raw as Record<string, unknown>;
+  // Try to get seasons array from various response shapes
+  const seasons: unknown[] = (
+    (obj[clubId] as Record<string, unknown>)?.["history"] as unknown[]
+    ?? obj["history"] as unknown[]
+    ?? (Array.isArray(raw) ? raw : [])
+  );
+  return seasons.map((s) => {
+    const v = s as Record<string, string | number>;
+    const w = Number(v["wins"] ?? 0), l = Number(v["losses"] ?? 0), t = Number(v["ties"] ?? 0);
+    const g = Number(v["goals"] ?? 0), ga = Number(v["goalsAgainst"] ?? 0);
+    const sid = String(v["seasonId"] ?? v["season"] ?? "");
+    return { wins: w, losses: l, ties: t, goals: g, goalDiff: g - ga, label: sid ? `S${sid}` : "?" };
+  }).filter((s) => s.wins + s.losses + s.ties > 0).slice(-10);
+}
+
+function parseLeaderboard(raw: unknown, myClubId: string): LeaderRow[] {
+  if (!raw || typeof raw !== "object") return [];
+  const arr: unknown[] = Array.isArray(raw) ? raw
+    : (raw as Record<string, unknown[]>)["clubs"] ?? (raw as Record<string, unknown[]>)["data"] ?? [];
+  return arr.slice(0, 20).map((entry, i) => {
+    const v = entry as Record<string, string | number>;
+    const cid = String(v["clubId"] ?? v["id"] ?? "");
+    return {
+      rank: i + 1, name: String(v["name"] ?? v["clubName"] ?? `Club #${cid}`),
+      wins: Number(v["wins"] ?? 0), losses: Number(v["losses"] ?? 0), ties: Number(v["ties"] ?? 0),
+      goals: Number(v["goals"] ?? 0), sr: String(v["skillRating"] ?? "—"),
+    };
+  }).filter((r) => r.wins + r.losses + r.ties > 0 || r.name !== `Club #`);
+  // note: myClubId used for highlighting in render
+  void myClubId;
+}
+
+function SeasonHistorySection({ clubId, platform }: { clubId: string; platform: string }) {
+  const [seasons, setSeasons] = useState<SeasonRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [tried, setTried] = useState(false);
+
+  useEffect(() => {
+    setSeasons([]); setTried(false);
+  }, [clubId]);
+
+  const load = () => {
+    if (tried) return;
+    setLoading(true); setTried(true);
+    getSeasonHistory(clubId, platform)
+      .then((raw) => setSeasons(parseSeasonHistory(raw, clubId)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  const maxW = Math.max(...seasons.map((s) => s.wins), 1);
+
+  return (
+    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px", marginTop: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em", fontFamily: "'Bebas Neue', sans-serif" }}>
+          HISTORIQUE DES SAISONS
+        </p>
+        {!tried && (
+          <button onClick={load} style={{
+            fontSize: 10, padding: "4px 10px", borderRadius: 4, cursor: "pointer",
+            background: "none", border: "1px solid var(--accent)", color: "var(--accent)",
+            fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em",
+          }}>
+            CHARGER
+          </button>
+        )}
+      </div>
+      {loading && <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>Chargement…</p>}
+      {tried && !loading && seasons.length === 0 && (
+        <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>Données non disponibles pour ce club</p>
+      )}
+      {seasons.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {seasons.map((s) => {
+            const total = s.wins + s.losses + s.ties;
+            const pct = total > 0 ? Math.round((s.wins / total) * 100) : 0;
+            return (
+              <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 28, fontSize: 9, color: "var(--muted)", flexShrink: 0, fontFamily: "'Bebas Neue', sans-serif" }}>{s.label}</div>
+                <div style={{ flex: 1, background: "var(--bg)", borderRadius: 3, height: 24, overflow: "hidden" }}>
+                  <div style={{ width: `${(s.wins / maxW) * 100}%`, height: "100%",
+                    background: "linear-gradient(90deg,#16a34a,#22c55e)", borderRadius: "0 3px 3px 0", minWidth: 4 }} />
+                </div>
+                <div style={{ display: "flex", gap: 8, fontSize: 10, flexShrink: 0 }}>
+                  <span style={{ color: "#22c55e" }}>{s.wins}V</span>
+                  <span style={{ color: "#eab308" }}>{s.ties}N</span>
+                  <span style={{ color: "var(--red)" }}>{s.losses}D</span>
+                  <span style={{ color: "var(--muted)" }}>{pct}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LeaderboardSection({ clubId, platform }: { clubId: string; platform: string }) {
+  const [rows, setRows] = useState<LeaderRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [tried, setTried] = useState(false);
+
+  useEffect(() => {
+    setRows([]); setTried(false);
+  }, [clubId]);
+
+  const load = () => {
+    if (tried) return;
+    setLoading(true); setTried(true);
+    getLeaderboard(platform, 25)
+      .then((raw) => setRows(parseLeaderboard(raw, clubId)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  const myRank = rows.findIndex((r) => r.name.toLowerCase().includes(""));
+  void myRank;
+
+  return (
+    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px", marginTop: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em", fontFamily: "'Bebas Neue', sans-serif" }}>
+          CLASSEMENT ALL TIME — {platform.toUpperCase()}
+        </p>
+        {!tried && (
+          <button onClick={load} style={{
+            fontSize: 10, padding: "4px 10px", borderRadius: 4, cursor: "pointer",
+            background: "none", border: "1px solid var(--accent)", color: "var(--accent)",
+            fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em",
+          }}>
+            CHARGER
+          </button>
+        )}
+      </div>
+      {loading && <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>Chargement…</p>}
+      {tried && !loading && rows.length === 0 && (
+        <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>Données non disponibles</p>
+      )}
+      {rows.length > 0 && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                {["#", "Club", "V", "N", "D", "Buts", "SR"].map((h) => (
+                  <th key={h} style={{ padding: "4px 8px", textAlign: "left", fontSize: 10, color: "var(--muted)", fontWeight: "normal" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const isMe = r.name === rows.find((x) => x.rank === 1)?.name && false; // future: highlight own club
+                return (
+                  <tr key={r.rank} style={{ borderBottom: "1px solid var(--border)",
+                    background: isMe ? "rgba(0,212,255,0.06)" : "transparent" }}>
+                    <td style={{ padding: "5px 8px", color: r.rank <= 3 ? "#ffd700" : "var(--muted)",
+                      fontFamily: "'Bebas Neue', sans-serif", fontSize: 14 }}>{r.rank}</td>
+                    <td style={{ padding: "5px 8px", color: "var(--text)", fontWeight: 600,
+                      maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</td>
+                    <td style={{ padding: "5px 8px", color: "#22c55e" }}>{r.wins}</td>
+                    <td style={{ padding: "5px 8px", color: "#eab308" }}>{r.ties}</td>
+                    <td style={{ padding: "5px 8px", color: "var(--red)" }}>{r.losses}</td>
+                    <td style={{ padding: "5px 8px", color: "var(--accent)" }}>{r.goals}</td>
+                    <td style={{ padding: "5px 8px", color: "var(--muted)" }}>{r.sr}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ChartsTab() {
   const [mode, setMode] = useState<Mode>("last10");
   const [exportModal, setExportModal] = useState(false);
@@ -232,6 +415,12 @@ export function ChartsTab() {
           <ChartCard title="TOP PASSES REUSSIES">
             <HBarChart players={topPasses} valueKey="passesMade" color="purple" />
           </ChartCard>
+        </div>
+
+        {/* Season history + leaderboard (lazy-loaded) */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <SeasonHistorySection clubId={currentClub.id} platform={currentClub.platform} />
+          <LeaderboardSection clubId={currentClub.id} platform={currentClub.platform} />
         </div>
       </div>
 

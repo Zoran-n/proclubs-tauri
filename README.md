@@ -21,23 +21,26 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Podium visuel (or / argent / bronze) pour le top 3
 - Badge de position (GK, ST, CM…)
 - Badge de note coloré (or, vert, jaune, rouge)
-- Modale détail joueur avec toutes les stats
+- Modale détail joueur : stats de base + **statistiques avancées** (tirs cadrés, interceptions, fautes, cartons jaunes/rouges, clean sheets, arrêts GK) — affichées uniquement si disponibles via l'API EA
 - Export **PNG** (capture avec prévisualisation) et **CSV** (tableau complet)
 
 ### Matchs
 - Trois types de matchs : Championnat, Playoff, Amical
-- Cache par type (pas de rechargement inutile)
+- **Sélection du nombre de matchs** : 10 / 25 / 50 résultats (pagination API EA)
+- **Bouton "Charger plus"** pour augmenter le nombre de matchs affichés dynamiquement
+- Cache par type et par quantité (pas de rechargement inutile)
 - Carte par match : score, adversaire, date, résultat (VICTOIRE / NUL / DEFAITE)
-- Modale détail match : score final, durée, stats joueurs (note, buts, PD, passes, MOTM)
+- Modale détail match : score final, durée, stats joueurs avec colonnes **avancées** : tacles, interceptions, fautes, cartons (colonnes affichées uniquement si les données existent)
 - Export **PNG** et **CSV** avec prévisualisation
 
 ### Graphiques
 - Donut victoires / nuls / défaites
 - Bar chart top buteurs
 - Bar chart top passeurs décisifs
-- Radar chart des notes moyennes
-- Line chart évolution des buts sur les derniers matchs
+- Bar chart top passeurs réussis
 - Export **PNG** avec prévisualisation
+- **Historique des saisons** (lazy-load) : bilan victoires/nuls/défaites par saison sous forme de barres horizontales
+- **Classement all time** (lazy-load) : top 25 clubs de la plateforme avec V/N/D/Buts/SR
 
 ### Session live
 - Démarrage / arrêt de session de suivi
@@ -120,10 +123,10 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ## Axes d'amélioration possibles
 
 ### Données & API
-- **Plus de matchs** : l'API EA limite à 10 résultats par requête — ajouter une pagination ou un curseur pour charger plus
-- **Statistiques avancées** : distance parcourue, duels gagnés, interceptions, fautes, cartons
-- **Historique de saison** : comparer les stats de la saison actuelle vs saisons précédentes
-- **Classement ligue** : récupérer et afficher le classement Pro Clubs de la division du club
+- ~~**Plus de matchs**~~ ✅ Sélecteur 10/25/50 + bouton "Charger plus" — pagination implémentée
+- ~~**Statistiques avancées**~~ ✅ Interceptions, fautes, cartons, clean sheets, arrêts GK parsés depuis l'API EA et affichés dans les modales
+- ~~**Historique de saison**~~ ✅ Section lazy-load dans l'onglet Graphiques (endpoint `seasonalStats`)
+- ~~**Classement ligue**~~ ✅ Classement all-time lazy-load dans l'onglet Graphiques (top 25 clubs de la plateforme)
 - **Profil joueur EA** : lier le gamertag EA pour accéder aux stats individuelles cross-club
 
 ### Joueurs

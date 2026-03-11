@@ -21,6 +21,36 @@ export interface Player {
   motm: number;
   rating: number;
   gamesPlayed: number;
+  // Statistiques avancées (optionnelles)
+  interceptions?: number;
+  foulsCommitted?: number;
+  yellowCards?: number;
+  redCards?: number;
+  cleanSheets?: number;
+  saveAttempts?: number;
+  shotsOnTarget?: number;
+}
+
+export interface SeasonStats {
+  seasonId: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  goals: number;
+  goalsAgainst: number;
+  skillRating?: string;
+  division?: number;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  clubId: string;
+  clubName: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  goals: number;
+  skillRating?: string;
 }
 
 export interface Match {

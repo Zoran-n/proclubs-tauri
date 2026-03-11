@@ -154,10 +154,20 @@ impl EaClient {
         self.get_json(&url).await
     }
 
-    pub async fn get_matches(&self, club_id: &str, platform: &str, match_type: &str) -> Result<Vec<Match>> {
+    pub async fn get_season_history(&self, club_id: &str, platform: &str) -> Result<serde_json::Value> {
+        let url = format!("{}/clubs/seasonalStats?platform={}&clubIds={}", BASE_URL, platform, club_id);
+        self.get_json(&url).await
+    }
+
+    pub async fn get_leaderboard(&self, platform: &str, max_count: u32) -> Result<serde_json::Value> {
+        let url = format!("{}/allTimeLeaderboard?platform={}&maxResultCount={}", BASE_URL, platform, max_count);
+        self.get_json(&url).await
+    }
+
+    pub async fn get_matches(&self, club_id: &str, platform: &str, match_type: &str, max_result_count: u32) -> Result<Vec<Match>> {
         let url = format!(
-            "{}/clubs/matches?platform={}&clubIds={}&matchType={}&maxResultCount=10",
-            BASE_URL, platform, club_id, match_type
+            "{}/clubs/matches?platform={}&clubIds={}&matchType={}&maxResultCount={}",
+            BASE_URL, platform, club_id, match_type, max_result_count
         );
         let resp = self.get_json(&url).await?;
         let arr = if let Some(a) = resp.as_array() { a.clone() }
@@ -240,6 +250,13 @@ fn parse_player(v: &serde_json::Value) -> Option<Player> {
                 .or_else(|| n.as_str().and_then(|s| s.parse().ok())))
             .unwrap_or(0.0),
         games_played: parse_u32(v, "gamesPlayed"),
+        interceptions: parse_u32(v, "interceptions"),
+        fouls_committed: parse_u32(v, "foulsCommited").max(parse_u32(v, "foulscommited")),
+        yellow_cards: parse_u32(v, "yellowCards").max(parse_u32(v, "yellowcards")),
+        red_cards: parse_u32(v, "redCards").max(parse_u32(v, "redcards")),
+        clean_sheets: parse_u32(v, "cleanSheetsDivisions").max(parse_u32(v, "cleansheetsDiv")),
+        save_attempts: parse_u32(v, "saveAttempts").max(parse_u32(v, "saveattempts")),
+        shots_on_target: parse_u32(v, "shotsOnTarget").max(parse_u32(v, "shotstarget")),
     })
 }
 

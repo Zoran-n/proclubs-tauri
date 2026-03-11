@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Download } from "lucide-react";
+import { Download, ChevronDown } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { getMatches } from "../../api/tauri";
 import { ExportModal } from "../ui/ExportModal";
@@ -16,6 +16,8 @@ const RESULT_LABEL: Record<string, { text: string; color: string }> = {
   D: { text: "NUL",      color: "#eab308" },
   L: { text: "DEFAITE",  color: "var(--red)" },
 };
+
+const PAGE_SIZES = [10, 25, 50];
 
 function formatDate(ts: string | number) {
   const n = Number(ts) * 1000 || Number(ts);
@@ -39,23 +41,33 @@ const BTN: React.CSSProperties = {
 export function MatchesTab() {
   const { currentClub, matches: leagueCache } = useAppStore();
   const [type, setType] = useState<"leagueMatch" | "playoffMatch" | "friendlyMatch">("leagueMatch");
-  const [cache, setCache] = useState<Partial<Record<string, Match[]>>>({ leagueMatch: leagueCache });
+  const [cache, setCache] = useState<Partial<Record<string, Match[]>>>({ "leagueMatch-10": leagueCache });
+  const [count, setCount] = useState(10);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Match | null>(null);
   const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setCache((c) => ({ ...c, leagueMatch: leagueCache })); }, [leagueCache]);
+  const cacheKey = `${type}-${count}`;
 
   useEffect(() => {
-    if (!currentClub || cache[type]) return;
-    setLoading(true);
-    getMatches(currentClub.id, currentClub.platform, type)
-      .then((data) => setCache((c) => ({ ...c, [type]: data })))
-      .finally(() => setLoading(false));
-  }, [type, currentClub]);
+    setCache((c) => ({ ...c, "leagueMatch-10": leagueCache }));
+  }, [leagueCache]);
 
-  const list = cache[type] ?? [];
+  useEffect(() => {
+    if (!currentClub || cache[cacheKey]) return;
+    setLoading(true);
+    getMatches(currentClub.id, currentClub.platform, type, count)
+      .then((data) => setCache((c) => ({ ...c, [cacheKey]: data })))
+      .finally(() => setLoading(false));
+  }, [type, count, currentClub]);
+
+  useEffect(() => {
+    setCount(10);
+    setCache({ "leagueMatch-10": leagueCache });
+  }, [currentClub?.id]);
+
+  const list = cache[cacheKey] ?? [];
 
   const getResult = (m: Match): "W" | "D" | "L" => {
     const c = m.clubs[currentClub?.id ?? ""] as Record<string, unknown> | undefined;
@@ -88,7 +100,7 @@ export function MatchesTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg)" }}>
 
-      {/* Tab bar + export */}
+      {/* Tab bar + controls */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px",
         flexShrink: 0, borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 8, flex: 1 }}>
@@ -109,6 +121,21 @@ export function MatchesTab() {
           })}
           {loading && <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>Chargement…</span>}
         </div>
+
+        {/* Count selector */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          {PAGE_SIZES.map((n) => (
+            <button key={n} onClick={() => setCount(n)} style={{
+              ...BTN,
+              color: count === n ? "var(--accent)" : "var(--muted)",
+              border: `1px solid ${count === n ? "var(--accent)" : "var(--border)"}`,
+              padding: "5px 9px",
+            }}>
+              {n}
+            </button>
+          ))}
+        </div>
+
         <button onClick={() => setExportModal("png")} style={BTN}>
           <Download size={11} /> PNG
         </button>
@@ -164,6 +191,23 @@ export function MatchesTab() {
             </div>
           );
         })}
+
+        {/* Load more inline button */}
+        {!loading && list.length > 0 && list.length >= count && count < 50 && (
+          <button
+            onClick={() => setCount(Math.min(count + 15, 50))}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--accent)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--muted)"; }}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              padding: "10px", background: "var(--card)", border: "1px dashed var(--border)",
+              borderRadius: 8, cursor: "pointer", color: "var(--muted)", fontSize: 12,
+              marginTop: 4, width: "100%",
+            }}
+          >
+            <ChevronDown size={14} /> Charger plus
+          </button>
+        )}
       </div>
 
       {selected && (
@@ -191,12 +235,17 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
   const myPlayers = Object.entries(
     (match.players[clubId] ?? {}) as Record<string, Record<string, unknown>>
   ).map(([, p]) => ({
-    name:    String(p["name"] ?? p["playername"] ?? "—"),
-    goals:   Number(p["goals"]   ?? 0),
-    assists: Number(p["assists"] ?? 0),
-    passes:  Number(p["passesMade"] ?? p["passesmade"] ?? 0),
-    rating:  Number(p["rating"]  ?? p["ratingAve"] ?? 0),
-    motm:    p["mom"] === "1" || p["manofthematch"] === "1",
+    name:          String(p["name"] ?? p["playername"] ?? "—"),
+    goals:         Number(p["goals"]   ?? 0),
+    assists:       Number(p["assists"] ?? 0),
+    passes:        Number(p["passesMade"] ?? p["passesmade"] ?? 0),
+    tackles:       Number(p["tacklesMade"] ?? p["tacklesmade"] ?? 0),
+    interceptions: Number(p["interceptions"] ?? 0),
+    fouls:         Number(p["foulsCommited"] ?? p["foulscommited"] ?? 0),
+    yellowCards:   Number(p["yellowCards"] ?? p["yellowcards"] ?? 0),
+    redCards:      Number(p["redCards"] ?? p["redcards"] ?? 0),
+    rating:        Number(p["rating"] ?? p["ratingAve"] ?? 0),
+    motm:          p["mom"] === "1" || p["manofthematch"] === "1",
   })).sort((a, b) => b.rating - a.rating);
 
   const myGoals  = String(myData?.["goals"]  ?? "?");
@@ -204,11 +253,16 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
   const res = myData?.["wins"] === "1" ? "W" : myData?.["losses"] === "1" ? "L" : "D";
   const rl  = RESULT_LABEL[res];
 
+  const hasInterceptions = myPlayers.some((p) => p.interceptions > 0);
+  const hasTackles       = myPlayers.some((p) => p.tackles > 0);
+  const hasFouls         = myPlayers.some((p) => p.fouls > 0);
+  const hasCards         = myPlayers.some((p) => p.yellowCards > 0 || p.redCards > 0);
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 50,
       display: "flex", alignItems: "center", justifyContent: "center" }}
       onClick={onClose}>
-      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 580,
+      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 680,
         maxHeight: "82vh", overflowY: "auto", border: "1px solid var(--border)" }}
         onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
@@ -226,27 +280,50 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
           <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
         </div>
         {myPlayers.length > 0 ? (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Joueur", "Note", "Buts", "PD", "Passes", "MOTM"].map((h) => (
-                  <th key={h} style={{ padding: "4px 8px", textAlign: "left", fontSize: 10, color: "var(--muted)", fontWeight: "normal" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {myPlayers.map((p, i) => (
-                <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.name}</td>
-                  <td style={{ padding: "6px 8px", fontWeight: "bold", color: p.rating >= 7.5 ? "var(--green)" : p.rating >= 6 ? "#eab308" : "var(--red)" }}>{p.rating.toFixed(1)}</td>
-                  <td style={{ padding: "6px 8px", color: "var(--accent)" }}>{p.goals || "—"}</td>
-                  <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.assists || "—"}</td>
-                  <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.passes}</td>
-                  <td style={{ padding: "6px 8px", color: "#ffd700" }}>{p.motm ? "★" : ""}</td>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                  {[
+                    "Joueur", "Note", "Buts", "PD", "Passes",
+                    ...(hasTackles       ? ["Tacles"]  : []),
+                    ...(hasInterceptions ? ["Interc."] : []),
+                    ...(hasFouls         ? ["Fautes"]  : []),
+                    ...(hasCards         ? ["Cartons"] : []),
+                    "MOTM",
+                  ].map((h) => (
+                    <th key={h} style={{ padding: "4px 8px", textAlign: "left", fontSize: 10,
+                      color: "var(--muted)", fontWeight: "normal", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {myPlayers.map((p, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.name}</td>
+                    <td style={{ padding: "6px 8px", fontWeight: "bold",
+                      color: p.rating >= 7.5 ? "var(--green)" : p.rating >= 6 ? "#eab308" : "var(--red)" }}>
+                      {p.rating.toFixed(1)}
+                    </td>
+                    <td style={{ padding: "6px 8px", color: "var(--accent)" }}>{p.goals || "—"}</td>
+                    <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.assists || "—"}</td>
+                    <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.passes}</td>
+                    {hasTackles       && <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.tackles || "—"}</td>}
+                    {hasInterceptions && <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.interceptions || "—"}</td>}
+                    {hasFouls         && <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.fouls || "—"}</td>}
+                    {hasCards && (
+                      <td style={{ padding: "6px 8px" }}>
+                        {p.yellowCards > 0 && <span style={{ marginRight: 2 }}>🟨{p.yellowCards}</span>}
+                        {p.redCards    > 0 && <span>🟥{p.redCards}</span>}
+                        {!p.yellowCards && !p.redCards && <span style={{ color: "var(--muted)" }}>—</span>}
+                      </td>
+                    )}
+                    <td style={{ padding: "6px 8px", color: "#ffd700" }}>{p.motm ? "★" : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, marginTop: 16 }}>Pas de stats joueurs</p>
         )}

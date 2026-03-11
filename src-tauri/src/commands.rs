@@ -21,7 +21,7 @@ pub async fn load_club(
     let (stats_r, members_r, matches_r, info_r) = tokio::join!(
         ea_client.get_stats(&club_id, &platform),
         ea_client.get_members(&club_id, &platform),
-        ea_client.get_matches(&club_id, &platform, "leagueMatch"),
+        ea_client.get_matches(&club_id, &platform, "leagueMatch", 10),
         ea_client.get_info(&club_id, &platform),
     );
     let info = info_r.unwrap_or(serde_json::Value::Null);
@@ -54,9 +54,11 @@ pub async fn get_matches(
     club_id: String,
     platform: String,
     match_type: String,
+    max_result_count: Option<u32>,
     ea_client: State<'_, EaClient>,
 ) -> Result<Vec<Match>, String> {
-    ea_client.get_matches(&club_id, &platform, &match_type).await.map_err(|e| e.to_string())
+    ea_client.get_matches(&club_id, &platform, &match_type, max_result_count.unwrap_or(10))
+        .await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -101,9 +103,9 @@ pub async fn poll_session(
 ) -> Result<Vec<Match>, String> {
     let known: std::collections::HashSet<String> = known_ids.into_iter().collect();
     let (league, playoff, friendly) = tokio::join!(
-        ea_client.get_matches(&club_id, &platform, "leagueMatch"),
-        ea_client.get_matches(&club_id, &platform, "playoffMatch"),
-        ea_client.get_matches(&club_id, &platform, "friendlyMatch"),
+        ea_client.get_matches(&club_id, &platform, "leagueMatch", 10),
+        ea_client.get_matches(&club_id, &platform, "playoffMatch", 10),
+        ea_client.get_matches(&club_id, &platform, "friendlyMatch", 10),
     );
     let mut new_matches = vec![];
     for m in league.unwrap_or_default()
@@ -155,4 +157,24 @@ pub async fn set_proxy(
     ea_client: State<'_, EaClient>,
 ) -> Result<(), String> {
     ea_client.set_proxy(proxy_url).map_err(|e| e.to_string())
+}
+
+/// Fetch seasonal stats history for a club
+#[tauri::command]
+pub async fn get_season_history(
+    club_id: String,
+    platform: String,
+    ea_client: State<'_, EaClient>,
+) -> Result<serde_json::Value, String> {
+    ea_client.get_season_history(&club_id, &platform).await.map_err(|e| e.to_string())
+}
+
+/// Fetch the all-time leaderboard for a platform
+#[tauri::command]
+pub async fn get_leaderboard(
+    platform: String,
+    max_count: Option<u32>,
+    ea_client: State<'_, EaClient>,
+) -> Result<serde_json::Value, String> {
+    ea_client.get_leaderboard(&platform, max_count.unwrap_or(25)).await.map_err(|e| e.to_string())
 }
