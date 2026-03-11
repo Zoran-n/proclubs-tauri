@@ -5,7 +5,6 @@ import { PlayersTab } from "../tabs/PlayersTab";
 import { MatchesTab } from "../tabs/MatchesTab";
 import { ChartsTab } from "../tabs/ChartsTab";
 import { SessionTab } from "../tabs/SessionTab";
-import { TacticsTab } from "../tabs/TacticsTab";
 import { CompareTab } from "../Sidebar/CompareTab";
 import { Spinner } from "../ui/Spinner";
 import { getLogo } from "../../api/tauri";
@@ -15,7 +14,6 @@ const TABS: { id: ActiveTab; label: string }[] = [
   { id: "matches",  label: "MATCHS" },
   { id: "charts",   label: "GRAPHIQUES" },
   { id: "session",  label: "SESSION" },
-  { id: "tactics",  label: "TACTIQUES" },
   { id: "compare",  label: "COMPARER" },
 ];
 
@@ -156,7 +154,6 @@ export function MainPanel() {
             {activeTab === "matches"  && <MatchesTab />}
             {activeTab === "charts"   && <ChartsTab />}
             {activeTab === "session"  && <SessionTab />}
-            {activeTab === "tactics"  && <TacticsTab />}
             {activeTab === "compare"  && <CompareTab />}
           </div>
         )}
