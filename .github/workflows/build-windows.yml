@@ -60,6 +60,7 @@ jobs:
           [IO.File]::WriteAllText("package.json", $pkgText)
 
           Write-Host "Patched all config files to $version"
+          exit 0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -168,5 +169,6 @@ jobs:
 
           gh release upload $tag "latest.json" --repo $repo --clobber
           Write-Host "Uploaded latest.json to $tag"
+          exit 0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
