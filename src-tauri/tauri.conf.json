@@ -27,6 +27,14 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM5RkE4MDNBQjVGRjA4NjcKUldSbkNQKzFPb0Q2T1lwOUU4ZWhwZXo1K2w4RFE2Q0RoZVo2M3hWZmV2S3dQNU4rcTVvTFl3ak4K",
+      "endpoints": [
+        "https://github.com/Zoran-n/proclubs-tauri/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

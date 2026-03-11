@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, RefreshCw, Download } from "lucide-react";
+import { check as checkUpdate } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { useAppStore } from "../../store/useAppStore";
 import { THEMES } from "../../types";
 
@@ -10,8 +12,30 @@ export function SettingsTab() {
 
   const [localProxy, setLocalProxy] = useState(proxyUrl);
   const [proxySaved, setProxySaved] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "up-to-date" | "error">("idle");
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
 
   const apply = (fn: () => void) => { fn(); persistSettings(); };
+
+  const handleCheckUpdate = async () => {
+    setUpdateStatus("checking");
+    setUpdateVersion(null);
+    try {
+      const update = await checkUpdate();
+      if (update?.available) {
+        setUpdateVersion(update.version);
+        setUpdateStatus("downloading");
+        await update.downloadAndInstall();
+        await relaunch();
+      } else {
+        setUpdateStatus("up-to-date");
+        setTimeout(() => setUpdateStatus("idle"), 3000);
+      }
+    } catch {
+      setUpdateStatus("error");
+      setTimeout(() => setUpdateStatus("idle"), 3000);
+    }
+  };
 
   const saveProxy = async () => {
     await applyProxy(localProxy);
@@ -127,8 +151,36 @@ export function SettingsTab() {
         <p style={{ fontSize: 10, color: "var(--green)", marginTop: 6 }}>✓ Proxy actif</p>
       )}
 
-      <div style={{ marginTop: 24, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-        <p style={{ fontSize: 10, color: "var(--muted)" }}>ProClubs Stats v0.1.0</p>
+      {/* ── MISES À JOUR ── */}
+      <Section label="MISES À JOUR" />
+      <button onClick={handleCheckUpdate}
+        disabled={updateStatus === "checking" || updateStatus === "downloading"}
+        style={{
+          width: "100%", padding: "8px 10px",
+          background: updateStatus === "up-to-date" ? "rgba(0,255,136,0.1)"
+            : updateStatus === "error" ? "rgba(239,68,68,0.1)"
+            : "var(--card)",
+          border: `1px solid ${updateStatus === "up-to-date" ? "var(--green)"
+            : updateStatus === "error" ? "rgba(239,68,68,0.5)"
+            : "var(--border)"}`,
+          color: updateStatus === "up-to-date" ? "var(--green)"
+            : updateStatus === "error" ? "#ef4444"
+            : "var(--text)",
+          borderRadius: 6, cursor: updateStatus === "checking" || updateStatus === "downloading" ? "default" : "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em",
+          opacity: updateStatus === "checking" || updateStatus === "downloading" ? 0.7 : 1,
+          transition: "all 0.2s",
+        }}>
+        {updateStatus === "checking" && <><RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> VÉRIFICATION…</>}
+        {updateStatus === "downloading" && <><Download size={12} /> INSTALLATION v{updateVersion}…</>}
+        {updateStatus === "up-to-date" && <><Check size={12} /> À JOUR</>}
+        {updateStatus === "error" && <><RefreshCw size={12} /> ERREUR — RÉESSAYER</>}
+        {updateStatus === "idle" && <><RefreshCw size={12} /> VÉRIFIER LES MISES À JOUR</>}
+      </button>
+
+      <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+        <p style={{ fontSize: 10, color: "var(--muted)" }}>ProClubs Stats v0.2.0</p>
         <p style={{ fontSize: 10, color: "var(--border)" }}>Tauri 2 · Rust · React</p>
       </div>
     </div>
