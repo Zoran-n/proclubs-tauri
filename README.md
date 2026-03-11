@@ -49,16 +49,6 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Suppression de sessions
 - Export **CSV** des données de session
 
-### Tactiques
-- Plan de jeu interactif sur terrain SVG (vue de face)
-- 9 formations disponibles : 433, 4231, 442, 4141, 4321, 352, 343, 532, 541
-- Visualisation des positions mise à jour en temps réel au changement de formation
-- 6 sliders tactiques : style défensif, largeur défensive, profondeur, style offensif, largeur offensive, joueurs dans la boîte
-- Génération de code EA aléatoire (8 caractères)
-- Import de la tactique du club actuel depuis l'API EA (formation + sliders si disponibles)
-- Notes libres
-- Sauvegarde / chargement / suppression de tactiques personnalisées
-
 ### Comparaison de clubs
 - Recherche et sélection de deux clubs indépendants
 - Logo affiché pour chaque club
@@ -82,7 +72,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 ### Interface
 - Fenêtre frameless avec barre de titre draggable (minimize / maximize / close)
 - Sidebar avec onglets icônes : Recherche, Session, Paramètres
-- Panel principal : Joueurs, Matchs, Graphiques, Session, Tactiques, Comparaison
+- Panel principal : Joueurs, Matchs, Graphiques, Session, Comparaison
 - Animations de transition entre onglets
 - Overlay de grille activable/désactivable
 - Spinner de chargement
@@ -148,11 +138,10 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Statistiques d'équipe par match** : possession, tirs, corners issus des données EA
 - **Calendrier** : vue mensuelle des matchs
 
-### Tactiques
-- **Drag & drop des joueurs** sur le terrain SVG pour personnaliser les positions
-- **Partage de tactique** : générer un lien ou QR code à partir du code EA
-- **Bibliothèque de tactiques communautaires** : importer des tactiques partagées
-- **Présets** : tactiques prédéfinies populaires (gegenpressing, tiki-taka…)
+### Comparaison
+- **Comparaison élargie** : inclure les joueurs des deux clubs pour identifier les meilleurs par poste
+- **Historique de comparaisons** : sauvegarder des matchups pour les retrouver facilement
+- **Export comparaison** : exporter le tableau comparatif en PNG ou CSV
 
 ### Session
 - **Alerte de nouveau match** : notification système (Tauri notification plugin)
