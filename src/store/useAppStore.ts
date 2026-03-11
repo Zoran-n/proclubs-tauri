@@ -157,26 +157,36 @@ export const useAppStore = create<AppState>((set, get) => ({
   loadSettings: async () => {
     try {
       const s = await apiLoad();
-      document.documentElement.setAttribute("data-theme", s.theme ?? "cyan");
-      document.documentElement.setAttribute("data-fs", "medium");
-      if (!s.darkMode) document.documentElement.setAttribute("data-light", "");
+      const root = document.documentElement;
+      root.setAttribute("data-theme", s.theme ?? "cyan");
+      root.setAttribute("data-fs", s.fontSize ?? "medium");
+      root.toggleAttribute("data-light",   !(s.darkMode ?? true));
+      root.toggleAttribute("data-no-grid", !(s.showGrid ?? true));
+      root.toggleAttribute("data-no-anim", !(s.showAnimations ?? true));
       set({
         history: s.history ?? [], favs: s.favs ?? [],
         tactics: s.tactics ?? [], sessions: s.sessions ?? [],
         eaProfile: s.eaProfile ?? null, theme: s.theme ?? "cyan",
-        darkMode: s.darkMode ?? true,
+        darkMode:        s.darkMode        ?? true,
+        showGrid:        s.showGrid        ?? true,
+        showAnimations:  s.showAnimations  ?? true,
+        showLogs:        s.showLogs        ?? true,
+        showIdSearch:    s.showIdSearch    ?? false,
+        fontSize:        (s.fontSize as "small" | "medium" | "large" | undefined) ?? "medium",
         proxyUrl: s.proxyUrl ?? "",
       });
     } catch { /* first launch */ }
   },
 
   persistSettings: async () => {
-    const { history, favs, tactics, sessions, eaProfile, theme, darkMode, proxyUrl } = get();
+    const { history, favs, tactics, sessions, eaProfile, theme, darkMode, proxyUrl,
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize } = get();
     await apiSave({
       history, favs, tactics, sessions,
       eaProfile: eaProfile ?? undefined,
       theme, darkMode,
       proxyUrl: proxyUrl.trim() || undefined,
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize,
     });
   },
 }));

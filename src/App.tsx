@@ -50,8 +50,9 @@ function App() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh", overflow: "hidden", background: "var(--bg)", position: "relative" }}>
+      <div id="grid-overlay" />
       <TitleBar />
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative", zIndex: 2 }}>
         <Sidebar />
         <MainPanel />
       </div>

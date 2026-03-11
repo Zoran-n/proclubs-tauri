@@ -66,6 +66,11 @@ export interface Settings {
   theme: string;
   darkMode: boolean;
   proxyUrl?: string;
+  showGrid?: boolean;
+  showAnimations?: boolean;
+  showLogs?: boolean;
+  showIdSearch?: boolean;
+  fontSize?: string;
 }
 
 export interface ClubData {

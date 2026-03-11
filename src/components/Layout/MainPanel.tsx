@@ -46,13 +46,21 @@ export function MainPanel() {
       {/* ── Club banner ─────────────────────────────────────────────── */}
       {currentClub && (
         <div style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-          {/* Top row: logo + name + live */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 20px 10px" }}>
+          {/* Banner card with left accent bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 0, margin: "12px 20px 10px",
+            background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
+            overflow: "hidden" }}>
+            {/* Left accent bar */}
+            <div style={{ width: 4, alignSelf: "stretch", background: "var(--accent)", flexShrink: 0 }} />
+
             {/* Logo */}
-            <div style={{ width: 52, height: 52, borderRadius: 10, background: "var(--card)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+            <div style={{ width: 52, height: 52, margin: "10px 14px", borderRadius: 8,
+              background: "var(--surface)", border: "1px solid var(--border)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, overflow: "hidden" }}>
               {logo
                 ? <img src={logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                : <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--accent)" }}>
+                : <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "var(--accent)" }}>
                     {(currentClub.name || "?")[0].toUpperCase()}
                   </span>
               }
@@ -60,11 +68,13 @@ export function MainPanel() {
 
             {/* Name + platform */}
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: "var(--text)", letterSpacing: "0.05em", lineHeight: 1 }}>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "var(--text)",
+                letterSpacing: "0.06em", lineHeight: 1 }}>
                 {currentClub.name || `Club #${currentClub.id}`}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-                <span style={{ fontSize: 11, color: "var(--accent)", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
+                <span style={{ fontSize: 11, color: "var(--accent)", fontFamily: "'Bebas Neue', sans-serif",
+                  letterSpacing: "0.08em" }}>
                   {currentClub.platform.toUpperCase()}
                 </span>
                 {currentClub.skillRating && (
@@ -78,7 +88,10 @@ export function MainPanel() {
 
             {/* LIVE badge */}
             {activeSession && (
-              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--green)", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", padding: "4px 10px", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.1em" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--green)",
+                background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)",
+                padding: "4px 10px", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif",
+                letterSpacing: "0.1em", marginRight: 14 }}>
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)", display: "inline-block" }} />
                 LIVE
               </div>

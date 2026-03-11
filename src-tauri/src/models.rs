@@ -83,16 +83,24 @@ pub struct Settings {
     #[serde(default = "default_theme")] pub theme: String,
     #[serde(default = "default_true")] pub dark_mode: bool,
     #[serde(default)] pub proxy_url: Option<String>,
+    #[serde(default = "default_true")] pub show_grid: bool,
+    #[serde(default = "default_true")] pub show_animations: bool,
+    #[serde(default = "default_true")] pub show_logs: bool,
+    #[serde(default)] pub show_id_search: bool,
+    #[serde(default = "default_font_size")] pub font_size: String,
 }
 
 fn default_theme() -> String { "cyan".to_string() }
 fn default_true() -> bool { true }
+fn default_font_size() -> String { "medium".to_string() }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             history: vec![], favs: vec![], tactics: vec![], sessions: vec![],
             ea_profile: None, theme: "cyan".to_string(), dark_mode: true, proxy_url: None,
+            show_grid: true, show_animations: true, show_logs: true,
+            show_id_search: false, font_size: "medium".to_string(),
         }
     }
 }
