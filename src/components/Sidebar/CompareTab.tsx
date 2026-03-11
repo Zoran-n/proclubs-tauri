@@ -1,7 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
-import { searchClub, loadClub } from "../../api/tauri";
+import { searchClub, loadClub, getLogo } from "../../api/tauri";
 import type { Club, ClubData } from "../../types";
+
+function ClubLogo({ club, size = 32 }: { club: Club; size?: number }) {
+  const [logo, setLogo] = useState<string | null>(null);
+  useEffect(() => {
+    if (club.crestAssetId) getLogo(club.crestAssetId).then(setLogo).catch(() => {});
+  }, [club.crestAssetId]);
+  const initial = (club.name || "?")[0].toUpperCase();
+  return (
+    <div style={{ width: size, height: size, borderRadius: 6, background: "var(--bg)",
+      border: "1px solid var(--border)", flexShrink: 0, overflow: "hidden",
+      display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {logo
+        ? <img src={logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+        : <span style={{ fontFamily: "'Bebas Neue', sans-serif",
+            fontSize: size * 0.42, color: "var(--accent)", lineHeight: 1 }}>
+            {initial}
+          </span>
+      }
+    </div>
+  );
+}
 
 type Side = "A" | "B";
 
@@ -70,12 +91,20 @@ export function CompareTab() {
         {s.data ? (
           /* Selected club card */
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{s.data.club.name}</p>
-            <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
-              {s.data.club.platform.toUpperCase()} · SR {s.data.club.skillRating ?? "—"}
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <ClubLogo club={s.data.club} size={36} />
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", margin: 0,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {s.data.club.name}
+                </p>
+                <p style={{ fontSize: 11, color: "var(--muted)", margin: 0, marginTop: 2 }}>
+                  SR {s.data.club.skillRating ?? "—"}
+                </p>
+              </div>
+            </div>
             <button onClick={() => reset(side)} style={{
-              marginTop: 10, fontSize: 11, color: "var(--muted)",
+              fontSize: 11, color: "var(--muted)",
               background: "none", border: "1px solid var(--border)", borderRadius: 4,
               cursor: "pointer", padding: "3px 8px",
             }}>Changer</button>
@@ -109,14 +138,19 @@ export function CompareTab() {
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {s.results.map((c) => (
                   <div key={c.id} onClick={() => pick(c, side)} style={{
-                    padding: "6px 10px", borderRadius: 5, cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "7px 10px", borderRadius: 6, cursor: "pointer",
                     background: "var(--bg)", border: "1px solid var(--border)",
-                    fontSize: 13, color: "var(--text)", transition: "border-color 0.15s",
+                    transition: "border-color 0.15s",
                   }}
                     onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--accent)")}
                     onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)")}
                   >
-                    {c.name || `Club #${c.id}`}
+                    <ClubLogo club={c} size={28} />
+                    <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 600,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {c.name || `Club #${c.id}`}
+                    </span>
                   </div>
                 ))}
               </div>

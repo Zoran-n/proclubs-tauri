@@ -48,6 +48,7 @@ export interface Session {
   platform: string;
   date: string;
   matches: Match[];
+  archived?: boolean;
 }
 
 export interface EaProfile {

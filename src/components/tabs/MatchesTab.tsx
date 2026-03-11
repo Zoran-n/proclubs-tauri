@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Download } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { getMatches } from "../../api/tauri";
+import { exportCsv, exportPng } from "../../utils/export";
 import type { Match } from "../../types";
 
 const TYPES = [
@@ -28,12 +30,28 @@ function formatDuration(secs?: number) {
   return `${m}min ${s}s`;
 }
 
+const BTN: React.CSSProperties = {
+  padding: "6px 10px",
+  background: "var(--card)",
+  border: "1px solid var(--border)",
+  borderRadius: 6,
+  cursor: "pointer",
+  color: "var(--muted)",
+  fontSize: 11,
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+  flexShrink: 0,
+};
+
 export function MatchesTab() {
   const { currentClub, matches: leagueCache } = useAppStore();
   const [type, setType] = useState<"leagueMatch" | "playoffMatch" | "friendlyMatch">("leagueMatch");
   const [cache, setCache] = useState<Partial<Record<string, Match[]>>>({ leagueMatch: leagueCache });
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Match | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setCache((c) => ({ ...c, leagueMatch: leagueCache })); }, [leagueCache]);
 
@@ -68,33 +86,58 @@ export function MatchesTab() {
     return String(det?.["name"] ?? opp?.["name"] ?? "Adversaire");
   };
 
+  const handlePng = async () => {
+    if (!contentRef.current) return;
+    setExporting(true);
+    await exportPng(contentRef.current, `matchs-${new Date().toISOString().slice(0, 10)}`).finally(() => setExporting(false));
+  };
+
+  const handleCsv = () => {
+    const headers = ["Date", "Adversaire", "Score", "Résultat", "Type"];
+    const rows = list.map((m) => [
+      formatDate(m.timestamp), getOppName(m), getScore(m),
+      RESULT_LABEL[getResult(m)].text, type,
+    ]);
+    exportCsv(headers, rows, `matchs-${new Date().toISOString().slice(0, 10)}`);
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg)" }}>
 
-      {/* Tab bar */}
-      <div style={{ display: "flex", gap: 8, padding: "12px 16px", flexShrink: 0 }}>
-        {TYPES.map((t) => {
-          const active = type === t.value;
-          return (
-            <button key={t.value} onClick={() => setType(t.value)} style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "6px 14px", borderRadius: 20,
-              border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-              background: active ? "rgba(0,212,255,0.08)" : "transparent",
-              color: active ? "var(--accent)" : "var(--muted)",
-              fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: 1,
-              cursor: "pointer", whiteSpace: "nowrap",
-            }}>
-              <span style={{ fontSize: 13 }}>{t.icon}</span>
-              {t.label}
-            </button>
-          );
-        })}
-        {loading && <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center", marginLeft: 4 }}>Chargement…</span>}
+      {/* Tab bar + export */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px",
+        flexShrink: 0, borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flex: 1 }}>
+          {TYPES.map((t) => {
+            const active = type === t.value;
+            return (
+              <button key={t.value} onClick={() => setType(t.value)} style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "6px 14px", borderRadius: 20,
+                border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                background: active ? "rgba(0,212,255,0.08)" : "transparent",
+                color: active ? "var(--accent)" : "var(--muted)",
+                fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: 1,
+                cursor: "pointer", whiteSpace: "nowrap",
+              }}>
+                <span>{t.icon}</span>
+                {t.label}
+              </button>
+            );
+          })}
+          {loading && <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>Chargement…</span>}
+        </div>
+        <button onClick={handlePng} disabled={exporting} style={BTN}>
+          <Download size={11} /> PNG
+        </button>
+        <button onClick={handleCsv} style={BTN}>
+          <Download size={11} /> CSV
+        </button>
       </div>
 
       {/* Match list */}
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, padding: "0 16px 16px" }}>
+      <div ref={contentRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column",
+        gap: 6, padding: "10px 16px 16px" }}>
         {!loading && list.length === 0 && (
           <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>Aucun match</div>
         )}
@@ -106,38 +149,31 @@ export function MatchesTab() {
               display: "flex", alignItems: "center", gap: 16,
               padding: "14px 18px",
               background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
-            }}>
-              {/* Score */}
-              <span style={{
-                fontFamily: "'Bebas Neue', sans-serif", fontSize: 26,
-                color: "#eab308", minWidth: 56, flexShrink: 0, letterSpacing: 1,
-              }}>
+              transition: "border-color 0.15s",
+            }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+            >
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26,
+                color: "#eab308", minWidth: 56, flexShrink: 0, letterSpacing: 1 }}>
                 {getScore(m)}
               </span>
-
-              {/* Opponent + date */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 600,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   vs {getOppName(m)}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
                   {formatDate(m.timestamp)}
                 </div>
               </div>
-
-              {/* Result label */}
-              <span style={{
-                fontFamily: "'Bebas Neue', sans-serif", fontSize: 14,
-                color: rl.color, letterSpacing: 1, minWidth: 72, textAlign: "center",
-              }}>
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14,
+                color: rl.color, letterSpacing: 1, minWidth: 72, textAlign: "center" }}>
                 {rl.text}
               </span>
-
-              {/* Détails button */}
               <button onClick={() => setSelected(m)} style={{
                 background: "none", border: "none", color: "var(--muted)",
-                fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", padding: "4px 8px",
-                borderRadius: 4,
+                fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", padding: "4px 8px", borderRadius: 4,
               }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
                 onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
@@ -157,7 +193,7 @@ export function MatchesTab() {
 }
 
 function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; onClose: () => void }) {
-  const myData  = match.clubs[clubId] as Record<string, unknown> | undefined;
+  const myData   = match.clubs[clubId] as Record<string, unknown> | undefined;
   const oppEntry = Object.entries(match.clubs).find(([k]) => k !== clubId);
   const oppData  = oppEntry?.[1] as Record<string, unknown> | undefined;
   const oppDet   = oppData?.["details"] as Record<string, unknown> | undefined;
@@ -180,34 +216,40 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
   const rl  = RESULT_LABEL[res];
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 50,
+      display: "flex", alignItems: "center", justifyContent: "center" }}
       onClick={onClose}>
-      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 580, maxHeight: "82vh", overflowY: "auto", border: "1px solid var(--border)" }}
+      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 580,
+        maxHeight: "82vh", overflowY: "auto", border: "1px solid var(--border)" }}
         onClick={(e) => e.stopPropagation()}>
 
-        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
           <div>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: "#eab308", letterSpacing: 2 }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32,
+              color: "#eab308", letterSpacing: 2 }}>
               {myGoals} — {oppGoals}
             </div>
-            <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginTop: 2 }}>vs {oppName}</div>
+            <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginTop: 2 }}>
+              vs {oppName}
+            </div>
             <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
               {formatDate(match.timestamp)}
               {match.matchDuration ? ` · ${formatDuration(match.matchDuration)}` : ""}
-              <span style={{ color: rl.color, fontFamily: "'Bebas Neue', sans-serif", marginLeft: 10, letterSpacing: 1 }}>{rl.text}</span>
+              <span style={{ color: rl.color, fontFamily: "'Bebas Neue', sans-serif",
+                marginLeft: 10, letterSpacing: 1 }}>{rl.text}</span>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
+          <button onClick={onClose} style={{ background: "none", border: "none",
+            color: "var(--muted)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
         </div>
 
-        {/* Players table */}
-        {myPlayers.length > 0 && (
+        {myPlayers.length > 0 ? (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 {["Joueur", "Note", "Buts", "PD", "Passes", "MOTM"].map((h) => (
-                  <th key={h} style={{ padding: "4px 8px", textAlign: "left", fontSize: 10, color: "var(--muted)", fontWeight: "normal" }}>{h}</th>
+                  <th key={h} style={{ padding: "4px 8px", textAlign: "left", fontSize: 10,
+                    color: "var(--muted)", fontWeight: "normal" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -215,7 +257,10 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
               {myPlayers.map((p, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
                   <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.name}</td>
-                  <td style={{ padding: "6px 8px", fontWeight: "bold", color: p.rating >= 7.5 ? "var(--green)" : p.rating >= 6 ? "#eab308" : "var(--red)" }}>{p.rating.toFixed(1)}</td>
+                  <td style={{ padding: "6px 8px", fontWeight: "bold",
+                    color: p.rating >= 7.5 ? "var(--green)" : p.rating >= 6 ? "#eab308" : "var(--red)" }}>
+                    {p.rating.toFixed(1)}
+                  </td>
                   <td style={{ padding: "6px 8px", color: "var(--accent)" }}>{p.goals || "—"}</td>
                   <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.assists || "—"}</td>
                   <td style={{ padding: "6px 8px", color: "var(--text)" }}>{p.passes}</td>
@@ -224,9 +269,10 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
               ))}
             </tbody>
           </table>
-        )}
-        {myPlayers.length === 0 && (
-          <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, marginTop: 16 }}>Pas de stats joueurs</p>
+        ) : (
+          <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, marginTop: 16 }}>
+            Pas de stats joueurs
+          </p>
         )}
       </div>
     </div>

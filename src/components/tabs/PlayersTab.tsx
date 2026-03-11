@@ -1,18 +1,19 @@
-import { useState, useMemo } from "react";
-import { ChevronUp, ChevronDown, Search } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
+import { Search, Download, ChevronUp, ChevronDown } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
+import { exportCsv, exportPng } from "../../utils/export";
 import type { Player } from "../../types";
 
 type Col = keyof Player;
 
-const COLS: { key: Col; label: string; align?: "right" }[] = [
-  { key: "gamesPlayed", label: "MJ",     align: "right" },
-  { key: "goals",       label: "Buts",   align: "right" },
-  { key: "assists",     label: "Passes D.", align: "right" },
-  { key: "passesMade",  label: "Passes", align: "right" },
-  { key: "tacklesMade", label: "Tacles", align: "right" },
-  { key: "motm",        label: "MOTM",   align: "right" },
-  { key: "rating",      label: "Note",   align: "right" },
+const COLS: { key: Col; label: string }[] = [
+  { key: "gamesPlayed", label: "MJ" },
+  { key: "goals",       label: "Buts" },
+  { key: "assists",     label: "Passes D." },
+  { key: "passesMade",  label: "Passes" },
+  { key: "tacklesMade", label: "Tacles" },
+  { key: "motm",        label: "MOTM" },
+  { key: "rating",      label: "Note" },
 ];
 
 const POS_LABELS: Record<string, string> = {
@@ -36,9 +37,9 @@ function RatingBadge({ r }: { r: number }) {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", justifyContent: "center",
-      minWidth: 38, padding: "2px 7px", borderRadius: 12,
+      minWidth: 42, padding: "3px 8px", borderRadius: 12,
       background: `${color}18`, border: `1px solid ${color}55`,
-      color, fontSize: 12, fontWeight: 700, fontFamily: "'Bebas Neue', sans-serif",
+      color, fontSize: 13, fontWeight: 700, fontFamily: "'Bebas Neue', sans-serif",
       letterSpacing: "0.04em",
     }}>
       {r.toFixed(1)}
@@ -46,12 +47,28 @@ function RatingBadge({ r }: { r: number }) {
   );
 }
 
+const BTN = {
+  padding: "6px 10px",
+  background: "var(--card)" as const,
+  border: "1px solid var(--border)",
+  borderRadius: 6,
+  cursor: "pointer" as const,
+  color: "var(--muted)" as const,
+  fontSize: 11,
+  display: "flex",
+  alignItems: "center" as const,
+  gap: 4,
+  flexShrink: 0,
+};
+
 export function PlayersTab() {
   const players = useAppStore((s) => s.players);
   const [sortKey, setSortKey] = useState<Col>("goals");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<Player | null>(null);
   const [filter, setFilter] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const sorted = useMemo(() => [...players]
     .filter((p) => p.name.toLowerCase().includes(filter.toLowerCase()))
@@ -61,141 +78,133 @@ export function PlayersTab() {
       return sortDir === "desc" ? String(bv).localeCompare(String(av)) : String(av).localeCompare(String(bv));
     }), [players, sortKey, sortDir, filter]);
 
-  const onSort = (k: Col) => {
-    if (sortKey === k) setSortDir((d) => d === "desc" ? "asc" : "desc");
-    else { setSortKey(k); setSortDir("desc"); }
+  const handlePng = async () => {
+    if (!contentRef.current) return;
+    setExporting(true);
+    const date = new Date().toISOString().slice(0, 10);
+    await exportPng(contentRef.current, `joueurs-${date}`).finally(() => setExporting(false));
+  };
+
+  const handleCsv = () => {
+    const headers = ["Joueur", "Poste", "MJ", "Buts", "PD", "Passes", "Tacles", "MOTM", "Note"];
+    const rows = sorted.map((p) => [
+      p.name,
+      POS_LABELS[p.position] || p.position || "—",
+      p.gamesPlayed, p.goals, p.assists, p.passesMade, p.tacklesMade, p.motm,
+      p.rating.toFixed(1),
+    ]);
+    exportCsv(headers, rows, `joueurs-${new Date().toISOString().slice(0, 10)}`);
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 
-      {/* Filter bar */}
+      {/* Header bar */}
       <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0,
-        display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ position: "relative", flex: "0 0 auto" }}>
+        display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ position: "relative", flex: "1 1 140px", minWidth: 120 }}>
           <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)",
             color: "var(--muted)", pointerEvents: "none" }} />
           <input value={filter} onChange={(e) => setFilter(e.target.value)}
             placeholder="Filtrer…"
             style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
-              padding: "6px 10px 6px 28px", borderRadius: 6, fontSize: 12, outline: "none", width: 180,
+              padding: "6px 10px 6px 28px", borderRadius: 6, fontSize: 12, outline: "none", width: "100%",
               transition: "border-color 0.15s" }}
             onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
             onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
           />
         </div>
-        <span style={{ fontSize: 11, color: "var(--muted)" }}>{sorted.length} joueur{sorted.length !== 1 ? "s" : ""}</span>
+
+        <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>
+          {sorted.length} joueur{sorted.length !== 1 ? "s" : ""}
+        </span>
+
+        {/* Sort */}
+        <select value={sortKey} onChange={(e) => setSortKey(e.target.value as Col)}
+          style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
+            padding: "6px 8px", borderRadius: 6, fontSize: 11, outline: "none", cursor: "pointer", flexShrink: 0 }}>
+          {COLS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+        </select>
+        <button onClick={() => setSortDir((d) => d === "desc" ? "asc" : "desc")}
+          style={{ ...BTN, color: "var(--accent)" as const }}>
+          {sortDir === "desc" ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+        </button>
+
+        <button onClick={handlePng} disabled={exporting} style={{ ...BTN }}>
+          <Download size={11} /> PNG
+        </button>
+        <button onClick={handleCsv} style={{ ...BTN }}>
+          <Download size={11} /> CSV
+        </button>
       </div>
 
-      {/* Table */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
-            <tr style={{ background: "var(--surface)", borderBottom: "2px solid var(--border)" }}>
-              <th style={{ padding: "8px 12px", width: 44, fontWeight: "normal" }} />
-              <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, color: "var(--muted)",
-                fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em", fontWeight: "normal" }}>
-                JOUEUR
-              </th>
-              <th style={{ padding: "8px 8px", width: 54, fontWeight: "normal" }} />
-              {COLS.map(({ key, label }) => (
-                <th key={key} onClick={() => onSort(key)} style={{
-                  padding: "8px 12px", textAlign: "right", fontSize: 10, fontWeight: "normal",
-                  color: sortKey === key ? "var(--accent)" : "var(--muted)",
-                  fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em",
-                  cursor: "pointer", whiteSpace: "nowrap", userSelect: "none",
+      {/* Cards list */}
+      <div ref={contentRef} style={{ flex: 1, overflowY: "auto", padding: "10px 16px",
+        display: "flex", flexDirection: "column", gap: 6 }}>
+        {sorted.map((p, i) => {
+          const posLabel = POS_LABELS[p.position] || p.position || "—";
+          return (
+            <div key={`${p.name}-${i}`} onClick={() => setSelected(p)}
+              style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "12px 16px",
+                background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
+                cursor: "pointer", transition: "border-color 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+            >
+              {/* Rank bubble */}
+              <div style={{
+                width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 700, lineHeight: 1,
+                background: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7c3b" : "var(--bg)",
+                color: i < 3 ? "#000" : "var(--muted)",
+                border: i >= 3 ? "1px solid var(--border)" : "none",
+              }}>
+                {i + 1}
+              </div>
+
+              {/* Name + position */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.name}
+                </div>
+                <span style={{
+                  display: "inline-block", marginTop: 3, padding: "1px 6px", borderRadius: 3,
+                  background: "var(--bg)", border: "1px solid var(--border)",
+                  fontSize: 9, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif",
+                  letterSpacing: "0.04em",
                 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-                    {sortKey === key && (
-                      sortDir === "desc"
-                        ? <ChevronDown size={10} />
-                        : <ChevronUp size={10} />
-                    )}
-                    {label}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((p, i) => {
-              const posLabel = POS_LABELS[p.position] || p.position || "—";
-              return (
-                <tr key={`${p.name}-${i}`} className="player-row"
-                  onClick={() => setSelected(p)}>
+                  {posLabel}
+                </span>
+              </div>
 
-                  {/* Rank */}
-                  <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                    <div style={{
-                      width: 24, height: 24, borderRadius: "50%",
-                      display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 11, fontWeight: 700, lineHeight: 1,
-                      background: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7c3b" : "var(--card)",
-                      color: i < 3 ? "#000" : "var(--muted)",
-                      border: i >= 3 ? "1px solid var(--border)" : "none",
-                    }}>
-                      {i + 1}
+              {/* Stats chips */}
+              <div style={{ display: "flex", gap: 14, alignItems: "center", flexShrink: 0 }}>
+                {[
+                  { label: "MJ",   value: p.gamesPlayed,             color: "var(--text)" },
+                  { label: "BUTS", value: p.goals   || "—",          color: "var(--accent)" },
+                  { label: "PD",   value: p.assists || "—",          color: "var(--text)" },
+                  { label: "MOTM", value: p.motm > 0 ? p.motm : "—", color: "#ffd700" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ textAlign: "center", minWidth: 30 }}>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17,
+                      color, lineHeight: 1 }}>
+                      {value}
                     </div>
-                  </td>
-
-                  {/* Name */}
-                  <td style={{ padding: "10px 12px", color: "var(--text)", fontWeight: 600 }}>
-                    {p.name}
-                  </td>
-
-                  {/* Position */}
-                  <td style={{ padding: "10px 8px" }}>
-                    <span style={{
-                      display: "inline-block", padding: "2px 7px", borderRadius: 4,
-                      background: "var(--card)", border: "1px solid var(--border)",
-                      fontSize: 10, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif",
-                      letterSpacing: "0.04em",
-                    }}>
-                      {posLabel}
-                    </span>
-                  </td>
-
-                  {/* MJ */}
-                  <td className="stat-cell" style={{ padding: "10px 12px", textAlign: "right", color: "var(--text)" }}>
-                    {p.gamesPlayed}
-                  </td>
-
-                  {/* Buts */}
-                  <td className="stat-cell" style={{ padding: "10px 12px", textAlign: "right",
-                    color: "var(--accent)", fontWeight: 700 }}>
-                    {p.goals || "—"}
-                  </td>
-
-                  {/* Passes D. */}
-                  <td className="stat-cell" style={{ padding: "10px 12px", textAlign: "right", color: "var(--text)" }}>
-                    {p.assists || "—"}
-                  </td>
-
-                  {/* Passes */}
-                  <td className="stat-cell" style={{ padding: "10px 12px", textAlign: "right", color: "var(--muted)" }}>
-                    {p.passesMade}
-                  </td>
-
-                  {/* Tacles */}
-                  <td className="stat-cell" style={{ padding: "10px 12px", textAlign: "right", color: "var(--muted)" }}>
-                    {p.tacklesMade}
-                  </td>
-
-                  {/* MOTM */}
-                  <td className="stat-cell" style={{ padding: "10px 12px", textAlign: "right",
-                    color: "#ffd700", fontWeight: 700 }}>
-                    {p.motm > 0 ? p.motm : "—"}
-                  </td>
-
-                  {/* Note */}
-                  <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                    <RatingBadge r={p.rating} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em", marginTop: 2 }}>
+                      {label}
+                    </div>
+                  </div>
+                ))}
+                <RatingBadge r={p.rating} />
+              </div>
+            </div>
+          );
+        })}
         {sorted.length === 0 && (
           <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
             Aucun joueur
@@ -227,7 +236,6 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
         border: "1px solid var(--border)", animation: "fadeSlideIn 0.15s ease-out" }}
         onClick={(e) => e.stopPropagation()}>
 
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
             <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "var(--text)",
@@ -244,7 +252,6 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
             cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
         </div>
 
-        {/* Stats grid */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
           {stats.map(([label, value, color]) => (
             <div key={label} style={{ background: "var(--bg)", border: "1px solid var(--border)",

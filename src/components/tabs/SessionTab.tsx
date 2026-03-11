@@ -1,19 +1,19 @@
+import { useRef, useState } from "react";
+import { Play, Square, Trophy, Trash2, Archive, Download } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useSession } from "../../hooks/useSession";
-import { Play, Square, Trophy } from "lucide-react";
 import { Badge } from "../ui/Badge";
-import type { Match } from "../../types";
+import { exportCsv, exportPng } from "../../utils/export";
+import type { Match, Session } from "../../types";
 
 function sessionKpis(matches: Match[]) {
   let goals = 0, assists = 0, passes = 0, tackles = 0, motm = 0;
   for (const m of matches) {
     for (const clubPlayers of Object.values(m.players)) {
-      for (const p of Object.values(
-        clubPlayers as Record<string, Record<string, unknown>>
-      )) {
-        goals += Number(p["goals"] ?? 0);
-        assists += Number(p["assists"] ?? 0);
-        passes += Number(p["passesMade"] ?? p["passesmade"] ?? 0);
+      for (const p of Object.values(clubPlayers as Record<string, Record<string, unknown>>)) {
+        goals   += Number(p["goals"]      ?? 0);
+        assists += Number(p["assists"]    ?? 0);
+        passes  += Number(p["passesMade"] ?? p["passesmade"] ?? 0);
         tackles += Number(p["tacklesMade"] ?? p["tacklesmade"] ?? 0);
         if (p["mom"] === "1" || p["manofthematch"] === "1") motm++;
       }
@@ -22,136 +22,217 @@ function sessionKpis(matches: Match[]) {
   return { goals, assists, passes, tackles, motm };
 }
 
+const BTN: React.CSSProperties = {
+  padding: "5px 9px",
+  background: "var(--card)",
+  border: "1px solid var(--border)",
+  borderRadius: 5,
+  cursor: "pointer",
+  color: "var(--muted)",
+  fontSize: 11,
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+};
+
+function KpiGrid({ kpis }: { kpis: ReturnType<typeof sessionKpis> }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginTop: 10 }}>
+      {[
+        { label: "Buts",   value: kpis.goals   },
+        { label: "PD",     value: kpis.assists },
+        { label: "Passes", value: kpis.passes  },
+        { label: "Tacles", value: kpis.tackles },
+        { label: "MOTM",   value: kpis.motm    },
+      ].map(({ label, value }) => (
+        <div key={label} style={{ textAlign: "center", background: "var(--bg)", borderRadius: 8, padding: "8px 4px",
+          border: "1px solid var(--border)" }}>
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "var(--accent)", lineHeight: 1 }}>
+            {value}
+          </div>
+          <div style={{ fontSize: 9, color: "var(--muted)", marginTop: 3, letterSpacing: "0.06em" }}>{label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SessionTab() {
-  // Activate polling hook
   useSession();
+  const { activeSession, sessions, currentClub, startSession, stopSession, persistSettings,
+    deleteSession, archiveSession } = useAppStore();
+  const [showArchived, setShowArchived] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  const {
-    activeSession, sessions, currentClub,
-    startSession, stopSession, persistSettings,
-  } = useAppStore();
+  const handleStop = () => { stopSession(); persistSettings(); };
 
-  const handleStop = () => {
-    stopSession();
-    persistSettings();
+  const handlePng = async () => {
+    if (!contentRef.current) return;
+    setExporting(true);
+    await exportPng(contentRef.current, `session-${new Date().toISOString().slice(0, 10)}`).finally(() => setExporting(false));
   };
 
-  const kpis = activeSession ? sessionKpis(activeSession.matches) : null;
+  const handleCsv = (sessList: Session[]) => {
+    const headers = ["Date", "Club", "MJ", "Buts", "PD", "Passes", "Tacles", "MOTM"];
+    const rows = sessList.map((s) => {
+      const k = sessionKpis(s.matches);
+      return [new Date(s.date).toLocaleDateString(), s.clubName,
+        s.matches.length, k.goals, k.assists, k.passes, k.tackles, k.motm];
+    });
+    exportCsv(headers, rows, `sessions-${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const visible = sessions.filter((s) => showArchived ? s.archived : !s.archived);
+  const kpis    = activeSession ? sessionKpis(activeSession.matches) : null;
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-4 gap-4">
+    <div ref={contentRef} style={{ display: "flex", flexDirection: "column", height: "100%",
+      overflowY: "auto", padding: 16, gap: 12 }}>
+
       {/* Active session */}
       {activeSession ? (
-        <>
-          <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p
-                  className="text-lg text-[var(--accent)]"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.1em" }}
-                >
-                  {activeSession.clubName}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {new Date(activeSession.date).toLocaleString()} · Polling 30s
-                </p>
+        <div style={{ background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.2)",
+          borderRadius: 10, padding: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--accent)",
+                letterSpacing: "0.1em" }}>
+                {activeSession.clubName}
               </div>
-              <button
-                onClick={handleStop}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-sm hover:bg-red-500/30 transition-colors"
-              >
-                <Square size={13} /> Terminer
-              </button>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                {new Date(activeSession.date).toLocaleString()} · {activeSession.matches.length} match{activeSession.matches.length !== 1 ? "s" : ""}
+              </div>
             </div>
-
-            {/* Live KPIs */}
-            {kpis && (
-              <div className="grid grid-cols-5 gap-2">
-                {[
-                  { label: "Buts", value: kpis.goals },
-                  { label: "PD", value: kpis.assists },
-                  { label: "Passes", value: kpis.passes },
-                  { label: "Tacles", value: kpis.tackles },
-                  { label: "MOTM", value: kpis.motm },
-                ].map(({ label, value }) => (
-                  <div key={label} className="text-center bg-[#090c10] rounded-lg p-2">
-                    <p className="text-xl font-bold text-[var(--accent)]">{value}</p>
-                    <p className="text-[10px] text-slate-500">{label}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            <button onClick={handleStop} style={{ display: "flex", alignItems: "center", gap: 5,
+              padding: "6px 12px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)",
+              borderRadius: 7, color: "#ef4444", fontSize: 12, cursor: "pointer" }}>
+              <Square size={12} /> Terminer
+            </button>
           </div>
+          {kpis && <KpiGrid kpis={kpis} />}
 
           {/* Matches in session */}
           {activeSession.matches.length > 0 && (
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Matchs joués</p>
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+                fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>MATCHS JOUÉS</div>
               {[...activeSession.matches].reverse().map((m) => {
-                const clubData = currentClub
-                  ? (m.clubs[currentClub.id] as Record<string, unknown>)
-                  : null;
-                const goals = clubData?.["goals"] ?? "?";
-                const result = (clubData?.["matchResult"] as string) ?? "";
-                const r = result === "win" ? "W" : result === "loss" ? "L" : "D";
+                const clubData = currentClub ? (m.clubs[currentClub.id] as Record<string, unknown>) : null;
+                const goals    = clubData?.["goals"] ?? "?";
+                const result   = (clubData?.["matchResult"] as string) ?? "";
+                const r        = result === "win" ? "W" : result === "loss" ? "L" : "D";
                 return (
-                  <div key={m.matchId} className="flex items-center gap-3 py-2 border-b border-white/5">
+                  <div key={m.matchId} style={{ display: "flex", alignItems: "center", gap: 8,
+                    padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
                     <Badge result={r} />
-                    <span className="text-sm text-slate-300">{String(goals)} but(s)</span>
-                    <span className="text-xs text-slate-600 ml-auto capitalize">{m.matchType}</span>
+                    <span style={{ fontSize: 12, color: "var(--text)" }}>{String(goals)} but(s)</span>
+                    <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: "auto" }}>{m.matchType}</span>
                   </div>
                 );
               })}
             </div>
           )}
-        </>
+        </div>
       ) : currentClub ? (
-        <div className="flex flex-col items-center justify-center flex-1 gap-3">
-          <Trophy size={40} className="text-slate-600" />
-          <p className="text-slate-500">Aucune session active</p>
-          <button
-            onClick={() => startSession(currentClub)}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)]/20 text-[var(--accent)] rounded-lg hover:bg-[var(--accent)]/30 transition-colors"
-          >
-            <Play size={15} /> Démarrer
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          padding: 32, gap: 10, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10 }}>
+          <Trophy size={36} style={{ color: "var(--muted)" }} />
+          <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>Aucune session active</p>
+          <button onClick={() => startSession(currentClub)} style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "8px 18px", background: "rgba(0,212,255,0.12)",
+            border: "1px solid rgba(0,212,255,0.3)", borderRadius: 8,
+            color: "var(--accent)", fontSize: 13, cursor: "pointer" }}>
+            <Play size={14} /> Démarrer
           </button>
         </div>
       ) : (
-        <div className="flex items-center justify-center flex-1 text-slate-600">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1,
+          color: "var(--muted)", fontSize: 13 }}>
           Charge un club d'abord
         </div>
       )}
 
-      {/* Past sessions */}
-      {sessions.length > 0 && (
-        <div>
-          <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Sessions passées</p>
-          {sessions.map((s) => {
+      {/* Past sessions header */}
+      {(sessions.length > 0) && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+              fontFamily: "'Bebas Neue', sans-serif", flex: 1 }}>
+              SESSIONS PASSÉES {visible.length > 0 ? `(${visible.length})` : ""}
+            </span>
+            <button onClick={() => setShowArchived((v) => !v)} style={{ ...BTN }}>
+              <Archive size={11} /> {showArchived ? "Actives" : "Archivées"}
+            </button>
+            <button onClick={handlePng} disabled={exporting} style={{ ...BTN }}>
+              <Download size={11} /> PNG
+            </button>
+            <button onClick={() => handleCsv(visible)} style={{ ...BTN }}>
+              <Download size={11} /> CSV
+            </button>
+          </div>
+
+          {visible.length === 0 && (
+            <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 12, padding: 16 }}>
+              {showArchived ? "Aucune session archivée" : "Aucune session"}
+            </div>
+          )}
+
+          {visible.map((s) => {
             const k = sessionKpis(s.matches);
             return (
-              <div key={s.id} className="bg-[#111820] rounded-lg p-3 mb-2 border border-white/5">
-                <div className="flex justify-between items-start mb-2">
-                  <p className="text-sm font-medium text-slate-200">{s.clubName}</p>
-                  <p className="text-xs text-slate-500">{new Date(s.date).toLocaleDateString()}</p>
+              <div key={s.id} style={{ background: "var(--card)", border: "1px solid var(--border)",
+                borderRadius: 8, padding: 14, position: "relative" }}>
+
+                {/* Session header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+                  marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "var(--text)",
+                      letterSpacing: "0.06em" }}>
+                      {s.clubName}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                      {new Date(s.date).toLocaleDateString()} · {s.matches.length} match{s.matches.length !== 1 ? "s" : ""}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 5 }}>
+                    <button onClick={() => { archiveSession(s.id); persistSettings(); }}
+                      title={s.archived ? "Désarchiver" : "Archiver"}
+                      style={{ ...BTN, color: s.archived ? "var(--accent)" : "var(--muted)" as string }}>
+                      <Archive size={11} />
+                    </button>
+                    <button onClick={() => { deleteSession(s.id); persistSettings(); }}
+                      title="Supprimer"
+                      style={{ ...BTN }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}>
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
                 </div>
-                <div className="grid grid-cols-5 gap-1 text-center">
+
+                {/* KPIs */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4, textAlign: "center" }}>
                   {[
-                    { l: "MJ", v: s.matches.length },
-                    { l: "Buts", v: k.goals },
-                    { l: "PD", v: k.assists },
-                    { l: "Passes", v: k.passes },
-                    { l: "MOTM", v: k.motm },
+                    { l: "MJ",     v: s.matches.length },
+                    { l: "Buts",   v: k.goals          },
+                    { l: "PD",     v: k.assists        },
+                    { l: "Passes", v: k.passes         },
+                    { l: "MOTM",   v: k.motm           },
                   ].map(({ l, v }) => (
                     <div key={l}>
-                      <p className="text-[var(--accent)] font-bold text-sm">{v}</p>
-                      <p className="text-[10px] text-slate-600">{l}</p>
+                      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16,
+                        color: "var(--accent)" }}>{v}</div>
+                      <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em" }}>{l}</div>
                     </div>
                   ))}
                 </div>
               </div>
             );
           })}
-        </div>
+        </>
       )}
     </div>
   );
