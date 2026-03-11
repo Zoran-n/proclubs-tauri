@@ -1,4 +1,4 @@
-# ProClubs Stats `v0.2.0`
+# ProClubs Stats `v0.2.1`
 
 > Créé par **Tatsuki**
 
@@ -27,6 +27,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Badge de note coloré (or, vert, jaune, rouge)
 - Modale détail joueur : stats de base + **statistiques avancées** (tirs cadrés, interceptions, fautes, cartons jaunes/rouges, clean sheets, arrêts GK) — affichées uniquement si disponibles via l'API EA
 - Export **PNG** (capture avec prévisualisation) et **CSV** (tableau complet)
+- **Comparaison de joueurs** : mode COMPARER, sélection de 2 joueurs, radar chart normalisé + tableau face-à-face avec highlight du meilleur
 
 ### Matchs
 - Trois types de matchs : Championnat, Playoff, Amical
@@ -135,7 +136,7 @@ source ~/.cargo/env && npm run tauri build -- --debug
 
 ### Joueurs
 - **Graphique d'évolution** par joueur (progression de note, buts/match sur le temps)
-- **Comparaison de joueurs** : sélectionner deux joueurs et afficher un radar comparatif
+- ~~**Comparaison de joueurs**~~ ✅ Radar comparatif avec normalisation par rapport à l'équipe + tableau face-à-face
 - **Filtrage multi-critères** : par poste, par seuil de note, par nombre de matchs minimum
 - **Photo de profil** : charger l'avatar EA du joueur si disponible
 

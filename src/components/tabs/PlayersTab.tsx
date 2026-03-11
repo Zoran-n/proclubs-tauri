@@ -1,5 +1,9 @@
-import { useState, useMemo, useRef } from "react";
-import { Search, Download, ChevronUp, ChevronDown } from "lucide-react";
+import { useState, useMemo, useRef, Fragment } from "react";
+import { Search, Download, ChevronUp, ChevronDown, Users } from "lucide-react";
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  Legend, ResponsiveContainer,
+} from "recharts";
 import { useAppStore } from "../../store/useAppStore";
 import { ExportModal } from "../ui/ExportModal";
 import type { Player } from "../../types";
@@ -47,16 +51,16 @@ function RatingBadge({ r }: { r: number }) {
   );
 }
 
-const BTN = {
+const BTN: React.CSSProperties = {
   padding: "6px 10px",
-  background: "var(--card)" as const,
+  background: "var(--card)",
   border: "1px solid var(--border)",
   borderRadius: 6,
-  cursor: "pointer" as const,
-  color: "var(--muted)" as const,
+  cursor: "pointer",
+  color: "var(--muted)",
   fontSize: 11,
   display: "flex",
-  alignItems: "center" as const,
+  alignItems: "center",
   gap: 4,
   flexShrink: 0,
 };
@@ -69,6 +73,10 @@ export function PlayersTab() {
   const [filter, setFilter] = useState("");
   const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Compare mode
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareSelected, setCompareSelected] = useState<Player[]>([]);
 
   const sorted = useMemo(() => [...players]
     .filter((p) => p.name.toLowerCase().includes(filter.toLowerCase()))
@@ -84,6 +92,20 @@ export function PlayersTab() {
     p.gamesPlayed, p.goals, p.assists, p.passesMade, p.tacklesMade, p.motm, p.rating.toFixed(1),
   ]);
   const dateStr = new Date().toISOString().slice(0, 10);
+
+  const handleCardClick = (p: Player) => {
+    if (compareMode) {
+      setCompareSelected((prev) => {
+        if (prev.some((pp) => pp.name === p.name)) return prev.filter((pp) => pp.name !== p.name);
+        if (prev.length >= 2) return [prev[1], p];
+        return [...prev, p];
+      });
+    } else {
+      setSelected(p);
+    }
+  };
+
+  const isCompareSelected = (p: Player) => compareSelected.some((pp) => pp.name === p.name);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -115,8 +137,16 @@ export function PlayersTab() {
           {COLS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
         </select>
         <button onClick={() => setSortDir((d) => d === "desc" ? "asc" : "desc")}
-          style={{ ...BTN, color: "var(--accent)" as const }}>
+          style={{ ...BTN, color: "var(--accent)" }}>
           {sortDir === "desc" ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+        </button>
+
+        {/* Compare button */}
+        <button onClick={() => { setCompareMode(!compareMode); setCompareSelected([]); }}
+          style={{ ...BTN, color: compareMode ? "#000" : "var(--muted)",
+            background: compareMode ? "var(--accent)" : "var(--card)",
+            borderColor: compareMode ? "var(--accent)" : "var(--border)" }}>
+          <Users size={11} /> COMPARER
         </button>
 
         <button onClick={() => setExportModal("png")} style={{ ...BTN }}>
@@ -127,21 +157,35 @@ export function PlayersTab() {
         </button>
       </div>
 
+      {/* Compare mode hint */}
+      {compareMode && (
+        <div style={{ padding: "6px 16px", background: "var(--card)", borderBottom: "1px solid var(--border)",
+          fontSize: 11, color: "var(--accent)", display: "flex", gap: 8, alignItems: "center" }}>
+          <Users size={11} />
+          {compareSelected.length === 0 && "Clique sur 2 joueurs pour les comparer"}
+          {compareSelected.length === 1 && <>{compareSelected[0].name} — clique sur un 2e joueur</>}
+          {compareSelected.length === 2 && <>{compareSelected[0].name} vs {compareSelected[1].name}</>}
+        </div>
+      )}
+
       {/* Cards list */}
       <div ref={contentRef} style={{ flex: 1, overflowY: "auto", padding: "10px 16px",
         display: "flex", flexDirection: "column", gap: 6 }}>
         {sorted.map((p, i) => {
           const posLabel = POS_LABELS[p.position] || p.position || "—";
+          const sel = compareMode && isCompareSelected(p);
           return (
-            <div key={`${p.name}-${i}`} onClick={() => setSelected(p)}
+            <div key={`${p.name}-${i}`} onClick={() => handleCardClick(p)}
               style={{
                 display: "flex", alignItems: "center", gap: 12,
                 padding: "12px 16px",
-                background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
+                background: sel ? "rgba(0,212,255,0.06)" : "var(--card)",
+                border: sel ? "1px solid var(--accent)" : "1px solid var(--border)",
+                borderRadius: 8,
                 cursor: "pointer", transition: "border-color 0.15s",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+              onMouseEnter={(e) => { if (!sel) e.currentTarget.style.borderColor = "var(--accent)"; }}
+              onMouseLeave={(e) => { if (!sel) e.currentTarget.style.borderColor = "var(--border)"; }}
             >
               {/* Rank bubble */}
               <div style={{
@@ -202,6 +246,10 @@ export function PlayersTab() {
       </div>
 
       {selected && <PlayerModal player={selected} onClose={() => setSelected(null)} />}
+      {compareSelected.length === 2 && (
+        <CompareModal p1={compareSelected[0]} p2={compareSelected[1]}
+          allPlayers={players} onClose={() => setCompareSelected([])} />
+      )}
       {exportModal === "png" && (
         <ExportModal type="png" pngSourceEl={contentRef.current}
           defaultFilename={`joueurs-${dateStr}`} onClose={() => setExportModal(null)} />
@@ -244,13 +292,13 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
 
   // Advanced stats — only show if at least one is non-zero
   const advStats: [string, string | number, string][] = [
-    ...(player.shotsOnTarget  ? [["Tirs cadrés",  player.shotsOnTarget,  "var(--accent)"] as [string, number, string]] : []),
+    ...(player.shotsOnTarget  ? [["Tirs cadres",  player.shotsOnTarget,  "var(--accent)"] as [string, number, string]] : []),
     ...(player.interceptions  ? [["Interceptions", player.interceptions,  "var(--text)"] as [string, number, string]] : []),
     ...(player.foulsCommitted ? [["Fautes",        player.foulsCommitted, "var(--muted)"] as [string, number, string]] : []),
     ...(player.yellowCards    ? [["Cartons J",     player.yellowCards,    "#eab308"] as [string, number, string]] : []),
     ...(player.redCards       ? [["Cartons R",     player.redCards,       "var(--red)"] as [string, number, string]] : []),
     ...(player.cleanSheets    ? [["Clean sheets",  player.cleanSheets,    "var(--green)"] as [string, number, string]] : []),
-    ...(player.saveAttempts   ? [["Arrêts",        player.saveAttempts,   "var(--text)"] as [string, number, string]] : []),
+    ...(player.saveAttempts   ? [["Arrets",        player.saveAttempts,   "var(--text)"] as [string, number, string]] : []),
   ];
 
   return (
@@ -286,7 +334,7 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
           <>
             <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
               fontFamily: "'Bebas Neue', sans-serif", margin: "14px 0 8px" }}>
-              STATISTIQUES AVANCÉES
+              STATISTIQUES AVANCEES
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
               {advStats.map(([label, value, color]) => (
@@ -295,6 +343,118 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Radar Comparison Modal ─── */
+
+const RADAR_STATS: { key: keyof Player; label: string }[] = [
+  { key: "goals",       label: "BUTS" },
+  { key: "assists",     label: "PASSES D." },
+  { key: "passesMade",  label: "PASSES" },
+  { key: "tacklesMade", label: "TACLES" },
+  { key: "motm",        label: "MOTM" },
+  { key: "rating",      label: "NOTE" },
+];
+
+function CompareModal({ p1, p2, allPlayers, onClose }: {
+  p1: Player; p2: Player; allPlayers: Player[]; onClose: () => void;
+}) {
+  const maxV = allPlayers.reduce((acc, p) => ({
+    goals:       Math.max(acc.goals,       p.goals),
+    assists:     Math.max(acc.assists,     p.assists),
+    passesMade:  Math.max(acc.passesMade,  p.passesMade),
+    tacklesMade: Math.max(acc.tacklesMade, p.tacklesMade),
+    motm:        Math.max(acc.motm,        p.motm),
+    rating:      Math.max(acc.rating,      p.rating),
+  }), { goals: 1, assists: 1, passesMade: 1, tacklesMade: 1, motm: 1, rating: 1 });
+
+  const norm = (val: number, max: number) => max > 0 ? Math.round((val / max) * 100) : 0;
+
+  const data = RADAR_STATS.map(({ key, label }) => ({
+    stat: label,
+    p1: norm(Number(p1[key]) || 0, maxV[key as keyof typeof maxV] ?? 1),
+    p2: norm(Number(p2[key]) || 0, maxV[key as keyof typeof maxV] ?? 1),
+  }));
+
+  const rows: { label: string; v1: number; v2: number; fmt?: (v: number) => string }[] = [
+    { label: "MJ",        v1: p1.gamesPlayed, v2: p2.gamesPlayed },
+    { label: "BUTS",      v1: p1.goals,       v2: p2.goals },
+    { label: "PASSES D.", v1: p1.assists,     v2: p2.assists },
+    { label: "PASSES",    v1: p1.passesMade,  v2: p2.passesMade },
+    { label: "TACLES",    v1: p1.tacklesMade, v2: p2.tacklesMade },
+    { label: "MOTM",      v1: p1.motm,        v2: p2.motm },
+    { label: "NOTE",      v1: p1.rating,      v2: p2.rating, fmt: (v) => v > 0 ? v.toFixed(1) : "—" },
+  ];
+
+  const P1_COLOR = "var(--accent)";
+  const P2_COLOR = "#8b5cf6";
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50,
+      display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 520,
+        maxHeight: "90vh", overflowY: "auto",
+        border: "1px solid var(--border)", animation: "fadeSlideIn 0.15s ease-out" }}
+        onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: P1_COLOR }}>
+              {p1.name}
+            </span>
+            <span style={{ color: "var(--muted)", fontSize: 13, fontWeight: 700 }}>VS</span>
+            <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: P2_COLOR }}>
+              {p2.name}
+            </span>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)",
+            cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+        </div>
+
+        {/* Radar chart */}
+        <ResponsiveContainer width="100%" height={280}>
+          <RadarChart data={data} cx="50%" cy="50%" outerRadius="75%">
+            <PolarGrid stroke="var(--border)" />
+            <PolarAngleAxis dataKey="stat"
+              tick={{ fill: "var(--muted)", fontSize: 10, fontFamily: "'Bebas Neue', sans-serif" }} />
+            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+            <Radar name={p1.name} dataKey="p1" stroke={P1_COLOR} fill={P1_COLOR} fillOpacity={0.25} />
+            <Radar name={p2.name} dataKey="p2" stroke={P2_COLOR} fill={P2_COLOR} fillOpacity={0.25} />
+            <Legend
+              wrapperStyle={{ fontSize: 11, fontFamily: "'Bebas Neue', sans-serif" }}
+              formatter={(value: string) => <span style={{ color: "var(--text)" }}>{value}</span>}
+            />
+          </RadarChart>
+        </ResponsiveContainer>
+
+        {/* Stats comparison table */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "6px 12px", marginTop: 16,
+          padding: "12px 16px", background: "var(--bg)", borderRadius: 8, border: "1px solid var(--border)" }}>
+          {rows.map(({ label, v1, v2, fmt }) => {
+            const f = fmt ?? ((v: number) => String(v));
+            const w1 = v1 > v2, w2 = v2 > v1;
+            return (
+              <Fragment key={label}>
+                <div style={{ textAlign: "right", fontFamily: "'Bebas Neue', sans-serif", fontSize: 18,
+                  color: w1 ? P1_COLOR : "var(--muted)" }}>
+                  {f(v1)}
+                </div>
+                <div style={{ textAlign: "center", fontSize: 9, color: "var(--muted)",
+                  fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em", alignSelf: "center" }}>
+                  {label}
+                </div>
+                <div style={{ textAlign: "left", fontFamily: "'Bebas Neue', sans-serif", fontSize: 18,
+                  color: w2 ? P2_COLOR : "var(--muted)" }}>
+                  {f(v2)}
+                </div>
+              </Fragment>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -14,12 +14,14 @@ export function SettingsTab() {
   const [proxySaved, setProxySaved] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "up-to-date" | "error">("idle");
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   const apply = (fn: () => void) => { fn(); persistSettings(); };
 
   const handleCheckUpdate = async () => {
     setUpdateStatus("checking");
     setUpdateVersion(null);
+    setUpdateError(null);
     try {
       const update = await checkUpdate();
       if (update?.available) {
@@ -31,9 +33,12 @@ export function SettingsTab() {
         setUpdateStatus("up-to-date");
         setTimeout(() => setUpdateStatus("idle"), 3000);
       }
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[updater]", msg);
+      setUpdateError(msg);
       setUpdateStatus("error");
-      setTimeout(() => setUpdateStatus("idle"), 3000);
+      setTimeout(() => { setUpdateStatus("idle"); setUpdateError(null); }, 10000);
     }
   };
 
@@ -178,9 +183,18 @@ export function SettingsTab() {
         {updateStatus === "error" && <><RefreshCw size={12} /> ERREUR — RÉESSAYER</>}
         {updateStatus === "idle" && <><RefreshCw size={12} /> VÉRIFIER LES MISES À JOUR</>}
       </button>
+      {updateStatus === "error" && updateError && (
+        <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(239,68,68,0.08)",
+          border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6 }}>
+          <p style={{ fontSize: 9, color: "#ef4444", fontFamily: "'Bebas Neue', sans-serif",
+            letterSpacing: "0.08em", marginBottom: 4 }}>ERREUR DE MISE A JOUR</p>
+          <p style={{ fontSize: 10, color: "#ef4444", fontFamily: "monospace", wordBreak: "break-all",
+            lineHeight: 1.5, opacity: 0.85 }}>{updateError}</p>
+        </div>
+      )}
 
       <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-        <p style={{ fontSize: 10, color: "var(--muted)" }}>ProClubs Stats v0.2.0</p>
+        <p style={{ fontSize: 10, color: "var(--muted)" }}>ProClubs Stats v0.2.1</p>
         <p style={{ fontSize: 10, color: "var(--border)" }}>Tauri 2 · Rust · React</p>
       </div>
     </div>
