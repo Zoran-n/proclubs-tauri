@@ -15,51 +15,42 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Auto-increment version if tag exists
+      - name: Auto-increment version
         id: version
         shell: pwsh
         run: |
-          # Read current version from tauri.conf.json
           $confText = [IO.File]::ReadAllText("src-tauri/tauri.conf.json")
           if ($confText -match '"version"\s*:\s*"(\d+)\.(\d+)\.(\d+)"') {
-            $major = [int]$Matches[1]
-            $minor = [int]$Matches[2]
-            $patch = [int]$Matches[3]
-          } else {
-            Write-Error "Could not parse version from tauri.conf.json"
-            exit 1
-          }
+            $major = [int]$Matches[1]; $minor = [int]$Matches[2]; $patch = [int]$Matches[3]
+          } else { Write-Error "Cannot parse version"; exit 1 }
 
-          # Increment patch until we find a free tag
+          $origPatch = $patch
           $version = "$major.$minor.$patch"
           while ($true) {
-            $tagCheck = gh release view "v$version" --repo ${{ github.repository }} --json tagName 2>&1
+            $null = gh release view "v$version" --repo ${{ github.repository }} --json tagName 2>&1
             if ($LASTEXITCODE -ne 0) { break }
-            Write-Host "Tag v$version exists, incrementing..."
-            $patch++
-            $version = "$major.$minor.$patch"
+            Write-Host "v$version exists, incrementing..."
+            $patch++; $version = "$major.$minor.$patch"
           }
 
-          Write-Host "Building version: $version"
+          Write-Host "Version: $version"
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "TAG=v$version" >> $env:GITHUB_OUTPUT
 
-          $oldVersion = "$major.$minor.$($Matches[3])"
+          if ($patch -ne $origPatch) {
+            $old = "$major.$minor.$origPatch"
+            $confText = $confText.Replace("`"version`": `"$old`"", "`"version`": `"$version`"")
+            [IO.File]::WriteAllText("src-tauri/tauri.conf.json", $confText)
 
-          # Patch tauri.conf.json (simple string replace)
-          $confText = $confText -replace [regex]::Escape("`"version`": `"$oldVersion`""), "`"version`": `"$version`""
-          [IO.File]::WriteAllText("src-tauri/tauri.conf.json", $confText)
+            $cargo = [IO.File]::ReadAllText("src-tauri/Cargo.toml")
+            $cargo = $cargo.Replace("version = `"$old`"", "version = `"$version`"")
+            [IO.File]::WriteAllText("src-tauri/Cargo.toml", $cargo)
 
-          # Patch Cargo.toml (first version = line only)
-          $cargoText = [IO.File]::ReadAllText("src-tauri/Cargo.toml")
-          $cargoText = $cargoText -replace "version = `"$([regex]::Escape($oldVersion))`"", "version = `"$version`""
-          [IO.File]::WriteAllText("src-tauri/Cargo.toml", $cargoText)
-
-          # Patch package.json
-          $pkgText = [IO.File]::ReadAllText("package.json")
-          $pkgText = $pkgText -replace [regex]::Escape("`"version`": `"$oldVersion`""), "`"version`": `"$version`""
-          [IO.File]::WriteAllText("package.json", $pkgText)
-
-          Write-Host "Patched all config files to $version"
+            $pkg = [IO.File]::ReadAllText("package.json")
+            $pkg = $pkg.Replace("`"version`": `"$old`"", "`"version`": `"$version`"")
+            [IO.File]::WriteAllText("package.json", $pkg)
+            Write-Host "Patched configs: $old -> $version"
+          }
           exit 0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -78,78 +69,80 @@ jobs:
         with:
           workspaces: ./src-tauri -> target
 
-      - name: Install npm dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Build & publish release
-        id: tauri
-        uses: tauri-apps/tauri-action@v0
+      - name: Build Tauri app (with signing)
+        run: npm run tauri build
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          tagName: v__VERSION__
-          releaseName: ProClubs Stats v__VERSION__
-          releaseBody: |
-            ## ProClubs Stats v__VERSION__
 
-            Application desktop pour les statistiques EA FC Pro Clubs.
-
-            ### Installation Windows
-            Telecharge le fichier `.msi` ou `.exe` ci-dessous.
-
-            ### Mise a jour automatique
-            Si tu as deja une version installee, l'app te proposera la mise a jour automatiquement.
-          releaseDraft: false
-          prerelease: false
-          updaterJsonKeepUniversal: true
-
-      - name: Generate and upload latest.json
+      - name: List build artifacts
         shell: pwsh
         run: |
+          Write-Host "=== NSIS ==="
+          Get-ChildItem "src-tauri/target/release/bundle/nsis" | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
+          Write-Host "=== MSI ==="
+          Get-ChildItem "src-tauri/target/release/bundle/msi" | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
+
+      - name: Create release and upload artifacts
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.TAG }}"
           $version = "${{ steps.version.outputs.VERSION }}"
-          $tag = "v$version"
           $repo = "${{ github.repository }}"
-          $bundleDir = "src-tauri/target/release/bundle/nsis"
 
-          Write-Host "Looking for artifacts in $bundleDir"
-          Get-ChildItem -Path $bundleDir -Recurse | ForEach-Object { Write-Host "  $($_.Name)" }
+          # Create release (or update if exists)
+          gh release create $tag --repo $repo --title "ProClubs Stats $tag" --notes @"
+          ## ProClubs Stats $tag
 
-          # Find nsis.zip and its signature
-          $nsisZip = Get-ChildItem -Path $bundleDir | Where-Object { $_.Name -match '\.nsis\.zip$' } | Select-Object -First 1
-          $nsisZipSig = Get-ChildItem -Path $bundleDir | Where-Object { $_.Name -match '\.nsis\.zip\.sig$' } | Select-Object -First 1
+          Application desktop pour les statistiques EA FC Pro Clubs.
 
-          if ($nsisZip -and $nsisZipSig) {
-            Write-Host "Found: $($nsisZip.Name) + $($nsisZipSig.Name)"
-            $signature = [IO.File]::ReadAllText($nsisZipSig.FullName).Trim()
+          ### Installation Windows
+          Telecharge le fichier .msi ou .exe ci-dessous.
 
-            # Upload the nsis.zip to the release
-            gh release upload $tag $nsisZip.FullName --repo $repo --clobber
-            $downloadUrl = "https://github.com/$repo/releases/download/$tag/$($nsisZip.Name -replace ' ', '%20')"
-          } else {
-            # Fallback: use setup.exe
-            Write-Host "nsis.zip not found, falling back to setup.exe"
-            $exe = Get-ChildItem -Path $bundleDir | Where-Object { $_.Name -match 'setup\.exe$' } | Select-Object -First 1
-            $exeSig = Get-ChildItem -Path $bundleDir | Where-Object { $_.Name -match 'setup\.exe\.sig$' } | Select-Object -First 1
+          ### Mise a jour automatique
+          Si tu as deja une version installee, l'app proposera la mise a jour automatiquement.
+          "@ 2>$null
 
-            if (-not $exe -or -not $exeSig) {
-              Write-Error "No signed artifacts found!"
-              Get-ChildItem -Path $bundleDir | ForEach-Object { Write-Host "  $($_.Name)" }
-              exit 1
-            }
-
-            Write-Host "Found: $($exe.Name) + $($exeSig.Name)"
-            $signature = [IO.File]::ReadAllText($exeSig.FullName).Trim()
-
-            # The exe is already uploaded by tauri-action
-            $assets = gh release view $tag --repo $repo --json assets --jq '.assets[].name'
-            $exeAsset = $assets | Where-Object { $_ -match 'setup\.exe' } | Select-Object -First 1
-            $downloadUrl = "https://github.com/$repo/releases/download/$tag/$($exeAsset -replace ' ', '%20')"
+          # Upload NSIS exe
+          $exe = Get-ChildItem "src-tauri/target/release/bundle/nsis" | Where-Object { $_.Name -match '-setup\.exe$' } | Select-Object -First 1
+          if ($exe) {
+            gh release upload $tag $exe.FullName --repo $repo --clobber
+            Write-Host "Uploaded: $($exe.Name)"
           }
 
-          # Build latest.json
-          $json = @"
+          # Upload MSI
+          $msi = Get-ChildItem "src-tauri/target/release/bundle/msi" | Where-Object { $_.Name -match '\.msi$' -and $_.Name -notmatch '\.sig' } | Select-Object -First 1
+          if ($msi) {
+            gh release upload $tag $msi.FullName --repo $repo --clobber
+            Write-Host "Uploaded: $($msi.Name)"
+          }
+
+          # Upload nsis.zip (for updater)
+          $nsisZip = Get-ChildItem "src-tauri/target/release/bundle/nsis" | Where-Object { $_.Name -match '\.nsis\.zip$' } | Select-Object -First 1
+          if ($nsisZip) {
+            gh release upload $tag $nsisZip.FullName --repo $repo --clobber
+            Write-Host "Uploaded: $($nsisZip.Name)"
+          }
+
+          # Find signature for latest.json
+          $nsisZipSig = Get-ChildItem "src-tauri/target/release/bundle/nsis" | Where-Object { $_.Name -match '\.nsis\.zip\.sig$' } | Select-Object -First 1
+
+          if ($nsisZip -and $nsisZipSig) {
+            $signature = [IO.File]::ReadAllText($nsisZipSig.FullName).Trim()
+            $url = "https://github.com/$repo/releases/download/$tag/$([Uri]::EscapeDataString($nsisZip.Name))"
+          } elseif ($exe) {
+            $exeSig = Get-ChildItem "src-tauri/target/release/bundle/nsis" | Where-Object { $_.Name -match '-setup\.exe\.sig$' } | Select-Object -First 1
+            if ($exeSig) {
+              $signature = [IO.File]::ReadAllText($exeSig.FullName).Trim()
+              $url = "https://github.com/$repo/releases/download/$tag/$([Uri]::EscapeDataString($exe.Name))"
+            }
+          }
+
+          if ($signature -and $url) {
+            $json = @"
           {
             "version": "$version",
             "notes": "ProClubs Stats $tag",
@@ -157,18 +150,20 @@ jobs:
             "platforms": {
               "windows-x86_64": {
                 "signature": "$signature",
-                "url": "$downloadUrl"
+                "url": "$url"
               }
             }
           }
           "@
-
-          [IO.File]::WriteAllText("latest.json", $json.Trim())
-          Write-Host "Generated latest.json:"
-          Get-Content latest.json
-
-          gh release upload $tag "latest.json" --repo $repo --clobber
-          Write-Host "Uploaded latest.json to $tag"
+            [IO.File]::WriteAllText("latest.json", $json.Trim())
+            Write-Host "=== latest.json ==="
+            Get-Content latest.json
+            gh release upload $tag "latest.json" --repo $repo --clobber
+            Write-Host "latest.json uploaded!"
+          } else {
+            Write-Host "WARNING: No signature found, latest.json not generated"
+            Write-Host "Signing may have failed. Check TAURI_SIGNING_PRIVATE_KEY secret."
+          }
           exit 0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
