@@ -29,7 +29,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ5QjlERTE1RTdCQTgxRjAKUldUd2dicm5GZDY1U1l6ZytaamhWRFcxWnJvd1IwTllad3JtZHM5ZzcxT3BpM2lOUm9kNmJvWWIK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgzOEUyMjY0QkFEODE1NUEKUldSYUZkaTZaQ0tPZzlKYWxzbjZrMHlINFpnUElIL2V1bFpGRC9Ub3h3SGhkQkEyTWEvUXhmQ2wK",
       "endpoints": [
         "https://github.com/Zoran-n/proclubs-tauri/releases/latest/download/latest.json"
       ]
