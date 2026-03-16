@@ -128,11 +128,11 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ## Axes d'amélioration possibles
 
 ### Données & API
-- ~~**Plus de matchs**~~ ✅ Sélecteur 10/25/50 + bouton "Charger plus" — pagination implémentée
+- ~~**Plus de matchs**~~ ❌ La Remonté de donner de l'API de EA ne permet pas plus de 15 matchs par requette
 - ~~**Statistiques avancées**~~ ✅ Interceptions, fautes, cartons, clean sheets, arrêts GK parsés depuis l'API EA et affichés dans les modales
 - ~~**Historique de saison**~~ ✅ Section lazy-load dans l'onglet Graphiques (endpoint `seasonalStats`)
 - ~~**Classement ligue**~~ ✅ Classement all-time lazy-load dans l'onglet Graphiques (top 25 clubs de la plateforme)
-- **Profil joueur EA** : lier le gamertag EA pour accéder aux stats individuelles cross-club
+- **Profil joueur EA** : 🛠️ WIP : lier le gamertag EA pour accéder aux stats individuelles cross-club
 
 ### Joueurs
 - **Graphique d'évolution** par joueur (progression de note, buts/match sur le temps)
