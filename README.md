@@ -132,7 +132,7 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - ~~**Statistiques avancées**~~ ✅ Interceptions, fautes, cartons, clean sheets, arrêts GK parsés depuis l'API EA et affichés dans les modales
 - ~~**Historique de saison**~~ ✅ Section lazy-load dans l'onglet Graphiques (endpoint `seasonalStats`)
 - ~~**Classement ligue**~~ ✅ Classement all-time lazy-load dans l'onglet Graphiques (top 25 clubs de la plateforme)
-- **Profil joueur EA** : 🛠️ WIP : lier le gamertag EA pour accéder aux stats individuelles cross-club
+- **Profil joueur EA** : 🛠️ WIP : lier le gamertag EA pour accéder aux stats individuelles cross-club / login EA OAuth Impossible 
 
 ### Joueurs
 - **Graphique d'évolution** par joueur (progression de note, buts/match sur le temps)
@@ -152,10 +152,10 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Export comparaison** : exporter le tableau comparatif en PNG ou CSV
 
 ### Session
-- **Alerte de nouveau match** : notification système (Tauri notification plugin)
-- **Résumé automatique** : email ou export PDF en fin de session
-- **Statistiques de session enrichies** : meilleur buteur, meilleur passeur, MOTM de la session
-- **Historique de sessions illimité** avec pagination
+- **Alerte de nouveau match** : 🛠️ WIP : notification système (Tauri notification plugin)
+- **Résumé automatique** : 🛠️ WIP : email ou export PDF en fin de session
+- **Statistiques de session enrichies** : 🛠️ WIP : meilleur buteur, meilleur passeur, MOTM de la session
+- **Historique de sessions illimité** avec pagination 🛠️ WIP 
 
 ### UX / Interface
 - **Mode plein écran** : raccourci clavier F11
