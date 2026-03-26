@@ -224,9 +224,19 @@ fn extract_club_obj<'a>(v: &'a serde_json::Value, club_id: &str) -> Result<&'a s
 
 fn parse_match(v: &serde_json::Value, match_type: &str) -> Match {
     Match {
-        match_id: v.get("matchId").and_then(|s| s.as_str()).unwrap_or("").to_string(),
-        timestamp: v.get("timestamp").and_then(|s| s.as_str()).unwrap_or("").to_string(),
-        match_duration: v.get("matchDuration").and_then(|n| n.as_u64()).map(|n| n as u32),
+        match_id: v.get("matchId").map(|s| match s {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Number(n) => n.to_string(),
+            _ => String::new(),
+        }).unwrap_or_default(),
+        timestamp: v.get("timestamp").map(|s| match s {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Number(n) => n.to_string(),
+            _ => String::new(),
+        }).unwrap_or_default(),
+        match_duration: v.get("matchDuration").and_then(|n| {
+            n.as_u64().or_else(|| n.as_str().and_then(|s| s.parse().ok()))
+        }).map(|n| n as u32),
         clubs: v.get("clubs").and_then(|c| c.as_object())
             .map(|o| o.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
             .unwrap_or_default(),
