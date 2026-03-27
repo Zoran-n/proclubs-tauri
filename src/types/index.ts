@@ -81,6 +81,13 @@ export interface Session {
   archived?: boolean;
 }
 
+export interface CompareEntry {
+  id: string;
+  date: string;
+  clubA: { id: string; name: string; platform: string };
+  clubB: { id: string; name: string; platform: string };
+}
+
 export interface EaProfile {
   gamertag: string;
   platform: string;
@@ -93,6 +100,7 @@ export interface Settings {
   favs: Club[];
   tactics: Tactic[];
   sessions: Session[];
+  compareHistory?: CompareEntry[];
   eaProfile?: EaProfile;
   theme: string;
   darkMode: boolean;

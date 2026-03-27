@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Club, Player, Match, Session, Tactic, EaProfile } from "../types";
+import type { Club, Player, Match, Session, Tactic, EaProfile, CompareEntry } from "../types";
 import { saveSettings as apiSave, loadSettings as apiLoad, setProxy as apiSetProxy } from "../api/tauri";
 
 export type ActiveTab = "players" | "matches" | "charts" | "session" | "compare";
@@ -51,9 +51,12 @@ interface AppState {
   rawLogs: string[];
   showDevPanel: boolean;
   proxyInfo: string | null;
+  compareHistory: CompareEntry[];
   searchResults: Club[];
   showSearchModal: boolean;
 
+  addCompareEntry: (entry: CompareEntry) => void;
+  deleteCompareEntry: (id: string) => void;
   setClub: (club: Club, players: Player[], matches: Match[]) => void;
   addHistory: (club: Club) => void;
   toggleFav: (club: Club) => void;
@@ -105,9 +108,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   rawLogs: [],
   showDevPanel: false,
   proxyInfo: null,
+  compareHistory: [],
   searchResults: [],
   showSearchModal: false,
 
+  addCompareEntry: (entry) => set((s) => ({
+    compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
+  })),
+  deleteCompareEntry: (id) => set((s) => ({ compareHistory: s.compareHistory.filter((e) => e.id !== id) })),
   setClub: (club, players, matches) => set({ currentClub: club, players, matches, error: null }),
   addHistory: (club) => set((s) => ({
     history: [club, ...s.history.filter((c) => c.id !== club.id)].slice(0, 8),
@@ -227,6 +235,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         history: s.history ?? [], favs: s.favs ?? [],
         tactics: s.tactics ?? [], sessions: s.sessions ?? [],
+        compareHistory: s.compareHistory ?? [],
         eaProfile: s.eaProfile ?? null, theme,
         customAccent: s.customAccent ?? "",
         darkMode:        s.darkMode        ?? true,
@@ -242,10 +251,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   persistSettings: async () => {
-    const { history, favs, tactics, sessions, eaProfile, theme, darkMode, proxyUrl,
+    const { history, favs, tactics, sessions, compareHistory, eaProfile, theme, darkMode, proxyUrl,
       showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent } = get();
     await apiSave({
-      history, favs, tactics, sessions,
+      history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
       theme, darkMode,
       proxyUrl: proxyUrl.trim() || undefined,

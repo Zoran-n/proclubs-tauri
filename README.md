@@ -67,6 +67,9 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Logo affiché pour chaque club
 - Tableau comparatif côte à côte : SR, Victoires, Nuls, Défaites, Buts, Nombre de joueurs
 - Mise en évidence du meilleur score dans chaque catégorie
+- **Meilleurs joueurs par poste** : GK, DEF, MIL, ATT — comparaison côte à côte avec note, buts, PD
+- **Historique des comparaisons** : sauvegarde automatique, rechargement en un clic, suppression
+- Export **PNG** et **CSV** du tableau comparatif
 
 ### Export
 - Modale d'export avec **prévisualisation** avant téléchargement
@@ -154,9 +157,9 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Calendrier** : vue mensuelle des matchs
 
 ### Comparaison
-- **Comparaison élargie** : inclure les joueurs des deux clubs pour identifier les meilleurs par poste
-- **Historique de comparaisons** : sauvegarder des matchups pour les retrouver facilement
-- **Export comparaison** : exporter le tableau comparatif en PNG ou CSV
+- ~~**Comparaison élargie**~~ ✅ Meilleurs joueurs par poste (GK/DEF/MIL/ATT) des deux clubs côte à côte
+- ~~**Historique de comparaisons**~~ ✅ Sauvegarde automatique des matchups, rechargement en un clic
+- ~~**Export comparaison**~~ ✅ Export PNG et CSV du tableau comparatif
 
 ### Session
 - ~~**Alerte de nouveau match**~~ ✅ Notification système via Tauri notification plugin
