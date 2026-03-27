@@ -83,7 +83,65 @@ export function MainPanel() {
         )}
       </div>
 
-      {/* ── KPI cards (compact) ────────────────────────────────────── */}
+      {/* ── Club banner ─────────────────────────────────────────── */}
+      {currentClub && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 14, padding: "14px 20px",
+          background: "var(--hover)", flexShrink: 0,
+        }}>
+          {/* Left accent bar */}
+          <div style={{ width: 4, alignSelf: "stretch", background: "var(--accent)", borderRadius: 2, flexShrink: 0 }} />
+          {/* Logo */}
+          <div style={{
+            width: 52, height: 52, borderRadius: 12,
+            background: "var(--surface)", border: "1px solid var(--border)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0, overflow: "hidden",
+          }}>
+            {logo
+              ? <img src={logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+              : <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--accent)" }}>
+                  {(currentClub.name || "?")[0].toUpperCase()}
+                </span>
+            }
+          </div>
+          {/* Name + meta */}
+          <div style={{ flex: 1 }}>
+            <div style={{
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "var(--text)",
+              letterSpacing: "0.04em", lineHeight: 1,
+            }}>
+              {currentClub.name || `Club #${currentClub.id}`}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+              <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>
+                {currentClub.platform.toUpperCase()}
+              </span>
+              {currentClub.skillRating && (
+                <>
+                  <span style={{ color: "var(--border)" }}>·</span>
+                  <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600 }}>
+                    ★ {currentClub.skillRating} SR
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          {/* LIVE badge */}
+          {activeSession && (
+            <span style={{
+              fontSize: 11, color: "#fff", background: "var(--red)",
+              padding: "4px 10px", borderRadius: 4, fontWeight: 700,
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+              <span className="pulse-dot" style={{ width: 7, height: 7 }} />
+              LIVE
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ── KPI cards ─────────────────────────────────────────────── */}
       {currentClub && (
         <div style={{
           display: "flex", gap: 8, padding: "12px 16px",

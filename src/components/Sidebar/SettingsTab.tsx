@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Check, RefreshCw, Download, ExternalLink, Palette } from "lucide-react";
+import { RefreshCw, Download, ExternalLink, Palette, Check } from "lucide-react";
 import { check as checkUpdate } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { getVersion } from "@tauri-apps/api/app";
@@ -10,11 +10,9 @@ import { THEMES } from "../../types";
 
 export function SettingsTab() {
   const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize, customAccent,
-    proxyUrl, setTheme, setDarkMode, setShowAnimations, setShowLogs,
-    setShowIdSearch, setFontSize, setCustomAccent, persistSettings, applyProxy } = useAppStore();
+    setTheme, setDarkMode, setShowAnimations, setShowLogs,
+    setShowIdSearch, setFontSize, setCustomAccent, persistSettings } = useAppStore();
 
-  const [localProxy, setLocalProxy] = useState(proxyUrl);
-  const [proxySaved, setProxySaved] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "up-to-date" | "error">("idle");
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
@@ -63,13 +61,6 @@ export function SettingsTab() {
         setTimeout(() => { setUpdateStatus("idle"); setUpdateError(null); }, 10000);
       }
     }
-  };
-
-  const saveProxy = async () => {
-    await applyProxy(localProxy);
-    await persistSettings();
-    setProxySaved(true);
-    setTimeout(() => setProxySaved(false), 2000);
   };
 
   const Section = ({ label }: { label: string }) => (
@@ -175,31 +166,6 @@ export function SettingsTab() {
       <Section label="INTERFACE" />
       <Toggle label="Afficher les logs"  value={showLogs}     onChange={setShowLogs} />
       <Toggle label="Recherche par ID"   value={showIdSearch} onChange={setShowIdSearch} />
-
-      {/* ── PROXY ── */}
-      <Section label="PROXY HTTP/SOCKS5" />
-      <p style={{ fontSize: 10, color: "var(--muted)", marginBottom: 8, lineHeight: 1.6 }}>
-        Contourne le blocage Akamai de l'API EA.
-      </p>
-      <div style={{ display: "flex", gap: 6 }}>
-        <input value={localProxy} onChange={(e) => setLocalProxy(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && saveProxy()}
-          placeholder="http://... ou socks5://..."
-          style={{ flex: 1, background: "var(--bg)", border: "none", color: "var(--text)",
-            padding: "8px 10px", borderRadius: 4, fontSize: 12, outline: "none", fontFamily: "monospace" }}
-        />
-        <button onClick={saveProxy} style={{
-          padding: "8px 12px", background: proxySaved ? "var(--green)" : "var(--accent)",
-          color: "#fff", border: "none", borderRadius: 4, cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 4, fontSize: 12,
-          transition: "background 0.15s", flexShrink: 0, fontWeight: 600,
-        }}>
-          {proxySaved ? <><Check size={12} /> OK</> : "Appliquer"}
-        </button>
-      </div>
-      {proxyUrl && (
-        <p style={{ fontSize: 10, color: "var(--green)", marginTop: 6 }}>Proxy actif</p>
-      )}
 
       {/* ── MISES À JOUR ── */}
       <Section label="MISES À JOUR" />
