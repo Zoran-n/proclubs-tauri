@@ -275,30 +275,26 @@ function LaunchSidebar() {
               <ChevronDown size={10} style={{ marginRight: 2 }} />
               Clubs Récents
             </div>
-            <div style={{ padding: "0 8px" }}>
-              {history.map((club) => (
-                <div key={club.id} onClick={() => { load(club.id, club.platform); persistSettings(); }}
+            {history.map((club) => (
+              <div key={club.id}
+                className="channel-item"
+                onClick={() => { load(club.id, club.platform); persistSettings(); }}>
+                <ClubLogo club={club} size={20} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {club.name || `Club #${club.id}`}
+                </span>
+                <button onClick={(e) => { e.stopPropagation(); toggleFav(club); persistSettings(); }}
                   style={{
-                    display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", cursor: "pointer",
-                    background: "var(--card)", border: "1px solid var(--border)", borderRadius: 5, marginBottom: 5,
-                    transition: "border-color 0.15s",
+                    marginLeft: "auto", background: "none", border: "none", cursor: "pointer",
+                    padding: 2, color: isFav(club.id) ? "var(--gold)" : "var(--muted)", flexShrink: 0, opacity: 0.6,
+                    transition: "opacity 0.1s",
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--accent)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; }}>
-                  <ClubLogo club={club} size={32} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {club.name || `Club #${club.id}`}
-                    </div>
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); toggleFav(club); persistSettings(); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 2,
-                      color: isFav(club.id) ? "var(--gold)" : "var(--muted)", flexShrink: 0, fontSize: 13 }}>
-                    {isFav(club.id) ? "★" : "☆"}
-                  </button>
-                </div>
-              ))}
-            </div>
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.6"; }}>
+                  <Star size={12} fill={isFav(club.id) ? "currentColor" : "none"} />
+                </button>
+              </div>
+            ))}
           </>
         )}
 
@@ -307,20 +303,21 @@ function LaunchSidebar() {
           <ChevronDown size={10} style={{ marginRight: 2 }} />
           Rafraîchissement
         </div>
-        <div style={{ padding: "0 8px" }}>
-          <button onClick={() => { if (lastClub) load(lastClub.id, lastClub.platform); }}
-            style={{
-              width: "100%", padding: "7px", background: "transparent",
-              border: "1px solid var(--border)", color: "var(--text)", borderRadius: 4,
-              fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 6,
-            }}>
-            <RefreshCw size={12} /> RAFRAÎCHIR
-          </button>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted)", cursor: "pointer" }}>
-            <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
-            Auto ({autoRefresh ? `${countdown}s` : "60s"})
-          </label>
+        <div
+          className="channel-item"
+          onClick={() => { if (lastClub) load(lastClub.id, lastClub.platform); }}
+          style={{ cursor: "pointer" }}>
+          <RefreshCw size={18} style={{ color: "var(--muted)", flexShrink: 0 }} />
+          <span>Rafraîchir</span>
+        </div>
+        <div className="channel-item" style={{ cursor: "pointer" }} onClick={() => setAutoRefresh(!autoRefresh)}>
+          <Hash size={18} style={{ color: autoRefresh ? "var(--green)" : "var(--muted)", flexShrink: 0 }} />
+          <span>Auto-refresh</span>
+          {autoRefresh && (
+            <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--muted)" }}>
+              {countdown}s
+            </span>
+          )}
         </div>
       </div>
     </>
