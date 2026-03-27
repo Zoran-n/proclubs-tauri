@@ -110,6 +110,7 @@ pub struct Settings {
     #[serde(default = "default_true")] pub show_logs: bool,
     #[serde(default)] pub show_id_search: bool,
     #[serde(default = "default_font_size")] pub font_size: String,
+    #[serde(default)] pub custom_accent: Option<String>,
 }
 
 fn default_theme() -> String { "cyan".to_string() }
@@ -123,6 +124,7 @@ impl Default for Settings {
             ea_profile: None, theme: "cyan".to_string(), dark_mode: true, proxy_url: None,
             show_grid: true, show_animations: true, show_logs: true,
             show_id_search: false, font_size: "medium".to_string(),
+            custom_accent: None,
         }
     }
 }

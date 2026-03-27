@@ -1,34 +1,43 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #090c10;
-  --color-surface: #0d1117;
-  --color-card: #111820;
+  --color-bg: #1e1f22;
+  --color-surface: #2b2d31;
+  --color-card: #313338;
   --font-heading: "Bebas Neue", sans-serif;
   --font-body: "Barlow", sans-serif;
 }
 
-/* ─── CSS Variables ──────────────────────────────────────────────────────────── */
+/* ─── CSS Variables (Discord-inspired defaults) ─────────────────────────────── */
 :root {
-  --bg:       #090c10;
-  --surface:  #0d1117;
-  --card:     #111820;
-  --border:   #1a2535;
+  --bg:       #1e1f22;
+  --surface:  #2b2d31;
+  --card:     #313338;
+  --border:   #3f4147;
   --accent:   #00d4ff;
   --orange:   #ff6b35;
   --gold:     #f59e0b;
-  --green:    #22c55e;
-  --red:      #ef4444;
-  --text:     #e2e8f0;
-  --muted:    #64748b;
+  --green:    #23a559;
+  --red:      #da373c;
+  --text:     #f2f3f5;
+  --muted:    #949ba4;
   --fs:       13px;
+  /* Discord-specific layout vars */
+  --guild-bar: #1e1f22;
+  --sidebar-bg: #2b2d31;
+  --main-bg:  #313338;
+  --hover:    rgba(255,255,255,0.06);
+  --active:   rgba(255,255,255,0.1);
+  --radius:   8px;
 }
 
 /* ─── Color themes ───────────────────────────────────────────────────────────── */
-[data-theme="violet"] { --accent: #8b5cf6; }
-[data-theme="orange"] { --accent: #ff6b35; }
-[data-theme="green"]  { --accent: #22c55e; }
-[data-theme="red"]    { --accent: #ef3355; }
+[data-theme="violet"]  { --accent: #8b5cf6; }
+[data-theme="orange"]  { --accent: #ff6b35; }
+[data-theme="green"]   { --accent: #22c55e; }
+[data-theme="red"]     { --accent: #ef3355; }
+[data-theme="blurple"] { --accent: #5865f2; }
+/* custom theme: --accent set via JS inline style */
 
 /* ─── Font size ──────────────────────────────────────────────────────────────── */
 [data-fs="small"]  { --fs: 11px; }
@@ -52,12 +61,17 @@ body {
 
 /* ─── Light mode ─────────────────────────────────────────────────────────────── */
 [data-light] {
-  --bg:      #f0f2f5;
-  --surface: #ffffff;
-  --card:    #e8ecf1;
-  --border:  #c8d6e5;
-  --text:    #0f172a;
-  --muted:   #64748b;
+  --bg:        #f2f3f5;
+  --surface:   #ffffff;
+  --card:      #ebedef;
+  --border:    #d3d6db;
+  --text:      #060607;
+  --muted:     #6d6f78;
+  --guild-bar: #e3e5e8;
+  --sidebar-bg:#f2f3f5;
+  --main-bg:   #ffffff;
+  --hover:     rgba(0,0,0,0.04);
+  --active:    rgba(0,0,0,0.06);
 }
 
 /* ─── Grid background overlay ────────────────────────────────────────────────── */
@@ -65,8 +79,8 @@ body {
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(128,128,128,0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(128,128,128,0.08) 1px, transparent 1px);
+    linear-gradient(rgba(128,128,128,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(128,128,128,0.05) 1px, transparent 1px);
   background-size: 40px 40px;
   pointer-events: none;
   z-index: 1;
@@ -80,15 +94,18 @@ body {
   animation-duration: 1ms !important;
 }
 
-/* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+/* ─── Scrollbar (Discord-style) ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
+::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 4px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: #0d0e10; border: 2px solid transparent; background-clip: content-box; }
+
+[data-light] ::-webkit-scrollbar-thumb { background: #c4c9ce; border: 2px solid transparent; background-clip: content-box; }
+[data-light] ::-webkit-scrollbar-thumb:hover { background: #9ea4aa; border: 2px solid transparent; background-clip: content-box; }
 
 /* ─── Range input ──────────────────────────────────────────────────────────── */
 input[type="range"] { appearance: none; background: rgba(255,255,255,0.1); border-radius: 4px; outline: none; height: 6px; }
-input[type="range"]::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+input[type="range"]::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; }
 
 /* ─── Window controls ─────────────────────────────────────────────────────── */
 .win-btn {
@@ -96,27 +113,97 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 12px; heigh
   display: flex; align-items: center; justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.1s, color 0.1s;
 }
-.win-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
-.close-btn:hover { background: rgba(239,68,68,0.3); color: #ef4444; }
+.win-btn:hover { background: var(--hover); color: var(--text); }
+.close-btn:hover { background: rgba(218,55,60,0.8); color: #fff; }
 
 /* ─── Tab / page transitions ─────────────────────────────────────────────── */
 @keyframes fadeSlideIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0);   }
 }
-.tab-content  { animation: fadeSlideIn 0.18s ease-out; }
-.sidebar-tab  { animation: fadeSlideIn 0.15s ease-out; }
+.tab-content  { animation: fadeSlideIn 0.15s ease-out; }
+.sidebar-tab  { animation: fadeSlideIn 0.12s ease-out; }
+
+/* ─── Discord-style channel item ─────────────────────────────────────────── */
+.channel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 1px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.1s, color 0.1s;
+}
+.channel-item:hover { background: var(--hover); color: var(--text); }
+.channel-item.active { background: var(--active); color: var(--text); }
+
+/* ─── Discord-style category header ──────────────────────────────────────── */
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 10px 4px;
+  margin: 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: default;
+  user-select: none;
+}
+
+/* ─── Guild icon (server icon bar) ───────────────────────────────────────── */
+.guild-icon {
+  width: 48px; height: 48px;
+  border-radius: 24px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: border-radius 0.15s, background 0.15s;
+  background: var(--surface);
+  overflow: hidden;
+  position: relative;
+}
+.guild-icon:hover, .guild-icon.active {
+  border-radius: 16px;
+}
+.guild-icon.active { background: var(--accent); }
+.guild-icon.active .guild-icon-text { color: #fff; }
+.guild-icon img { width: 100%; height: 100%; object-fit: cover; }
+.guild-icon-text {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 18px;
+  color: var(--accent);
+}
+
+/* Guild indicator pill (left side) */
+.guild-pill {
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 0;
+  border-radius: 0 4px 4px 0;
+  background: var(--text);
+  transition: height 0.15s;
+}
+.guild-icon:hover .guild-pill { height: 20px; }
+.guild-icon.active .guild-pill { height: 40px; }
 
 /* ─── Player table row hover ─────────────────────────────────────────────── */
 .player-row {
   border-top: 1px solid var(--border);
   cursor: pointer;
-  transition: background 0.15s, transform 0.12s;
+  transition: background 0.1s;
   position: relative;
 }
 .player-row::before {
@@ -126,23 +213,23 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 12px; heigh
   width: 3px;
   background: var(--accent);
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.1s;
   border-radius: 0 2px 2px 0;
 }
-.player-row:hover { background: var(--card) !important; }
+.player-row:hover { background: var(--hover) !important; }
 .player-row:hover::before { opacity: 1; }
 
 /* ─── Stat cell hover ────────────────────────────────────────────────────── */
 .stat-cell {
-  transition: color 0.12s, background 0.12s;
+  transition: color 0.1s, background 0.1s;
   border-radius: 4px;
 }
-.player-row:hover .stat-cell { background: rgba(0,212,255,0.04); }
+.player-row:hover .stat-cell { background: rgba(88,101,242,0.06); }
 
 /* ─── Pulse dot (session active) ─────────────────────────────────────────── */
 .pulse-dot {
   display: inline-block;
-  width: 7px; height: 7px;
+  width: 8px; height: 8px;
   border-radius: 50%;
   background: var(--red);
   animation: pulse 1.4s ease-in-out infinite;
@@ -152,10 +239,9 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 12px; heigh
   50% { opacity: 0.4; transform: scale(0.75); }
 }
 
-/* ─── Spin animation (search icon + Tailwind spinner) ───────────────────────── */
+/* ─── Spin animation ─────────────────────────────────────────────────────── */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 1.4s linear infinite; }
-/* Slow down Tailwind animate-spin used by Spinner.tsx */
 .animate-spin { animation: spin 1.4s linear infinite !important; }
 
 /* ─── Font size (affects inherited text only) ────────────────────────────────── */
@@ -169,7 +255,7 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 12px; heigh
   top: 36px; right: 0;
   width: 420px;
   height: calc(100vh - 36px);
-  background: rgba(9, 12, 16, 0.97);
+  background: rgba(30, 31, 34, 0.97);
   border-left: 1px solid var(--border);
   z-index: 9999;
   display: flex;
@@ -210,3 +296,30 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 12px; heigh
 .dev-log-entry.err { border-left-color: var(--red); color: #fca5a5; }
 .dev-log-entry.ok  { border-left-color: var(--green); color: #86efac; }
 .dev-log-entry.info { border-left-color: var(--muted); color: var(--muted); }
+
+/* ─── Discord tooltip ────────────────────────────────────────────────────── */
+.discord-tooltip {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #111214;
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.24);
+}
+.discord-tooltip::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  width: 8px; height: 8px;
+  background: #111214;
+}

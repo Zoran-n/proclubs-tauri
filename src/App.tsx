@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { TitleBar } from "./components/Layout/TitleBar";
+import { GuildBar } from "./components/Layout/GuildBar";
 import { Sidebar } from "./components/Layout/Sidebar";
 import { MainPanel } from "./components/Layout/MainPanel";
 import { DevPanel } from "./components/DevPanel/DevPanel";
@@ -14,7 +15,6 @@ function App() {
     addRawLog, toggleDevPanel, showDevPanel, setProxyInfo,
   } = useAppStore();
 
-  // Apply theme + CSS attributes on mount
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute("data-theme", theme);
@@ -23,12 +23,10 @@ function App() {
     root.toggleAttribute("data-no-anim", !showAnimations);
     root.toggleAttribute("data-light", !darkMode);
     loadSettings();
-    // Check proxy
     checkProxy().then((p) => setProxyInfo(p)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Listen to Rust api_log events → rawLogs
   useEffect(() => {
     const unlisten = listen<string>("api_log", (event) => {
       addRawLog(event.payload);
@@ -36,7 +34,6 @@ function App() {
     return () => { unlisten.then((fn) => fn()); };
   }, [addRawLog]);
 
-  // Ctrl+Shift+D → toggle dev panel
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key === "D") {
@@ -53,7 +50,11 @@ function App() {
       <div id="grid-overlay" />
       <TitleBar />
       <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative", zIndex: 2 }}>
+        {/* Discord-style guild/server icon bar */}
+        <GuildBar />
+        {/* Channel sidebar */}
         <Sidebar />
+        {/* Main content */}
         <MainPanel />
       </div>
       {showDevPanel && <DevPanel />}

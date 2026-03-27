@@ -24,7 +24,7 @@ function ClubLogo({ club, size = 32 }: { club: Club; size?: number }) {
   );
 }
 
-export function SearchTab() {
+export function SearchTab({ compact }: { compact?: boolean } = {}) {
   const { history, favs, toggleFav, showIdSearch, showLogs, logs, addLog, persistSettings, setSearchResults } = useAppStore();
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -77,7 +77,27 @@ export function SearchTab() {
   };
 
   const isFav = (id: string) => favs.some((f) => f.id === id);
-  const s = { section: { padding: "10px 12px", borderBottom: "1px solid var(--border)" } as React.CSSProperties };
+  const s = { section: { padding: compact ? "6px 8px" : "10px 12px", borderBottom: compact ? "none" : "1px solid var(--border)" } as React.CSSProperties };
+
+  // Compact mode: just search input
+  if (compact) {
+    return (
+      <div style={{ padding: "4px 8px" }}>
+        <div style={{ position: "relative" }}>
+          <Search size={14} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && doSearch()}
+            placeholder="Rechercher..."
+            style={{
+              width: "100%", background: "var(--bg)", border: "none", color: "var(--text)",
+              padding: "6px 8px 6px 28px", borderRadius: 4, fontSize: 12, outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
@@ -86,13 +106,20 @@ export function SearchTab() {
         <label style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.08em", fontFamily: "'Bebas Neue', sans-serif", display: "block", marginBottom: 6 }}>
           RECHERCHE PAR NOM
         </label>
-        <input value={query} onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && doSearch()}
-          placeholder="Nom du club..."
-          style={{ width: "100%", background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)", padding: "7px 10px", borderRadius: 4, fontSize: 13, marginBottom: 8, outline: "none", boxSizing: "border-box" }}
-        />
+        <div style={{ position: "relative" }}>
+          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && doSearch()}
+            placeholder="Nom du club..."
+            style={{
+              width: "100%", background: "var(--bg)", border: "none", color: "var(--text)",
+              padding: "8px 10px 8px 32px", borderRadius: 4, fontSize: 13, marginBottom: 8,
+              outline: "none", boxSizing: "border-box",
+            }}
+          />
+        </div>
         <button onClick={() => doSearch()} disabled={searching}
-          style={{ width: "100%", padding: "8px", background: "var(--accent)", color: "#000", border: "none", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", opacity: searching ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+          style={{ width: "100%", padding: "8px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", opacity: searching ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
           {searching ? <><Search size={14} className="spin" /> RECHERCHE…</> : <><Search size={14} /> RECHERCHER</>}
         </button>
       </div>

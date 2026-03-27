@@ -21,6 +21,7 @@ interface AppState {
   showLogs: boolean;
   showIdSearch: boolean;
   fontSize: "small" | "medium" | "large";
+  customAccent: string;
   proxyUrl: string;
   isLoading: boolean;
   error: string | null;
@@ -55,6 +56,7 @@ interface AppState {
   setShowLogs: (v: boolean) => void;
   setShowIdSearch: (v: boolean) => void;
   setFontSize: (v: "small" | "medium" | "large") => void;
+  setCustomAccent: (v: string) => void;
   setEaProfile: (p: EaProfile) => void;
   saveTactic: (t: Tactic) => void;
   deleteTactic: (id: string) => void;
@@ -75,6 +77,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   history: [], favs: [], eaProfile: null,
   theme: "cyan", darkMode: true, showGrid: true, showAnimations: true,
   showLogs: true, showIdSearch: false, fontSize: "medium",
+  customAccent: "",
   proxyUrl: "",
   isLoading: false, error: null,
   activeTab: "players", sidebarTab: "search",
@@ -123,6 +126,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   })),
   setTheme: (theme) => {
     document.documentElement.setAttribute("data-theme", theme);
+    if (theme === "custom") {
+      const accent = get().customAccent || "#00d4ff";
+      document.documentElement.style.setProperty("--accent", accent);
+    } else {
+      document.documentElement.style.removeProperty("--accent");
+    }
     set({ theme });
   },
   setDarkMode: (darkMode) => {
@@ -142,6 +151,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setFontSize: (fontSize) => {
     document.documentElement.setAttribute("data-fs", fontSize);
     set({ fontSize });
+  },
+  setCustomAccent: (customAccent) => {
+    document.documentElement.style.setProperty("--accent", customAccent);
+    set({ customAccent, theme: "custom" });
+    document.documentElement.setAttribute("data-theme", "custom");
   },
   setEaProfile: (eaProfile) => set({ eaProfile }),
   saveTactic: (t) => set((s) => ({ tactics: [...s.tactics.filter((x) => x.id !== t.id), t] })),
@@ -164,15 +178,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const s = await apiLoad();
       const root = document.documentElement;
-      root.setAttribute("data-theme", s.theme ?? "cyan");
+      const theme = s.theme ?? "cyan";
+      root.setAttribute("data-theme", theme);
       root.setAttribute("data-fs", s.fontSize ?? "medium");
       root.toggleAttribute("data-light",   !(s.darkMode ?? true));
       root.toggleAttribute("data-no-grid", !(s.showGrid ?? true));
       root.toggleAttribute("data-no-anim", !(s.showAnimations ?? true));
+      if (theme === "custom" && s.customAccent) {
+        root.style.setProperty("--accent", s.customAccent);
+      }
       set({
         history: s.history ?? [], favs: s.favs ?? [],
         tactics: s.tactics ?? [], sessions: s.sessions ?? [],
-        eaProfile: s.eaProfile ?? null, theme: s.theme ?? "cyan",
+        eaProfile: s.eaProfile ?? null, theme,
+        customAccent: s.customAccent ?? "",
         darkMode:        s.darkMode        ?? true,
         showGrid:        s.showGrid        ?? true,
         showAnimations:  s.showAnimations  ?? true,
@@ -186,13 +205,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   persistSettings: async () => {
     const { history, favs, tactics, sessions, eaProfile, theme, darkMode, proxyUrl,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize } = get();
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize, customAccent } = get();
     await apiSave({
       history, favs, tactics, sessions,
       eaProfile: eaProfile ?? undefined,
       theme, darkMode,
       proxyUrl: proxyUrl.trim() || undefined,
       showGrid, showAnimations, showLogs, showIdSearch, fontSize,
+      customAccent: customAccent || undefined,
     });
   },
 }));

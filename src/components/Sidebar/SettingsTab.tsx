@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Check, RefreshCw, Download, ExternalLink } from "lucide-react";
+import { Check, RefreshCw, Download, ExternalLink, Palette } from "lucide-react";
 import { check as checkUpdate } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { getVersion } from "@tauri-apps/api/app";
@@ -9,9 +9,9 @@ import { useAppStore } from "../../store/useAppStore";
 import { THEMES } from "../../types";
 
 export function SettingsTab() {
-  const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize,
+  const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize, customAccent,
     proxyUrl, setTheme, setDarkMode, setShowAnimations, setShowLogs,
-    setShowIdSearch, setFontSize, persistSettings, applyProxy } = useAppStore();
+    setShowIdSearch, setFontSize, setCustomAccent, persistSettings, applyProxy } = useAppStore();
 
   const [localProxy, setLocalProxy] = useState(proxyUrl);
   const [proxySaved, setProxySaved] = useState(false);
@@ -19,12 +19,11 @@ export function SettingsTab() {
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState("…");
+  const [updateUrl, setUpdateUrl] = useState<string | null>(null);
 
   useEffect(() => { getVersion().then(setAppVersion).catch(() => {}); }, []);
 
   const apply = (fn: () => void) => { fn(); persistSettings(); };
-
-  const [updateUrl, setUpdateUrl] = useState<string | null>(null);
 
   const handleCheckUpdate = async () => {
     setUpdateStatus("checking");
@@ -32,7 +31,6 @@ export function SettingsTab() {
     setUpdateError(null);
     setUpdateUrl(null);
     try {
-      // Try plugin updater first (supports auto-install)
       const update = await checkUpdate();
       if (update?.available) {
         setUpdateVersion(update.version);
@@ -46,7 +44,6 @@ export function SettingsTab() {
     } catch (pluginErr) {
       console.warn("[updater] plugin failed, trying manual check...", pluginErr);
       try {
-        // Fallback: check via our own Rust backend (reqwest)
         const result = await invoke<{ available: boolean; version: string; notes: string; url: string }>(
           "check_for_update", { currentVersion: appVersion }
         );
@@ -76,73 +73,96 @@ export function SettingsTab() {
   };
 
   const Section = ({ label }: { label: string }) => (
-    <div style={{ fontSize: 10, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif",
-      letterSpacing: "0.1em", marginTop: 18, marginBottom: 8 }}>
+    <div className="category-header" style={{ padding: "16px 0 4px", margin: 0 }}>
       {label}
     </div>
   );
 
   const Toggle = ({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+      padding: "8px 0" }}>
       <span style={{ fontSize: 13, color: "var(--text)" }}>{label}</span>
       <div onClick={() => apply(() => onChange(!value))} style={{
-        width: 36, height: 20, borderRadius: 10, flexShrink: 0, cursor: "pointer",
-        background: value ? "var(--accent)" : "rgba(255,255,255,0.12)",
-        position: "relative", transition: "background 0.2s",
+        width: 40, height: 24, borderRadius: 12, flexShrink: 0, cursor: "pointer",
+        background: value ? "var(--green)" : "var(--border)",
+        position: "relative", transition: "background 0.15s",
       }}>
         <div style={{
-          position: "absolute", top: 3, left: value ? 17 : 3,
-          width: 14, height: 14, borderRadius: "50%", background: "#fff",
-          transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+          position: "absolute", top: 3, left: value ? 19 : 3,
+          width: 18, height: 18, borderRadius: "50%", background: "#fff",
+          transition: "left 0.15s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
         }} />
       </div>
     </div>
   );
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "6px 14px 20px" }}>
+    <div style={{ flex: 1, overflowY: "auto", padding: "4px 14px 20px" }}>
 
       {/* ── APPARENCE ── */}
       <Section label="APPARENCE" />
       <Toggle label="Mode sombre" value={darkMode} onChange={setDarkMode} />
 
       {/* ── THEME DE COULEUR ── */}
-      <Section label="THEME DE COULEUR" />
-      <div style={{ display: "flex", gap: 10, marginBottom: 4 }}>
+      <Section label="COULEUR D'ACCENT" />
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
         {THEMES.map((t) => {
           const active = theme === t.id;
           return (
             <button key={t.id} title={t.label} onClick={() => apply(() => setTheme(t.id))} style={{
-              width: 38, height: 38, borderRadius: 8, padding: 0, cursor: "pointer",
-              border: active ? `2px solid ${t.color}` : "2px solid var(--border)",
-              background: `linear-gradient(135deg, #0d1117 50%, ${t.color} 50%)`,
-              transform: active ? "scale(1.12)" : "scale(1)",
+              width: 32, height: 32, borderRadius: "50%", padding: 0, cursor: "pointer",
+              border: active ? `3px solid var(--text)` : "3px solid transparent",
+              background: t.color,
               transition: "all 0.15s", flexShrink: 0,
-              outline: active ? `2px solid ${t.color}` : "none",
-              outlineOffset: 2,
+              boxShadow: active ? `0 0 0 2px ${t.color}` : "none",
             }} />
           );
         })}
+        {/* Custom color button */}
+        <div style={{ position: "relative" }}>
+          <button title="Personnalisé" onClick={() => {
+            const el = document.getElementById("custom-color-picker");
+            if (el) el.click();
+          }} style={{
+            width: 32, height: 32, borderRadius: "50%", padding: 0, cursor: "pointer",
+            border: theme === "custom" ? `3px solid var(--text)` : "3px solid transparent",
+            background: theme === "custom" ? (customAccent || "#888") : "linear-gradient(135deg, #ff0000, #00ff00, #0000ff)",
+            transition: "all 0.15s", flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: theme === "custom" ? `0 0 0 2px ${customAccent}` : "none",
+          }}>
+            {theme !== "custom" && <Palette size={14} color="#fff" />}
+          </button>
+          <input id="custom-color-picker" type="color"
+            value={customAccent || "#00d4ff"}
+            onChange={(e) => { setCustomAccent(e.target.value); persistSettings(); }}
+            style={{ position: "absolute", opacity: 0, width: 0, height: 0, top: 0, left: 0 }}
+          />
+        </div>
       </div>
+      {theme === "custom" && (
+        <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ width: 14, height: 14, borderRadius: 3, background: customAccent }} />
+          {customAccent}
+        </div>
+      )}
 
       {/* ── TAILLE DU TEXTE ── */}
       <Section label="TAILLE DU TEXTE" />
-      <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
         {(["small", "medium", "large"] as const).map((s, i) => {
           const active = fontSize === s;
-          const sizes = [11, 14, 17];
+          const labels = ["Petit", "Normal", "Grand"];
           return (
             <button key={s} onClick={() => apply(() => setFontSize(s))} style={{
-              flex: 1, padding: "8px 4px",
-              background: active ? "var(--accent)" : "var(--card)",
-              color: active ? "#000" : "var(--text)",
-              border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-              borderRadius: 6, cursor: "pointer",
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: sizes[i], lineHeight: 1,
-              transition: "all 0.15s",
-            }}>A</button>
+              flex: 1, padding: "6px 4px",
+              background: active ? "var(--accent)" : "var(--hover)",
+              color: active ? "#fff" : "var(--text)",
+              border: "none",
+              borderRadius: 4, cursor: "pointer",
+              fontSize: 12, fontWeight: active ? 600 : 400,
+              transition: "all 0.1s",
+            }}>{labels[i]}</button>
           );
         })}
       </div>
@@ -159,27 +179,26 @@ export function SettingsTab() {
       {/* ── PROXY ── */}
       <Section label="PROXY HTTP/SOCKS5" />
       <p style={{ fontSize: 10, color: "var(--muted)", marginBottom: 8, lineHeight: 1.6 }}>
-        Contourne le blocage Akamai de l'API EA.<br />
-        Ex: <span style={{ color: "var(--accent)", fontFamily: "monospace" }}>http://user:pass@host:port</span>
+        Contourne le blocage Akamai de l'API EA.
       </p>
       <div style={{ display: "flex", gap: 6 }}>
         <input value={localProxy} onChange={(e) => setLocalProxy(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && saveProxy()}
           placeholder="http://... ou socks5://..."
-          style={{ flex: 1, background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
-            padding: "6px 8px", borderRadius: 4, fontSize: 11, outline: "none", fontFamily: "monospace" }}
+          style={{ flex: 1, background: "var(--bg)", border: "none", color: "var(--text)",
+            padding: "8px 10px", borderRadius: 4, fontSize: 12, outline: "none", fontFamily: "monospace" }}
         />
         <button onClick={saveProxy} style={{
-          padding: "6px 10px", background: proxySaved ? "var(--green)" : "var(--accent)",
-          color: "#000", border: "none", borderRadius: 4, cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 4, fontSize: 11,
-          transition: "background 0.2s", flexShrink: 0,
+          padding: "8px 12px", background: proxySaved ? "var(--green)" : "var(--accent)",
+          color: "#fff", border: "none", borderRadius: 4, cursor: "pointer",
+          display: "flex", alignItems: "center", gap: 4, fontSize: 12,
+          transition: "background 0.15s", flexShrink: 0, fontWeight: 600,
         }}>
           {proxySaved ? <><Check size={12} /> OK</> : "Appliquer"}
         </button>
       </div>
       {proxyUrl && (
-        <p style={{ fontSize: 10, color: "var(--green)", marginTop: 6 }}>✓ Proxy actif</p>
+        <p style={{ fontSize: 10, color: "var(--green)", marginTop: 6 }}>Proxy actif</p>
       )}
 
       {/* ── MISES À JOUR ── */}
@@ -188,52 +207,47 @@ export function SettingsTab() {
         disabled={updateStatus === "checking" || updateStatus === "downloading"}
         style={{
           width: "100%", padding: "8px 10px",
-          background: updateStatus === "up-to-date" ? "rgba(0,255,136,0.1)"
-            : updateStatus === "error" ? "rgba(239,68,68,0.1)"
-            : "var(--card)",
-          border: `1px solid ${updateStatus === "up-to-date" ? "var(--green)"
-            : updateStatus === "error" ? "rgba(239,68,68,0.5)"
-            : "var(--border)"}`,
+          background: updateStatus === "up-to-date" ? "rgba(35,165,89,0.15)"
+            : updateStatus === "error" ? "rgba(218,55,60,0.15)"
+            : "var(--hover)",
+          border: "none",
           color: updateStatus === "up-to-date" ? "var(--green)"
-            : updateStatus === "error" ? "#ef4444"
+            : updateStatus === "error" ? "var(--red)"
             : "var(--text)",
-          borderRadius: 6, cursor: updateStatus === "checking" || updateStatus === "downloading" ? "default" : "pointer",
+          borderRadius: 4, cursor: updateStatus === "checking" || updateStatus === "downloading" ? "default" : "pointer",
           display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-          fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em",
+          fontSize: 13, fontWeight: 600,
           opacity: updateStatus === "checking" || updateStatus === "downloading" ? 0.7 : 1,
-          transition: "all 0.2s",
+          transition: "all 0.15s",
         }}>
-        {updateStatus === "checking" && <><RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> VÉRIFICATION…</>}
-        {updateStatus === "downloading" && !updateUrl && <><Download size={12} /> INSTALLATION v{updateVersion}…</>}
-        {updateStatus === "downloading" && updateUrl && <><ExternalLink size={12} /> v{updateVersion} DISPONIBLE</>}
-        {updateStatus === "up-to-date" && <><Check size={12} /> À JOUR</>}
-        {updateStatus === "error" && <><RefreshCw size={12} /> ERREUR — RÉESSAYER</>}
-        {updateStatus === "idle" && <><RefreshCw size={12} /> VÉRIFIER LES MISES À JOUR</>}
+        {updateStatus === "checking" && <><RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> Vérification…</>}
+        {updateStatus === "downloading" && !updateUrl && <><Download size={14} /> Installation v{updateVersion}…</>}
+        {updateStatus === "downloading" && updateUrl && <><ExternalLink size={14} /> v{updateVersion} disponible</>}
+        {updateStatus === "up-to-date" && <><Check size={14} /> À jour</>}
+        {updateStatus === "error" && <><RefreshCw size={14} /> Réessayer</>}
+        {updateStatus === "idle" && <><RefreshCw size={14} /> Vérifier les mises à jour</>}
       </button>
       {updateStatus === "downloading" && updateUrl && (
         <button onClick={() => openUrl(updateUrl)} style={{
           width: "100%", marginTop: 6, padding: "8px 10px",
-          background: "var(--accent)", color: "#000", border: "none",
-          borderRadius: 6, cursor: "pointer", display: "flex",
+          background: "var(--accent)", color: "#fff", border: "none",
+          borderRadius: 4, cursor: "pointer", display: "flex",
           alignItems: "center", justifyContent: "center", gap: 6,
-          fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em",
+          fontSize: 13, fontWeight: 600,
         }}>
-          <Download size={12} /> TÉLÉCHARGER v{updateVersion}
+          <Download size={14} /> Télécharger v{updateVersion}
         </button>
       )}
       {updateStatus === "error" && updateError && (
-        <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(239,68,68,0.08)",
-          border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6 }}>
-          <p style={{ fontSize: 9, color: "#ef4444", fontFamily: "'Bebas Neue', sans-serif",
-            letterSpacing: "0.08em", marginBottom: 4 }}>ERREUR DE MISE A JOUR</p>
-          <p style={{ fontSize: 10, color: "#ef4444", fontFamily: "monospace", wordBreak: "break-all",
-            lineHeight: 1.5, opacity: 0.85 }}>{updateError}</p>
+        <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(218,55,60,0.1)", borderRadius: 4 }}>
+          <p style={{ fontSize: 10, color: "var(--red)", fontFamily: "monospace", wordBreak: "break-all",
+            lineHeight: 1.5 }}>{updateError}</p>
         </div>
       )}
 
-      <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-        <p style={{ fontSize: 10, color: "var(--muted)" }}>ProClubs Stats v{appVersion}</p>
-        <p style={{ fontSize: 10, color: "var(--border)" }}>Tauri 2 · Rust · React</p>
+      <div style={{ marginTop: 20, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+        <p style={{ fontSize: 11, color: "var(--muted)" }}>ProClubs Stats v{appVersion}</p>
+        <p style={{ fontSize: 10, color: "var(--border)", marginTop: 2 }}>Tauri 2 · Rust · React</p>
       </div>
     </div>
   );
