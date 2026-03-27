@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { BarChart2, Hash, Search, Settings, ChevronDown, Users, Swords, BarChart3, Timer, GitCompare, Star, RefreshCw } from "lucide-react";
-import { useAppStore, type ActiveTab } from "../../store/useAppStore";
+import { BarChart2, Hash, Settings } from "lucide-react";
+import { useAppStore } from "../../store/useAppStore";
 import { PlayersTab } from "../tabs/PlayersTab";
 import { MatchesTab } from "../tabs/MatchesTab";
 import { ChartsTab } from "../tabs/ChartsTab";
@@ -8,9 +8,7 @@ import { SessionTab } from "../tabs/SessionTab";
 import { CompareTab } from "../Sidebar/CompareTab";
 import { SettingsTab } from "../Sidebar/SettingsTab";
 import { Spinner } from "../ui/Spinner";
-import { getLogo, searchClub } from "../../api/tauri";
-import { useClub } from "../../hooks/useClub";
-import type { Club } from "../../types";
+import { getLogo } from "../../api/tauri";
 
 const TAB_LABELS: Record<string, string> = {
   players: "Joueurs",
@@ -43,50 +41,29 @@ export function MainPanel() {
     { label: "BUTS",        value: currentClub.goals,         color: "var(--gold)" },
   ] : [];
 
-  // ── No club loaded: centered sidebar-style panel ──────────────────
-  if (!currentClub && !isLoading) {
-    // Settings page (accessible from search view)
-    if (sidebarTab === "settings") {
-      return (
-        <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--main-bg)" }}>
-          <div style={{
-            height: 48, display: "flex", alignItems: "center", gap: 8,
-            padding: "0 16px", borderBottom: "1px solid rgba(0,0,0,0.24)",
-            flexShrink: 0, background: "var(--main-bg)",
-          }}>
-            <button onClick={() => setSidebarTab("search")} style={{
-              background: "none", border: "none", cursor: "pointer", color: "var(--muted)",
-              display: "flex", alignItems: "center", padding: 4, borderRadius: 4,
-              transition: "color 0.15s",
-            }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted)"; }}>
-              <Settings size={18} />
-            </button>
-            <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>Paramètres</span>
-          </div>
-          <div style={{ flex: 1, overflow: "auto", maxWidth: 600, margin: "0 auto", width: "100%" }}>
-            <SettingsTab />
-          </div>
-        </main>
-      );
-    }
-
-    // Centered sidebar-style search panel
+  // ── No club loaded: settings page ──────────────────────────────────
+  if (!currentClub && !isLoading && sidebarTab === "settings") {
     return (
-      <main style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--main-bg)", justifyContent: "center", alignItems: "flex-start" }}>
-        <div style={{ flex: 1, overflow: "auto", display: "flex", justifyContent: "center", padding: "32px 16px" }}>
-          <LaunchPanel />
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--main-bg)" }}>
+        <div style={{
+          height: 48, display: "flex", alignItems: "center", gap: 8,
+          padding: "0 16px", borderBottom: "1px solid rgba(0,0,0,0.24)",
+          flexShrink: 0, background: "var(--main-bg)",
+        }}>
+          <button onClick={() => setSidebarTab("search")} style={{
+            background: "none", border: "none", cursor: "pointer", color: "var(--muted)",
+            display: "flex", alignItems: "center", padding: 4, borderRadius: 4,
+            transition: "color 0.15s",
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted)"; }}>
+            <Settings size={18} />
+          </button>
+          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>Paramètres</span>
         </div>
-        {error && (
-          <div style={{
-            position: "absolute", top: 60, left: "50%", transform: "translateX(-50%)",
-            zIndex: 10, background: "rgba(218,55,60,0.9)", color: "#fff",
-            padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 500,
-          }}>
-            {error}
-          </div>
-        )}
+        <div style={{ flex: 1, overflow: "auto", maxWidth: 600, margin: "0 auto", width: "100%" }}>
+          <SettingsTab />
+        </div>
       </main>
     );
   }
@@ -261,197 +238,3 @@ export function MainPanel() {
   );
 }
 
-/* ── Sidebar-style launch panel (centered, no club loaded) ────────── */
-
-const LAUNCH_NAV: { id: ActiveTab; icon: React.ReactNode; label: string }[] = [
-  { id: "players",  icon: <Users size={18} />,       label: "Joueurs" },
-  { id: "matches",  icon: <Swords size={18} />,      label: "Matchs" },
-  { id: "charts",   icon: <BarChart3 size={18} />,   label: "Graphiques" },
-  { id: "session",  icon: <Timer size={18} />,       label: "Session" },
-  { id: "compare",  icon: <GitCompare size={18} />,  label: "Comparer" },
-];
-
-function LaunchClubLogo({ club, size = 32 }: { club: Club; size?: number }) {
-  const [logo, setLogo] = useState<string | null>(null);
-  useEffect(() => {
-    if (club.crestAssetId) getLogo(club.crestAssetId).then(setLogo).catch(() => {});
-  }, [club.crestAssetId]);
-  return (
-    <div style={{ width: size, height: size, borderRadius: size / 2, background: "var(--bg)",
-      flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      {logo
-        ? <img src={logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-        : <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: size * 0.45, color: "var(--accent)" }}>
-            {(club.name || "?")[0].toUpperCase()}
-          </span>
-      }
-    </div>
-  );
-}
-
-function LaunchPanel() {
-  const { history, favs, toggleFav, persistSettings, setActiveTab, activeTab, addLog, setSearchResults } = useAppStore();
-  const { load } = useClub();
-  const [query, setQuery] = useState("");
-  const [autoRefresh, setAutoRefresh] = useState(false);
-
-  const lastClub = history[0] || favs[0];
-
-  const doSearch = async () => {
-    if (!query.trim()) return;
-    addLog(`Recherche: "${query}"…`);
-    try {
-      const clubs = await searchClub(query.trim());
-      setSearchResults(clubs, true);
-      addLog(`${clubs.length} résultat(s)`);
-    } catch (e) {
-      addLog(`Erreur recherche: ${String(e)}`);
-    }
-  };
-
-  const isFav = (id: string) => favs.some((f) => f.id === id);
-
-  return (
-    <div style={{
-      width: 260, background: "var(--surface)", borderRadius: 8,
-      display: "flex", flexDirection: "column", overflow: "hidden",
-      border: "1px solid var(--border)",
-    }}>
-      {/* ── Header (club name or app name) ── */}
-      <div style={{
-        height: 48, display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 16px", borderBottom: "1px solid rgba(0,0,0,0.24)", flexShrink: 0,
-        cursor: "pointer",
-      }}>
-        <span style={{ fontWeight: 600, fontSize: 15, color: "var(--text)", overflow: "hidden",
-          textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {lastClub?.name || "ProClubs Stats"}
-        </span>
-        <ChevronDown size={16} color="var(--text)" />
-      </div>
-
-      {/* ── Scrollable content ── */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
-
-        {/* RECHERCHE */}
-        <div className="category-header">
-          <ChevronDown size={10} style={{ marginRight: 2 }} />
-          Recherche
-        </div>
-        <div style={{ padding: "4px 8px" }}>
-          <div style={{ position: "relative" }}>
-            <Search size={14} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && doSearch()}
-              placeholder="Rechercher..."
-              style={{
-                width: "100%", background: "var(--bg)", border: "none", color: "var(--text)",
-                padding: "6px 8px 6px 28px", borderRadius: 4, fontSize: 12, outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-        </div>
-
-        {/* STATISTIQUES */}
-        <div className="category-header" style={{ marginTop: 8 }}>
-          <ChevronDown size={10} style={{ marginRight: 2 }} />
-          Statistiques
-        </div>
-        {LAUNCH_NAV.map((item) => (
-          <div
-            key={item.id}
-            className={`channel-item ${activeTab === item.id ? "active" : ""}`}
-            onClick={() => { setActiveTab(item.id); if (lastClub) load(lastClub.id, lastClub.platform); }}
-          >
-            <Hash size={18} style={{ color: activeTab === item.id ? "var(--text)" : "var(--muted)", flexShrink: 0 }} />
-            <span>{item.label}</span>
-          </div>
-        ))}
-
-        {/* FAVORIS */}
-        {favs.length > 0 && (
-          <>
-            <div className="category-header" style={{ marginTop: 8 }}>
-              <ChevronDown size={10} style={{ marginRight: 2 }} />
-              Favoris
-            </div>
-            {favs.map((club) => (
-              <div key={club.id}
-                className="channel-item"
-                onClick={() => load(club.id, club.platform)}>
-                <LaunchClubLogo club={club} size={20} />
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {club.name || `Club #${club.id}`}
-                </span>
-                <button onClick={(e) => { e.stopPropagation(); toggleFav(club); persistSettings(); }}
-                  style={{
-                    marginLeft: "auto", background: "none", border: "none", cursor: "pointer",
-                    padding: 2, color: "var(--gold)", flexShrink: 0, opacity: 0.6,
-                    transition: "opacity 0.1s",
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.6"; }}>
-                  <Star size={12} fill="currentColor" />
-                </button>
-              </div>
-            ))}
-          </>
-        )}
-
-        {/* CLUBS RÉCENTS */}
-        {history.length > 0 && (
-          <div style={{ padding: "0 8px" }}>
-            <div className="category-header">
-              <ChevronDown size={10} style={{ marginRight: 2 }} />
-              Clubs Récents
-            </div>
-            {history.map((club) => (
-              <div key={club.id} onClick={() => { load(club.id, club.platform); persistSettings(); }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", cursor: "pointer",
-                  background: "var(--card)", border: "1px solid var(--border)", borderRadius: 5, marginBottom: 5,
-                  transition: "border-color 0.15s",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--accent)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; }}>
-                <LaunchClubLogo club={club} size={32} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {club.name || `Club #${club.id}`}
-                  </div>
-                </div>
-                <button onClick={(e) => { e.stopPropagation(); toggleFav(club); persistSettings(); }}
-                  style={{ background: "none", border: "none", cursor: "pointer", padding: 2,
-                    color: isFav(club.id) ? "var(--gold)" : "var(--muted)", flexShrink: 0, fontSize: 13 }}>
-                  {isFav(club.id) ? "★" : "☆"}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* RAFRAÎCHISSEMENT */}
-        <div style={{ padding: "0 8px", marginTop: 4 }}>
-          <div className="category-header">
-            <ChevronDown size={10} style={{ marginRight: 2 }} />
-            Rafraîchissement
-          </div>
-          <button onClick={() => { if (lastClub) load(lastClub.id, lastClub.platform); }}
-            style={{
-              width: "100%", padding: "7px", background: "transparent",
-              border: "1px solid var(--border)", color: "var(--text)", borderRadius: 4,
-              fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 6,
-            }}>
-            <RefreshCw size={12} /> RAFRAÎCHIR
-          </button>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted)", cursor: "pointer" }}>
-            <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
-            Auto (60s)
-          </label>
-        </div>
-      </div>
-    </div>
-  );
-}

@@ -12,11 +12,8 @@ import { checkProxy } from "./api/tauri";
 function App() {
   const {
     loadSettings, theme, showGrid, showAnimations, darkMode, fontSize,
-    addRawLog, toggleDevPanel, showDevPanel, setProxyInfo, currentClub,
+    addRawLog, toggleDevPanel, showDevPanel, setProxyInfo,
   } = useAppStore();
-
-  // Show Discord layout when a club is loaded OR when viewing settings with a club history
-  const showDiscordLayout = !!currentClub;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -51,10 +48,10 @@ function App() {
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh", overflow: "hidden", background: "var(--bg)", position: "relative" }}>
       <div id="grid-overlay" />
-      <TitleBar showDiscordLayout={showDiscordLayout} />
+      <TitleBar showDiscordLayout />
       <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative", zIndex: 2 }}>
-        {showDiscordLayout && <GuildBar />}
-        {showDiscordLayout && <Sidebar />}
+        <GuildBar />
+        <Sidebar />
         <MainPanel />
       </div>
       {showDevPanel && <DevPanel />}

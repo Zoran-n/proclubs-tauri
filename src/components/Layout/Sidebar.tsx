@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
-import { Users, Swords, BarChart3, Timer, GitCompare, Hash, Star, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Users, Swords, BarChart3, Timer, GitCompare, Hash, Star, ChevronDown, Search, RefreshCw } from "lucide-react";
 import { useAppStore, type ActiveTab } from "../../store/useAppStore";
 import { SearchTab } from "../Sidebar/SearchTab";
 import { SettingsTab } from "../Sidebar/SettingsTab";
 import { useClub } from "../../hooks/useClub";
-import { getLogo } from "../../api/tauri";
+import { getLogo, searchClub } from "../../api/tauri";
 import type { Club } from "../../types";
 import type { ReactNode } from "react";
 
@@ -37,14 +37,13 @@ const NAV_ITEMS: { id: ActiveTab; icon: ReactNode; label: string }[] = [
 export function Sidebar() {
   const { sidebarTab, currentClub, activeTab, setActiveTab, favs, activeSession } = useAppStore();
 
-  // Settings or Search view
+  // Settings view
   if (sidebarTab === "settings") {
     return (
       <aside style={{
         width: 240, flexShrink: 0, height: "100%",
         background: "var(--sidebar-bg)", display: "flex", flexDirection: "column",
       }}>
-        {/* Header */}
         <div style={{
           height: 48, display: "flex", alignItems: "center", padding: "0 16px",
           borderBottom: "1px solid rgba(0,0,0,0.24)", flexShrink: 0,
@@ -59,22 +58,14 @@ export function Sidebar() {
     );
   }
 
-  if (sidebarTab === "search" && !currentClub) {
+  // No club loaded: launch panel with search + nav + history
+  if (!currentClub) {
     return (
       <aside style={{
         width: 240, flexShrink: 0, height: "100%",
         background: "var(--sidebar-bg)", display: "flex", flexDirection: "column",
       }}>
-        <div style={{
-          height: 48, display: "flex", alignItems: "center", padding: "0 16px",
-          borderBottom: "1px solid rgba(0,0,0,0.24)", flexShrink: 0,
-          fontWeight: 600, fontSize: 15, color: "var(--text)",
-        }}>
-          Recherche
-        </div>
-        <div key="search" className="sidebar-tab" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <SearchTab />
-        </div>
+        <LaunchSidebar />
       </aside>
     );
   }
@@ -153,6 +144,190 @@ export function Sidebar() {
     </aside>
   );
 }
+
+/* ── Launch sidebar (no club loaded) ─────────────────────────────── */
+
+function LaunchSidebar() {
+  const { history, favs, toggleFav, persistSettings, setActiveTab, activeTab, addLog, setSearchResults } = useAppStore();
+  const { load } = useClub();
+  const [query, setQuery] = useState("");
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [countdown, setCountdown] = useState(60);
+  const autoRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const lastClub = history[0] || favs[0];
+
+  useEffect(() => {
+    if (autoRefresh && lastClub) {
+      setCountdown(60);
+      autoRef.current = setInterval(() => { load(lastClub.id, lastClub.platform); setCountdown(60); }, 60_000);
+      countRef.current = setInterval(() => setCountdown((c) => (c <= 1 ? 60 : c - 1)), 1_000);
+    } else {
+      if (autoRef.current) clearInterval(autoRef.current);
+      if (countRef.current) clearInterval(countRef.current);
+    }
+    return () => { if (autoRef.current) clearInterval(autoRef.current); if (countRef.current) clearInterval(countRef.current); };
+  }, [autoRefresh, lastClub]);
+
+  const doSearch = async () => {
+    if (!query.trim()) return;
+    addLog(`Recherche: "${query}"…`);
+    try {
+      const clubs = await searchClub(query.trim());
+      setSearchResults(clubs, true);
+      addLog(`${clubs.length} résultat(s)`);
+    } catch (e) {
+      addLog(`Erreur recherche: ${String(e)}`);
+    }
+  };
+
+  const isFav = (id: string) => favs.some((f) => f.id === id);
+
+  return (
+    <>
+      {/* Header */}
+      <div style={{
+        height: 48, display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 16px", borderBottom: "1px solid rgba(0,0,0,0.24)", flexShrink: 0,
+        cursor: "pointer",
+      }}>
+        <span style={{ fontWeight: 600, fontSize: 15, color: "var(--text)", overflow: "hidden",
+          textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {lastClub?.name || "ProClubs Stats"}
+        </span>
+        <ChevronDown size={16} color="var(--text)" />
+      </div>
+
+      {/* Scrollable content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
+
+        {/* RECHERCHE */}
+        <div className="category-header">
+          <ChevronDown size={10} style={{ marginRight: 2 }} />
+          Recherche
+        </div>
+        <div style={{ padding: "4px 8px" }}>
+          <div style={{ position: "relative" }}>
+            <Search size={14} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && doSearch()}
+              placeholder="Rechercher..."
+              style={{
+                width: "100%", background: "var(--bg)", border: "none", color: "var(--text)",
+                padding: "6px 8px 6px 28px", borderRadius: 4, fontSize: 12, outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+        </div>
+
+        {/* STATISTIQUES */}
+        <div className="category-header" style={{ marginTop: 8 }}>
+          <ChevronDown size={10} style={{ marginRight: 2 }} />
+          Statistiques
+        </div>
+        {NAV_ITEMS.map((item) => (
+          <div
+            key={item.id}
+            className={`channel-item ${activeTab === item.id ? "active" : ""}`}
+            onClick={() => { setActiveTab(item.id); if (lastClub) load(lastClub.id, lastClub.platform); }}
+          >
+            <Hash size={18} style={{ color: activeTab === item.id ? "var(--text)" : "var(--muted)", flexShrink: 0 }} />
+            <span>{item.label}</span>
+          </div>
+        ))}
+
+        {/* FAVORIS */}
+        {favs.length > 0 && (
+          <>
+            <div className="category-header" style={{ marginTop: 8 }}>
+              <ChevronDown size={10} style={{ marginRight: 2 }} />
+              Favoris
+            </div>
+            {favs.map((club) => (
+              <div key={club.id}
+                className="channel-item"
+                onClick={() => load(club.id, club.platform)}>
+                <ClubLogo club={club} size={20} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {club.name || `Club #${club.id}`}
+                </span>
+                <button onClick={(e) => { e.stopPropagation(); toggleFav(club); persistSettings(); }}
+                  style={{
+                    marginLeft: "auto", background: "none", border: "none", cursor: "pointer",
+                    padding: 2, color: "var(--gold)", flexShrink: 0, opacity: 0.6,
+                    transition: "opacity 0.1s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.6"; }}>
+                  <Star size={12} fill="currentColor" />
+                </button>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* CLUBS RÉCENTS */}
+        {history.length > 0 && (
+          <>
+            <div className="category-header" style={{ marginTop: 8 }}>
+              <ChevronDown size={10} style={{ marginRight: 2 }} />
+              Clubs Récents
+            </div>
+            <div style={{ padding: "0 8px" }}>
+              {history.map((club) => (
+                <div key={club.id} onClick={() => { load(club.id, club.platform); persistSettings(); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", cursor: "pointer",
+                    background: "var(--card)", border: "1px solid var(--border)", borderRadius: 5, marginBottom: 5,
+                    transition: "border-color 0.15s",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--accent)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; }}>
+                  <ClubLogo club={club} size={32} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {club.name || `Club #${club.id}`}
+                    </div>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); toggleFav(club); persistSettings(); }}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 2,
+                      color: isFav(club.id) ? "var(--gold)" : "var(--muted)", flexShrink: 0, fontSize: 13 }}>
+                    {isFav(club.id) ? "★" : "☆"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* RAFRAÎCHISSEMENT */}
+        <div className="category-header" style={{ marginTop: 8 }}>
+          <ChevronDown size={10} style={{ marginRight: 2 }} />
+          Rafraîchissement
+        </div>
+        <div style={{ padding: "0 8px" }}>
+          <button onClick={() => { if (lastClub) load(lastClub.id, lastClub.platform); }}
+            style={{
+              width: "100%", padding: "7px", background: "transparent",
+              border: "1px solid var(--border)", color: "var(--text)", borderRadius: 4,
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 6,
+            }}>
+            <RefreshCw size={12} /> RAFRAÎCHIR
+          </button>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted)", cursor: "pointer" }}>
+            <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+            Auto ({autoRefresh ? `${countdown}s` : "60s"})
+          </label>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ── Shared sub-components ───────────────────────────────────────── */
 
 function FavsList() {
   const { favs, toggleFav, persistSettings, currentClub } = useAppStore();
