@@ -1,8 +1,6 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { TitleBar } from "./components/Layout/TitleBar";
-import { GuildBar } from "./components/Layout/GuildBar";
-import { Sidebar } from "./components/Layout/Sidebar";
 import { MainPanel } from "./components/Layout/MainPanel";
 import { DevPanel } from "./components/DevPanel/DevPanel";
 import { SearchModal } from "./components/ui/SearchModal";
@@ -50,11 +48,6 @@ function App() {
       <div id="grid-overlay" />
       <TitleBar />
       <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative", zIndex: 2 }}>
-        {/* Discord-style guild/server icon bar */}
-        <GuildBar />
-        {/* Channel sidebar */}
-        <Sidebar />
-        {/* Main content */}
         <MainPanel />
       </div>
       {showDevPanel && <DevPanel />}

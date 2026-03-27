@@ -12,7 +12,7 @@ export function TitleBar() {
       padding: "0 8px", background: "var(--guild-bar)", flexShrink: 0, userSelect: "none",
     }}>
       {/* Left: app name + context */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, pointerEvents: "none", paddingLeft: 72 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, pointerEvents: "none", paddingLeft: 12 }}>
         <span style={{
           fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.15em",
           color: "var(--muted)",
