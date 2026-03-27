@@ -5,6 +5,23 @@ import { saveSettings as apiSave, loadSettings as apiLoad, setProxy as apiSetPro
 export type ActiveTab = "players" | "matches" | "charts" | "session" | "compare";
 export type SidebarTab = "search" | "favs" | "settings";
 
+// Injects a <style> tag that proportionally overrides hard-coded inline font-size px values.
+// This scales only text, without affecting layout dimensions or icons.
+function applyFontScale(fontSize: number) {
+  const scale = fontSize / 13;
+  document.documentElement.style.setProperty("--fs", `${fontSize}px`);
+  let styleEl = document.getElementById("fs-scale") as HTMLStyleElement | null;
+  if (!styleEl) {
+    styleEl = document.createElement("style");
+    styleEl.id = "fs-scale";
+    document.head.appendChild(styleEl);
+  }
+  const sizes = [9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36, 48];
+  styleEl.textContent = sizes.map(px =>
+    `[style*="font-size: ${px}px"] { font-size: ${Math.round(px * scale)}px !important; }`
+  ).join("\n");
+}
+
 interface AppState {
   currentClub: Club | null;
   players: Player[];
@@ -152,7 +169,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setShowIdSearch: (showIdSearch) => set({ showIdSearch }),
   setFontSize: (fontSize) => {
     const clamped = Math.max(10, Math.min(20, fontSize));
-    document.body.style.zoom = String(clamped / 13);
+    applyFontScale(clamped);
     set({ fontSize: clamped });
   },
   setFontFamily: (fontFamily) => {
@@ -196,7 +213,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const numFs = fsRaw === "small" ? 11 : fsRaw === "large" ? 15 : fsRaw === "medium" ? 13
         : Math.max(10, Math.min(20, Number(fsRaw) || 13));
       root.removeAttribute("data-fs");
-      document.body.style.zoom = String(numFs / 13);
+      applyFontScale(numFs);
       // Font family
       const ff = s.fontFamily ?? "barlow";
       if (ff === "barlow") root.removeAttribute("data-font");
