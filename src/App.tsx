@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { TitleBar } from "./components/Layout/TitleBar";
+import { GuildBar } from "./components/Layout/GuildBar";
+import { Sidebar } from "./components/Layout/Sidebar";
 import { MainPanel } from "./components/Layout/MainPanel";
 import { DevPanel } from "./components/DevPanel/DevPanel";
 import { SearchModal } from "./components/ui/SearchModal";
@@ -10,8 +12,11 @@ import { checkProxy } from "./api/tauri";
 function App() {
   const {
     loadSettings, theme, showGrid, showAnimations, darkMode, fontSize,
-    addRawLog, toggleDevPanel, showDevPanel, setProxyInfo,
+    addRawLog, toggleDevPanel, showDevPanel, setProxyInfo, currentClub,
   } = useAppStore();
+
+  // Show Discord layout when a club is loaded OR when viewing settings with a club history
+  const showDiscordLayout = !!currentClub;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -46,8 +51,10 @@ function App() {
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh", overflow: "hidden", background: "var(--bg)", position: "relative" }}>
       <div id="grid-overlay" />
-      <TitleBar />
+      <TitleBar showDiscordLayout={showDiscordLayout} />
       <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative", zIndex: 2 }}>
+        {showDiscordLayout && <GuildBar />}
+        {showDiscordLayout && <Sidebar />}
         <MainPanel />
       </div>
       {showDevPanel && <DevPanel />}
