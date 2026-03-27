@@ -394,8 +394,8 @@ export function ChartsTab() {
         </button>
       </div>
 
-      <div ref={contentRef} style={{ background: "var(--bg)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, marginBottom: 0 }}>
+      <div ref={contentRef} style={{ background: "var(--card)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
           <ChartCard title="VICTOIRES / NULS / DEFAITES">
             <DonutChart data={wdlData} centerValue={wdlTotal} centerSub="MATCHS" />
             <WdlLegend data={wdlData} total={wdlTotal} />
@@ -408,7 +408,7 @@ export function ChartsTab() {
             <HBarChart players={topScorers} valueKey="goals" color="cyan" />
           </ChartCard>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, marginBottom: 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
           <ChartCard title="TOP PASSES DECISIVES">
             <HBarChart players={topAssists} valueKey="assists" color="orange" />
           </ChartCard>
@@ -416,7 +416,7 @@ export function ChartsTab() {
             <HBarChart players={topPasses} valueKey="passesMade" color="purple" />
           </ChartCard>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <SeasonHistorySection clubId={currentClub.id} platform={currentClub.platform} />
           <LeaderboardSection clubId={currentClub.id} platform={currentClub.platform} />
         </div>
