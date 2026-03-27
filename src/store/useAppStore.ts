@@ -152,7 +152,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setShowIdSearch: (showIdSearch) => set({ showIdSearch }),
   setFontSize: (fontSize) => {
     const clamped = Math.max(10, Math.min(20, fontSize));
-    document.documentElement.style.setProperty("--fs", `${clamped}px`);
+    document.body.style.zoom = String(clamped / 13);
     set({ fontSize: clamped });
   },
   setFontFamily: (fontFamily) => {
@@ -196,7 +196,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const numFs = fsRaw === "small" ? 11 : fsRaw === "large" ? 15 : fsRaw === "medium" ? 13
         : Math.max(10, Math.min(20, Number(fsRaw) || 13));
       root.removeAttribute("data-fs");
-      root.style.setProperty("--fs", `${numFs}px`);
+      document.body.style.zoom = String(numFs / 13);
       // Font family
       const ff = s.fontFamily ?? "barlow";
       if (ff === "barlow") root.removeAttribute("data-font");

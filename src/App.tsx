@@ -18,7 +18,7 @@ function App() {
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute("data-theme", theme);
-    root.style.setProperty("--fs", `${fontSize}px`);
+    document.body.style.zoom = String(fontSize / 13);
     root.toggleAttribute("data-no-grid", !showGrid);
     root.toggleAttribute("data-no-anim", !showAnimations);
     root.toggleAttribute("data-light", !darkMode);
