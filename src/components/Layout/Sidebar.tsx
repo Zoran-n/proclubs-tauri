@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Users, Swords, BarChart3, Timer, GitCompare, Hash, Star, ChevronDown, Search, RefreshCw } from "lucide-react";
+import { Users, Swords, BarChart3, Timer, GitCompare, Star, ChevronDown, Search, RefreshCw } from "lucide-react";
 import { useAppStore, type ActiveTab } from "../../store/useAppStore";
 import { SearchTab } from "../Sidebar/SearchTab";
 import { SettingsTab } from "../Sidebar/SettingsTab";
@@ -115,7 +115,7 @@ export function Sidebar() {
                 className={`channel-item ${activeTab === item.id ? "active" : ""}`}
                 onClick={() => setActiveTab(item.id)}
               >
-                <Hash size={18} style={{ color: activeTab === item.id ? "var(--text)" : "var(--muted)", flexShrink: 0 }} />
+                <span style={{ color: activeTab === item.id ? "var(--text)" : "var(--muted)", flexShrink: 0, display: "flex" }}>{item.icon}</span>
                 <span>{item.label}</span>
                 {item.id === "session" && activeSession && (
                   <span style={{
@@ -181,6 +181,7 @@ export function Sidebar() {
           <RefreshCw size={18} style={{ color: "var(--muted)", flexShrink: 0 }} />
           <span>Rafraîchir</span>
         </div>
+        <AutoRefreshItem clubId={currentClub?.id} platform={currentClub?.platform} load={load} />
       </div>
 
       {/* Bottom user panel (like Discord user area) */}
@@ -195,24 +196,8 @@ function LaunchSidebar() {
   const { history, favs, toggleFav, persistSettings, setActiveTab, activeTab, addLog, setSearchResults } = useAppStore();
   const { load } = useClub();
   const [query, setQuery] = useState("");
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  const [countdown, setCountdown] = useState(60);
-  const autoRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const lastClub = history[0] || favs[0];
-
-  useEffect(() => {
-    if (autoRefresh && lastClub) {
-      setCountdown(60);
-      autoRef.current = setInterval(() => { load(lastClub.id, lastClub.platform); setCountdown(60); }, 60_000);
-      countRef.current = setInterval(() => setCountdown((c) => (c <= 1 ? 60 : c - 1)), 1_000);
-    } else {
-      if (autoRef.current) clearInterval(autoRef.current);
-      if (countRef.current) clearInterval(countRef.current);
-    }
-    return () => { if (autoRef.current) clearInterval(autoRef.current); if (countRef.current) clearInterval(countRef.current); };
-  }, [autoRefresh, lastClub]);
 
   const doSearch = async () => {
     if (!query.trim()) return;
@@ -277,7 +262,7 @@ function LaunchSidebar() {
             className={`channel-item ${activeTab === item.id ? "active" : ""}`}
             onClick={() => { setActiveTab(item.id); if (lastClub) load(lastClub.id, lastClub.platform); }}
           >
-            <Hash size={18} style={{ color: activeTab === item.id ? "var(--text)" : "var(--muted)", flexShrink: 0 }} />
+            <span style={{ color: activeTab === item.id ? "var(--text)" : "var(--muted)", flexShrink: 0, display: "flex" }}>{item.icon}</span>
             <span>{item.label}</span>
           </div>
         ))}
@@ -354,15 +339,7 @@ function LaunchSidebar() {
           <RefreshCw size={18} style={{ color: "var(--muted)", flexShrink: 0 }} />
           <span>Rafraîchir</span>
         </div>
-        <div className="channel-item" style={{ cursor: "pointer" }} onClick={() => setAutoRefresh(!autoRefresh)}>
-          <Hash size={18} style={{ color: autoRefresh ? "var(--green)" : "var(--muted)", flexShrink: 0 }} />
-          <span>Auto-refresh</span>
-          {autoRefresh && (
-            <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--muted)" }}>
-              {countdown}s
-            </span>
-          )}
-        </div>
+        <AutoRefreshItem clubId={lastClub?.id} platform={lastClub?.platform} load={load} />
       </div>
     </>
   );
@@ -397,6 +374,37 @@ function FavsList() {
         </div>
       ))}
     </>
+  );
+}
+
+function AutoRefreshItem({ clubId, platform, load }: { clubId?: string; platform?: string; load: (id: string, p: string) => void }) {
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [countdown, setCountdown] = useState(60);
+  const autoRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (autoRefresh && clubId && platform) {
+      setCountdown(60);
+      autoRef.current = setInterval(() => { load(clubId, platform); setCountdown(60); }, 60_000);
+      countRef.current = setInterval(() => setCountdown((c) => (c <= 1 ? 60 : c - 1)), 1_000);
+    } else {
+      if (autoRef.current) clearInterval(autoRef.current);
+      if (countRef.current) clearInterval(countRef.current);
+    }
+    return () => { if (autoRef.current) clearInterval(autoRef.current); if (countRef.current) clearInterval(countRef.current); };
+  }, [autoRefresh, clubId, platform]);
+
+  return (
+    <div className="channel-item" style={{ cursor: "pointer" }} onClick={() => setAutoRefresh(!autoRefresh)}>
+      <Timer size={18} style={{ color: autoRefresh ? "var(--green)" : "var(--muted)", flexShrink: 0 }} />
+      <span>Auto-refresh</span>
+      {autoRefresh && (
+        <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--muted)" }}>
+          {countdown}s
+        </span>
+      )}
+    </div>
   );
 }
 
