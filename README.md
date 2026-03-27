@@ -52,10 +52,13 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Polling automatique toutes les 30 secondes (3 types de matchs en parallèle)
 - KPIs live : matchs joués, victoires, nuls, défaites, buts marqués/encaissés
 - Liste des matchs joués pendant la session
-- Sauvegarde des sessions terminées (max 20)
+- Sauvegarde des sessions terminées (historique illimité avec pagination)
+- **Notification système** à chaque nouveau match détecté (Tauri notification plugin)
+- **Statistiques enrichies** : meilleur buteur, meilleur passeur, MOTM de la session
+- **Export PDF** : résumé automatique proposé en fin de session (jsPDF)
 - Archivage / désarchivage des sessions passées
 - Suppression de sessions
-- Export **CSV** des données de session
+- Export **PNG**, **CSV** et **PDF** des données de session
 
 ### Comparaison de clubs
 - Recherche et sélection de deux clubs indépendants
@@ -103,6 +106,8 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 | État global | Zustand |
 | Graphiques | Recharts |
 | Capture PNG | html2canvas |
+| Export PDF | jsPDF + jspdf-autotable |
+| Notifications | tauri-plugin-notification |
 | Icônes | lucide-react |
 | Police | Bebas Neue + Barlow (Google Fonts) |
 | Persistance | JSON local (`~/.local/share/com.codespace.proclubs-tauri/settings.json`) |
@@ -152,10 +157,10 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Export comparaison** : exporter le tableau comparatif en PNG ou CSV
 
 ### Session
-- **Alerte de nouveau match** : 🛠️ WIP : notification système (Tauri notification plugin)
-- **Résumé automatique** : 🛠️ WIP : email ou export PDF en fin de session
-- **Statistiques de session enrichies** : 🛠️ WIP : meilleur buteur, meilleur passeur, MOTM de la session
-- **Historique de sessions illimité** avec pagination 🛠️ WIP 
+- ~~**Alerte de nouveau match**~~ ✅ Notification système via Tauri notification plugin
+- ~~**Résumé automatique**~~ ✅ Export PDF proposé en fin de session (jsPDF + autotable)
+- ~~**Statistiques de session enrichies**~~ ✅ Meilleur buteur, meilleur passeur, MOTM de la session
+- ~~**Historique de sessions illimité**~~ ✅ Pagination (10 par page), plus de limite de 20
 
 ### UX / Interface
 - **Mode plein écran** : raccourci clavier F11
