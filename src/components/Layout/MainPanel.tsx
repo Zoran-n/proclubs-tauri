@@ -9,18 +9,20 @@ import { CompareTab } from "../Sidebar/CompareTab";
 import { SettingsTab } from "../Sidebar/SettingsTab";
 import { Spinner } from "../ui/Spinner";
 import { getLogo } from "../../api/tauri";
-
-const TAB_LABELS: Record<string, string> = {
-  players: "Joueurs",
-  matches: "Matchs",
-  charts: "Graphiques",
-  session: "Session",
-  compare: "Comparer",
-};
+import { useT } from "../../i18n";
 
 export function MainPanel() {
   const { currentClub, activeTab, isLoading, error, activeSession, sidebarTab, setSidebarTab } = useAppStore();
+  const t = useT();
   const [logo, setLogo] = useState<string | null>(null);
+
+  const TAB_LABELS: Record<string, string> = {
+    players: t("nav.players"),
+    matches: t("nav.matches"),
+    charts: t("nav.charts"),
+    session: t("nav.session"),
+    compare: t("nav.compare"),
+  };
 
   useEffect(() => {
     setLogo(null);
@@ -33,18 +35,19 @@ export function MainPanel() {
   const winPct = total > 0 ? Math.round(((currentClub?.wins ?? 0) / total) * 100) : 0;
 
   const KPIS = currentClub ? [
-    { label: "MATCHS",      value: total,                     color: "var(--accent)" },
-    { label: "VICTOIRES",   value: currentClub.wins,          color: "var(--green)" },
-    { label: "NULS",        value: currentClub.ties,          color: "var(--gold)" },
-    { label: "DEFAITES",    value: currentClub.losses,        color: "var(--red)" },
-    { label: "% VICTOIRES", value: `${winPct}%`,              color: "var(--accent)" },
-    { label: "BUTS",        value: currentClub.goals,         color: "var(--gold)" },
+    { label: t("main.matches"),  value: total,                     color: "var(--accent)" },
+    { label: t("main.wins"),     value: currentClub.wins,          color: "var(--green)" },
+    { label: t("main.draws"),    value: currentClub.ties,          color: "var(--gold)" },
+    { label: t("main.losses"),   value: currentClub.losses,        color: "var(--red)" },
+    { label: t("main.winRate"),  value: `${winPct}%`,              color: "var(--accent)" },
+    { label: t("main.goals"),    value: currentClub.goals,         color: "var(--gold)" },
   ] : [];
 
   // ── No club loaded: settings page ──────────────────────────────────
   if (!currentClub && !isLoading && sidebarTab === "settings") {
     return (
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--main-bg)" }}>
+      <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--main-bg)" }}
+        role="main" aria-label={t("settings.title")}>
         <div style={{
           height: 48, display: "flex", alignItems: "center", gap: 8,
           padding: "0 16px", borderBottom: "1px solid rgba(0,0,0,0.24)",
@@ -54,12 +57,12 @@ export function MainPanel() {
             background: "none", border: "none", cursor: "pointer", color: "var(--muted)",
             display: "flex", alignItems: "center", padding: 4, borderRadius: 4,
             transition: "color 0.15s",
-          }}
+          }} aria-label={t("sidebar.search")}
             onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted)"; }}>
             <Settings size={18} />
           </button>
-          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>Paramètres</span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>{t("settings.title")}</span>
         </div>
         <div style={{ flex: 1, overflow: "auto", maxWidth: 600, margin: "0 auto", width: "100%" }}>
           <SettingsTab />
@@ -70,7 +73,8 @@ export function MainPanel() {
 
   // ── Club loaded: Discord-style main panel ─────────────────────────
   return (
-    <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--main-bg)" }}>
+    <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--main-bg)" }}
+      role="main" aria-label={TAB_LABELS[activeTab] || t("nav.players")}>
 
       {/* ── Discord-style header bar ──────────────────────────────────── */}
       <div style={{
@@ -78,9 +82,9 @@ export function MainPanel() {
         padding: "0 16px", borderBottom: "1px solid rgba(0,0,0,0.24)",
         flexShrink: 0, background: "var(--main-bg)",
       }}>
-        <Hash size={20} color="var(--muted)" />
+        <Hash size={20} color="var(--muted)" aria-hidden="true" />
         <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>
-          {TAB_LABELS[activeTab] || "Joueurs"}
+          {TAB_LABELS[activeTab] || t("nav.players")}
         </span>
         {currentClub && (
           <>
@@ -103,7 +107,7 @@ export function MainPanel() {
                 marginLeft: "auto", fontSize: 10, color: "#fff",
                 background: "var(--red)", padding: "2px 8px", borderRadius: 3, fontWeight: 700,
                 display: "flex", alignItems: "center", gap: 4,
-              }}>
+              }} role="status">
                 <span className="pulse-dot" style={{ width: 6, height: 6 }} />
                 LIVE
               </span>
@@ -162,7 +166,7 @@ export function MainPanel() {
               fontSize: 11, color: "#fff", background: "var(--red)",
               padding: "4px 10px", borderRadius: 4, fontWeight: 700,
               display: "flex", alignItems: "center", gap: 5,
-            }}>
+            }} role="status">
               <span className="pulse-dot" style={{ width: 7, height: 7 }} />
               LIVE
             </span>
@@ -175,7 +179,7 @@ export function MainPanel() {
         <div style={{
           display: "flex", gap: 8, padding: "12px 16px",
           borderBottom: "1px solid rgba(0,0,0,0.12)", flexShrink: 0,
-        }}>
+        }} role="group" aria-label="KPIs">
           {KPIS.map(({ label, value, color }) => (
             <div key={label} style={{
               flex: 1, background: "var(--hover)", borderRadius: 8,
@@ -200,7 +204,7 @@ export function MainPanel() {
             position: "absolute", inset: 0, zIndex: 10,
             display: "flex", alignItems: "center", justifyContent: "center",
             background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
-          }}>
+          }} role="status" aria-label={t("misc.loading")}>
             <Spinner size={40} />
           </div>
         )}
@@ -209,7 +213,7 @@ export function MainPanel() {
             position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
             zIndex: 10, background: "rgba(218,55,60,0.9)", color: "#fff",
             padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 500,
-          }}>
+          }} role="alert">
             {error}
           </div>
         )}
@@ -219,9 +223,9 @@ export function MainPanel() {
             display: "flex", flexDirection: "column", alignItems: "center",
             justifyContent: "center", height: "100%", color: "var(--muted)", gap: 16,
           }}>
-            <BarChart2 size={56} style={{ opacity: 0.3 }} />
+            <BarChart2 size={56} style={{ opacity: 0.3 }} aria-hidden="true" />
             <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.1em", opacity: 0.5 }}>
-              RECHERCHE UN CLUB POUR COMMENCER
+              {t("main.searchToStart")}
             </p>
           </div>
         ) : (
@@ -237,4 +241,3 @@ export function MainPanel() {
     </main>
   );
 }
-

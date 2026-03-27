@@ -6,6 +6,7 @@ import { Badge } from "../ui/Badge";
 import { ExportModal } from "../ui/ExportModal";
 import type { Match, Session as SessionType } from "../../types";
 import { generateSessionPdf } from "../../utils/pdfExport";
+import { useT } from "../../i18n";
 
 function sessionKpis(matches: Match[]) {
   let goals = 0, assists = 0, passes = 0, tackles = 0, motm = 0;
@@ -56,15 +57,15 @@ const BTN: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: 4,
 };
 
-function KpiGrid({ kpis }: { kpis: ReturnType<typeof sessionKpis> }) {
+function KpiGrid({ kpis, t }: { kpis: ReturnType<typeof sessionKpis>; t: (key: string) => string }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginTop: 10 }}>
       {[
-        { label: "Buts",   value: kpis.goals   },
-        { label: "PD",     value: kpis.assists },
-        { label: "Passes", value: kpis.passes  },
-        { label: "Tacles", value: kpis.tackles },
-        { label: "MOTM",   value: kpis.motm    },
+        { label: t("players.goals"),   value: kpis.goals   },
+        { label: t("players.assists"), value: kpis.assists },
+        { label: t("players.passes"),  value: kpis.passes  },
+        { label: t("players.tackles"), value: kpis.tackles },
+        { label: t("session.motm"),    value: kpis.motm    },
       ].map(({ label, value }) => (
         <div key={label} style={{ textAlign: "center", background: "var(--bg)", borderRadius: 8,
           padding: "8px 4px", border: "1px solid var(--border)" }}>
@@ -79,6 +80,7 @@ function KpiGrid({ kpis }: { kpis: ReturnType<typeof sessionKpis> }) {
 }
 
 export function SessionTab() {
+  const t = useT();
   useSession();
   const { activeSession, sessions, currentClub, startSession, stopSession, persistSettings,
     deleteSession, archiveSession } = useAppStore();
@@ -106,7 +108,7 @@ export function SessionTab() {
   const mvps    = activeSession && activeSession.matches.length > 0
     ? sessionMvpStats(activeSession.matches, activeSession.clubId) : null;
 
-  const csvHeaders = ["Date", "Club", "MJ", "Buts", "PD", "Passes", "Tacles", "MOTM"];
+  const csvHeaders = ["Date", "Club", t("players.gp"), t("players.goals"), t("players.assists"), t("players.passes"), t("players.tackles"), t("session.motm")];
   const csvRows = allVisible.map((s) => {
     const k = sessionKpis(s.matches);
     return [new Date(s.date).toLocaleDateString(), s.clubName,
@@ -135,16 +137,16 @@ export function SessionTab() {
             <button onClick={handleStop} style={{ display: "flex", alignItems: "center", gap: 5,
               padding: "6px 12px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)",
               borderRadius: 7, color: "#ef4444", fontSize: 12, cursor: "pointer" }}>
-              <Square size={12} /> Terminer
+              <Square size={12} /> {t("session.end")}
             </button>
           </div>
-          {kpis && <KpiGrid kpis={kpis} />}
+          {kpis && <KpiGrid kpis={kpis} t={t} />}
           {mvps && (mvps.topScorer || mvps.topAssister || mvps.topMotm) && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginTop: 8 }}>
               {[
-                { icon: <Target size={13} />, label: "Top Buteur", player: mvps.topScorer, stat: mvps.topScorer ? `${mvps.topScorer.goals} but${mvps.topScorer.goals !== 1 ? "s" : ""}` : "" },
-                { icon: <Handshake size={13} />, label: "Top Passeur", player: mvps.topAssister, stat: mvps.topAssister ? `${mvps.topAssister.assists} PD` : "" },
-                { icon: <Crown size={13} />, label: "MOTM", player: mvps.topMotm, stat: mvps.topMotm ? `${mvps.topMotm.motm}x` : "" },
+                { icon: <Target size={13} />, label: t("session.topScorer"), player: mvps.topScorer, stat: mvps.topScorer ? `${mvps.topScorer.goals} ${t("session.goalCount")}` : "" },
+                { icon: <Handshake size={13} />, label: t("session.topAssist"), player: mvps.topAssister, stat: mvps.topAssister ? `${mvps.topAssister.assists} ${t("players.assists")}` : "" },
+                { icon: <Crown size={13} />, label: t("session.motm"), player: mvps.topMotm, stat: mvps.topMotm ? `${mvps.topMotm.motm}x` : "" },
               ].map(({ icon, label, player, stat }) => player && (player.goals > 0 || player.assists > 0 || player.motm > 0) ? (
                 <div key={label} style={{ background: "var(--bg)", borderRadius: 8, padding: "8px 10px",
                   border: "1px solid var(--border)", textAlign: "center" }}>
@@ -161,7 +163,7 @@ export function SessionTab() {
           {activeSession.matches.length > 0 && (
             <div style={{ marginTop: 10 }}>
               <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
-                fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>MATCHS JOUÉS</div>
+                fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>{t("session.matchesPlayed")}</div>
               {[...activeSession.matches].reverse().map((m) => {
                 const clubData = currentClub ? (m.clubs[currentClub.id] as Record<string, unknown>) : null;
                 const goals    = clubData?.["goals"] ?? "?";
@@ -171,7 +173,7 @@ export function SessionTab() {
                   <div key={m.matchId} style={{ display: "flex", alignItems: "center", gap: 8,
                     padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
                     <Badge result={r} />
-                    <span style={{ fontSize: 12, color: "var(--text)" }}>{String(goals)} but(s)</span>
+                    <span style={{ fontSize: 12, color: "var(--text)" }}>{String(goals)} {t("session.goalCount")}</span>
                     <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: "auto" }}>{m.matchType}</span>
                   </div>
                 );
@@ -183,18 +185,18 @@ export function SessionTab() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           padding: 32, gap: 10, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10 }}>
           <Trophy size={36} style={{ color: "var(--muted)" }} />
-          <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>Aucune session active</p>
+          <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>{t("session.noActive")}</p>
           <button onClick={() => startSession(currentClub)} style={{
             display: "flex", alignItems: "center", gap: 6, padding: "8px 18px",
             background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.3)",
             borderRadius: 8, color: "var(--accent)", fontSize: 13, cursor: "pointer" }}>
-            <Play size={14} /> Démarrer
+            <Play size={14} /> {t("session.startBtn")}
           </button>
         </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1,
           color: "var(--muted)", fontSize: 13 }}>
-          Charge un club d'abord
+          {t("session.loadClubFirst")}
         </div>
       )}
 
@@ -204,10 +206,10 @@ export function SessionTab() {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
               fontFamily: "'Bebas Neue', sans-serif", flex: 1 }}>
-              SESSIONS PASSÉES {allVisible.length > 0 ? `(${allVisible.length})` : ""}
+              {t("session.pastSessions")} {allVisible.length > 0 ? `(${allVisible.length})` : ""}
             </span>
             <button onClick={() => { setShowArchived((v) => !v); setPage(0); }} style={{ ...BTN }}>
-              <Archive size={11} /> {showArchived ? "Actives" : "Archivées"}
+              <Archive size={11} /> {showArchived ? t("session.activeLabel") : t("session.archivedLabel")}
             </button>
             <button onClick={() => setExportModal("png")} style={{ ...BTN }}>
               <Download size={11} /> PNG
@@ -219,7 +221,7 @@ export function SessionTab() {
 
           {allVisible.length === 0 && (
             <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 12, padding: 16 }}>
-              {showArchived ? "Aucune session archivée" : "Aucune session"}
+              {showArchived ? t("session.noArchived") : t("session.noSessions")}
             </div>
           )}
 
@@ -238,11 +240,11 @@ export function SessionTab() {
                   </div>
                   <div style={{ display: "flex", gap: 5 }}>
                     <button onClick={() => { archiveSession(s.id); persistSettings(); }}
-                      title={s.archived ? "Désarchiver" : "Archiver"}
+                      title={s.archived ? t("session.unarchive") : t("session.archive")}
                       style={{ ...BTN, color: (s.archived ? "var(--accent)" : "var(--muted)") as string }}>
                       <Archive size={11} />
                     </button>
-                    <button onClick={() => { deleteSession(s.id); persistSettings(); }} title="Supprimer"
+                    <button onClick={() => { deleteSession(s.id); persistSettings(); }} title={t("misc.delete")}
                       style={{ ...BTN }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
                       onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}>
@@ -252,11 +254,11 @@ export function SessionTab() {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4, textAlign: "center" }}>
                   {[
-                    { l: "MJ",     v: s.matches.length },
-                    { l: "Buts",   v: k.goals          },
-                    { l: "PD",     v: k.assists        },
-                    { l: "Passes", v: k.passes         },
-                    { l: "MOTM",   v: k.motm           },
+                    { l: t("players.gp"),      v: s.matches.length },
+                    { l: t("players.goals"),   v: k.goals          },
+                    { l: t("players.assists"), v: k.assists        },
+                    { l: t("players.passes"),  v: k.passes         },
+                    { l: t("session.motm"),    v: k.motm           },
                   ].map(({ l, v }) => (
                     <div key={l}>
                       <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "var(--accent)" }}>{v}</div>
@@ -273,14 +275,14 @@ export function SessionTab() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "8px 0" }}>
               <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={safePage === 0}
                 style={{ ...BTN, opacity: safePage === 0 ? 0.4 : 1, cursor: safePage === 0 ? "default" : "pointer" }}>
-                ‹ Préc
+                {"‹ " + t("session.prev")}
               </button>
               <span style={{ fontSize: 11, color: "var(--muted)" }}>
                 {safePage + 1} / {totalPages}
               </span>
               <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={safePage >= totalPages - 1}
                 style={{ ...BTN, opacity: safePage >= totalPages - 1 ? 0.4 : 1, cursor: safePage >= totalPages - 1 ? "default" : "pointer" }}>
-                Suiv ›
+                {t("session.next") + " ›"}
               </button>
             </div>
           )}
@@ -310,10 +312,10 @@ export function SessionTab() {
             <Download size={28} style={{ color: "var(--accent)", marginBottom: 8 }} />
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "var(--text)",
               letterSpacing: "0.06em", marginBottom: 4 }}>
-              Session terminée
+              {t("session.ended")}
             </div>
             <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>
-              {pdfPrompt.matches.length} match{pdfPrompt.matches.length !== 1 ? "s" : ""} joué{pdfPrompt.matches.length !== 1 ? "s" : ""} — Exporter le résumé en PDF ?
+              {pdfPrompt.matches.length} match{pdfPrompt.matches.length !== 1 ? "s" : ""} — {t("session.pdfQuestion")}
             </div>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
               <button onClick={() => { generateSessionPdf(pdfPrompt); setPdfPrompt(null); }}
@@ -322,7 +324,7 @@ export function SessionTab() {
                   border: "1px solid rgba(0,212,255,0.3)", borderRadius: 8,
                   color: "var(--accent)", fontSize: 13, cursor: "pointer", fontWeight: 600,
                 }}>
-                Exporter PDF
+                {t("session.exportPdfBtn")}
               </button>
               <button onClick={() => setPdfPrompt(null)}
                 style={{
@@ -330,7 +332,7 @@ export function SessionTab() {
                   border: "1px solid var(--border)", borderRadius: 8,
                   color: "var(--muted)", fontSize: 13, cursor: "pointer",
                 }}>
-                Non merci
+                {t("session.noThanks")}
               </button>
             </div>
           </div>

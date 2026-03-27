@@ -7,19 +7,10 @@ import {
 } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
 import { ExportModal } from "../ui/ExportModal";
+import { useT } from "../../i18n";
 import type { Player } from "../../types";
 
 type Col = keyof Player;
-
-const COLS: { key: Col; label: string }[] = [
-  { key: "gamesPlayed", label: "MJ" },
-  { key: "goals",       label: "Buts" },
-  { key: "assists",     label: "Passes D." },
-  { key: "passesMade",  label: "Passes" },
-  { key: "tacklesMade", label: "Tacles" },
-  { key: "motm",        label: "MOTM" },
-  { key: "rating",      label: "Note" },
-];
 
 const POS_LABELS: Record<string, string> = {
   "0":"GK","1":"RB","2":"RB","3":"CB","4":"CB","5":"LB","6":"LB",
@@ -90,6 +81,7 @@ const BTN: React.CSSProperties = {
 };
 
 export function PlayersTab() {
+  const t = useT();
   const players = useAppStore((s) => s.players);
   const [sortKey, setSortKey] = useState<Col>("goals");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -105,6 +97,16 @@ export function PlayersTab() {
   // Compare mode
   const [compareMode, setCompareMode] = useState(false);
   const [compareSelected, setCompareSelected] = useState<Player[]>([]);
+
+  const COLS = useMemo(() => [
+    { key: "gamesPlayed" as Col, label: t("players.games") },
+    { key: "goals" as Col,       label: t("players.goals") },
+    { key: "assists" as Col,     label: t("players.assists") },
+    { key: "passesMade" as Col,  label: t("players.passes") },
+    { key: "tacklesMade" as Col, label: t("players.tackles") },
+    { key: "motm" as Col,        label: t("session.motm") },
+    { key: "rating" as Col,      label: t("players.rating") },
+  ], [t]);
 
   const positions = useMemo(() => {
     const set = new Set(players.map((p) => POS_LABELS[p.position] || p.position || "—"));
@@ -125,7 +127,7 @@ export function PlayersTab() {
       return sortDir === "desc" ? String(bv).localeCompare(String(av)) : String(av).localeCompare(String(bv));
     }), [players, sortKey, sortDir, filter, filterPos, filterMinRating, filterMinGames]);
 
-  const csvHeaders = ["Joueur", "Poste", "MJ", "Buts", "PD", "Passes", "Tacles", "MOTM", "Note"];
+  const csvHeaders = [t("players.playerCount"), t("players.pos"), t("players.gp"), t("players.goals"), t("players.assistsShort"), t("players.passes"), t("players.tackles"), t("session.motm"), t("players.rating")];
   const csvRows = sorted.map((p) => [
     p.name, POS_LABELS[p.position] || p.position || "—",
     p.gamesPlayed, p.goals, p.assists, p.passesMade, p.tacklesMade, p.motm, p.rating.toFixed(1),
@@ -156,7 +158,7 @@ export function PlayersTab() {
           <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)",
             color: "var(--muted)", pointerEvents: "none" }} />
           <input value={filter} onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filtrer…"
+            placeholder={t("players.filterPlaceholder")}
             style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
               padding: "6px 10px 6px 28px", borderRadius: 6, fontSize: 12, outline: "none", width: "100%",
               transition: "border-color 0.15s" }}
@@ -166,7 +168,7 @@ export function PlayersTab() {
         </div>
 
         <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>
-          {sorted.length} joueur{sorted.length !== 1 ? "s" : ""}
+          {sorted.length} {t("players.playerCount")}
         </span>
 
         {/* Sort */}
@@ -184,7 +186,7 @@ export function PlayersTab() {
         <button onClick={() => setShowFilters((v) => !v)}
           style={{ ...BTN, color: showFilters || filterPos !== "all" || filterMinRating > 0 || filterMinGames > 0 ? "var(--accent)" : "var(--muted)",
             borderColor: showFilters ? "var(--accent)" : "var(--border)" }}>
-          <Filter size={11} /> FILTRES
+          <Filter size={11} /> {t("players.filter")}
         </button>
 
         {/* Compare button */}
@@ -192,7 +194,7 @@ export function PlayersTab() {
           style={{ ...BTN, color: compareMode ? "#000" : "var(--muted)",
             background: compareMode ? "var(--accent)" : "var(--card)",
             borderColor: compareMode ? "var(--accent)" : "var(--border)" }}>
-          <Users size={11} /> COMPARER
+          <Users size={11} /> {t("players.compare")}
         </button>
 
         <button onClick={() => setExportModal("png")} style={{ ...BTN }}>
@@ -208,8 +210,8 @@ export function PlayersTab() {
         <div style={{ padding: "6px 16px", background: "var(--card)", borderBottom: "1px solid var(--border)",
           fontSize: 11, color: "var(--accent)", display: "flex", gap: 8, alignItems: "center" }}>
           <Users size={11} />
-          {compareSelected.length === 0 && "Clique sur 2 joueurs pour les comparer"}
-          {compareSelected.length === 1 && <>{compareSelected[0].name} — clique sur un 2e joueur</>}
+          {compareSelected.length === 0 && t("players.compareHint0")}
+          {compareSelected.length === 1 && <>{compareSelected[0].name} — {t("players.compareHint1")}</>}
           {compareSelected.length === 2 && <>{compareSelected[0].name} vs {compareSelected[1].name}</>}
         </div>
       )}
@@ -219,16 +221,16 @@ export function PlayersTab() {
         <div style={{ padding: "8px 16px", background: "var(--card)", borderBottom: "1px solid var(--border)",
           display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontSize: 10, color: "var(--muted)" }}>Poste</span>
+            <span style={{ fontSize: 10, color: "var(--muted)" }}>{t("players.pos")}</span>
             <select value={filterPos} onChange={(e) => setFilterPos(e.target.value)}
               style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)",
                 padding: "4px 6px", borderRadius: 4, fontSize: 11, outline: "none", cursor: "pointer" }}>
-              <option value="all">Tous</option>
+              <option value="all">{t("players.allPositions")}</option>
               {positions.map((pos) => <option key={pos} value={pos}>{pos}</option>)}
             </select>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontSize: 10, color: "var(--muted)" }}>Note min</span>
+            <span style={{ fontSize: 10, color: "var(--muted)" }}>{t("players.minRating")}</span>
             <input type="number" min={0} max={10} step={0.5} value={filterMinRating || ""}
               onChange={(e) => setFilterMinRating(Number(e.target.value) || 0)}
               placeholder="0"
@@ -236,7 +238,7 @@ export function PlayersTab() {
                 padding: "4px 6px", borderRadius: 4, fontSize: 11, outline: "none", width: 50 }} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontSize: 10, color: "var(--muted)" }}>MJ min</span>
+            <span style={{ fontSize: 10, color: "var(--muted)" }}>{t("players.minGames")}</span>
             <input type="number" min={0} step={1} value={filterMinGames || ""}
               onChange={(e) => setFilterMinGames(Number(e.target.value) || 0)}
               placeholder="0"
@@ -246,7 +248,7 @@ export function PlayersTab() {
           {(filterPos !== "all" || filterMinRating > 0 || filterMinGames > 0) && (
             <button onClick={() => { setFilterPos("all"); setFilterMinRating(0); setFilterMinGames(0); }}
               style={{ ...BTN, fontSize: 10, color: "var(--red)" }}>
-              Réinitialiser
+              {t("players.reset")}
             </button>
           )}
         </div>
@@ -299,10 +301,10 @@ export function PlayersTab() {
               {/* Stats chips */}
               <div style={{ display: "flex", gap: 14, alignItems: "center", flexShrink: 0 }}>
                 {[
-                  { label: "MJ",   value: p.gamesPlayed,             color: "var(--text)" },
-                  { label: "BUTS", value: p.goals   || "—",          color: "var(--accent)" },
-                  { label: "PD",   value: p.assists || "—",          color: "var(--text)" },
-                  { label: "MOTM", value: p.motm > 0 ? p.motm : "—", color: "#ffd700" },
+                  { label: t("players.gp"),   value: p.gamesPlayed,             color: "var(--text)" },
+                  { label: t("players.goalsShort"), value: p.goals   || "—",          color: "var(--accent)" },
+                  { label: t("players.assistsShort"),   value: p.assists || "—",          color: "var(--text)" },
+                  { label: t("session.motm"), value: p.motm > 0 ? p.motm : "—", color: "#ffd700" },
                 ].map(({ label, value, color }) => (
                   <div key={label} style={{ textAlign: "center", minWidth: 30 }}>
                     <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17,
@@ -321,7 +323,7 @@ export function PlayersTab() {
         })}
         {sorted.length === 0 && (
           <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
-            Aucun joueur
+            {t("players.noPlayers")}
           </div>
         )}
       </div>
@@ -359,6 +361,7 @@ function StatCell({ label, value, color }: { label: string; value: string | numb
 }
 
 function PlayerModal({ player, onClose }: { player: Player; onClose: () => void }) {
+  const t = useT();
   const { matches, currentClub } = useAppStore();
   const [evoStat, setEvoStat] = useState<"rating" | "goals" | "assists">("rating");
   const posLabel = POS_LABELS[player.position] ?? player.position ?? "—";
@@ -388,24 +391,24 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
   }, [matches, currentClub, player.name, evoStat]);
 
   const baseStats: [string, string | number, string][] = [
-    ["MJ",        player.gamesPlayed,          "var(--text)"],
-    ["Buts",      player.goals,                "var(--accent)"],
-    ["Passes D.", player.assists,              "var(--text)"],
-    ["Passes",    player.passesMade,           "var(--muted)"],
-    ["Tacles",    player.tacklesMade,          "var(--muted)"],
-    ["MOTM",      player.motm,                 "#ffd700"],
-    ["Note",      player.rating > 0 ? player.rating.toFixed(1) : "—", ratingColor(player.rating)],
+    [t("players.gp"),       player.gamesPlayed,          "var(--text)"],
+    [t("players.goals"),    player.goals,                "var(--accent)"],
+    [t("players.assists"),  player.assists,              "var(--text)"],
+    [t("players.passes"),   player.passesMade,           "var(--muted)"],
+    [t("players.tackles"),  player.tacklesMade,          "var(--muted)"],
+    [t("session.motm"),     player.motm,                 "#ffd700"],
+    [t("players.rating"),   player.rating > 0 ? player.rating.toFixed(1) : "—", ratingColor(player.rating)],
   ];
 
   // Advanced stats — only show if at least one is non-zero
   const advStats: [string, string | number, string][] = [
-    ...(player.shotsOnTarget  ? [["Tirs cadres",  player.shotsOnTarget,  "var(--accent)"] as [string, number, string]] : []),
-    ...(player.interceptions  ? [["Interceptions", player.interceptions,  "var(--text)"] as [string, number, string]] : []),
-    ...(player.foulsCommitted ? [["Fautes",        player.foulsCommitted, "var(--muted)"] as [string, number, string]] : []),
-    ...(player.yellowCards    ? [["Cartons J",     player.yellowCards,    "#eab308"] as [string, number, string]] : []),
-    ...(player.redCards       ? [["Cartons R",     player.redCards,       "var(--red)"] as [string, number, string]] : []),
-    ...(player.cleanSheets    ? [["Clean sheets",  player.cleanSheets,    "var(--green)"] as [string, number, string]] : []),
-    ...(player.saveAttempts   ? [["Arrets",        player.saveAttempts,   "var(--text)"] as [string, number, string]] : []),
+    ...(player.shotsOnTarget  ? [[t("players.shotsOnTarget"),  player.shotsOnTarget,  "var(--accent)"] as [string, number, string]] : []),
+    ...(player.interceptions  ? [[t("players.interceptions"),  player.interceptions,  "var(--text)"] as [string, number, string]] : []),
+    ...(player.foulsCommitted ? [[t("players.fouls"),          player.foulsCommitted, "var(--muted)"] as [string, number, string]] : []),
+    ...(player.yellowCards    ? [[t("players.yellowCards"),     player.yellowCards,    "#eab308"] as [string, number, string]] : []),
+    ...(player.redCards       ? [[t("players.redCards"),        player.redCards,       "var(--red)"] as [string, number, string]] : []),
+    ...(player.cleanSheets    ? [[t("players.cleanSheets"),    player.cleanSheets,    "var(--green)"] as [string, number, string]] : []),
+    ...(player.saveAttempts   ? [[t("players.saves"),          player.saveAttempts,   "var(--text)"] as [string, number, string]] : []),
   ];
 
   return (
@@ -445,7 +448,7 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
           <>
             <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
               fontFamily: "'Bebas Neue', sans-serif", margin: "14px 0 8px" }}>
-              STATISTIQUES AVANCEES
+              {t("players.advancedStats")}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
               {advStats.map(([label, value, color]) => (
@@ -460,7 +463,7 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "14px 0 8px" }}>
               <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
-                fontFamily: "'Bebas Neue', sans-serif" }}>ÉVOLUTION</span>
+                fontFamily: "'Bebas Neue', sans-serif" }}>{t("players.evolution")}</span>
               {(["rating", "goals", "assists"] as const).map((s) => (
                 <button key={s} onClick={() => setEvoStat(s)}
                   style={{
@@ -470,7 +473,7 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
                     border: evoStat === s ? "1px solid var(--accent)" : "1px solid var(--border)",
                     fontWeight: 600,
                   }}>
-                  {s === "rating" ? "Note" : s === "goals" ? "Buts" : "PD"}
+                  {s === "rating" ? t("players.rating") : s === "goals" ? t("players.goals") : t("players.assistsShort")}
                 </button>
               ))}
             </div>
@@ -482,7 +485,7 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
                 <Tooltip
                   contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11 }}
                   labelStyle={{ color: "var(--muted)" }}
-                  formatter={(v: unknown) => { const n = Number(v); return [evoStat === "rating" ? n.toFixed(1) : n, evoStat === "rating" ? "Note" : evoStat === "goals" ? "Buts" : "PD"]; }}
+                  formatter={(v: unknown) => { const n = Number(v); return [evoStat === "rating" ? n.toFixed(1) : n, evoStat === "rating" ? t("players.rating") : evoStat === "goals" ? t("players.goals") : t("players.assistsShort")]; }}
                   labelFormatter={(_l: unknown, payload: unknown) => { const p = payload as Array<{ payload?: { date?: string } }>; return p?.[0]?.payload?.date ?? ""; }}
                 />
                 <Line type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3, fill: "var(--accent)" }} />
@@ -497,18 +500,19 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
 
 /* ─── Radar Comparison Modal ─── */
 
-const RADAR_STATS: { key: keyof Player; label: string }[] = [
-  { key: "goals",       label: "BUTS" },
-  { key: "assists",     label: "PASSES D." },
-  { key: "passesMade",  label: "PASSES" },
-  { key: "tacklesMade", label: "TACLES" },
-  { key: "motm",        label: "MOTM" },
-  { key: "rating",      label: "NOTE" },
-];
-
 function CompareModal({ p1, p2, allPlayers, onClose }: {
   p1: Player; p2: Player; allPlayers: Player[]; onClose: () => void;
 }) {
+  const t = useT();
+
+  const RADAR_STATS = useMemo(() => [
+    { key: "goals" as keyof Player,       label: t("players.goalsShort") },
+    { key: "assists" as keyof Player,     label: t("players.assists") },
+    { key: "passesMade" as keyof Player,  label: t("players.passes") },
+    { key: "tacklesMade" as keyof Player, label: t("players.tackles") },
+    { key: "motm" as keyof Player,        label: t("session.motm") },
+    { key: "rating" as keyof Player,      label: t("players.rating") },
+  ], [t]);
   const maxV = allPlayers.reduce((acc, p) => ({
     goals:       Math.max(acc.goals,       p.goals),
     assists:     Math.max(acc.assists,     p.assists),
@@ -527,13 +531,13 @@ function CompareModal({ p1, p2, allPlayers, onClose }: {
   }));
 
   const rows: { label: string; v1: number; v2: number; fmt?: (v: number) => string }[] = [
-    { label: "MJ",        v1: p1.gamesPlayed, v2: p2.gamesPlayed },
-    { label: "BUTS",      v1: p1.goals,       v2: p2.goals },
-    { label: "PASSES D.", v1: p1.assists,     v2: p2.assists },
-    { label: "PASSES",    v1: p1.passesMade,  v2: p2.passesMade },
-    { label: "TACLES",    v1: p1.tacklesMade, v2: p2.tacklesMade },
-    { label: "MOTM",      v1: p1.motm,        v2: p2.motm },
-    { label: "NOTE",      v1: p1.rating,      v2: p2.rating, fmt: (v) => v > 0 ? v.toFixed(1) : "—" },
+    { label: t("players.gp"),       v1: p1.gamesPlayed, v2: p2.gamesPlayed },
+    { label: t("players.goalsShort"),  v1: p1.goals,       v2: p2.goals },
+    { label: t("players.assists"),  v1: p1.assists,     v2: p2.assists },
+    { label: t("players.passes"),   v1: p1.passesMade,  v2: p2.passesMade },
+    { label: t("players.tackles"),  v1: p1.tacklesMade, v2: p2.tacklesMade },
+    { label: t("session.motm"),     v1: p1.motm,        v2: p2.motm },
+    { label: t("players.rating"),   v1: p1.rating,      v2: p2.rating, fmt: (v) => v > 0 ? v.toFixed(1) : "—" },
   ];
 
   const P1_COLOR = "var(--accent)";

@@ -3,6 +3,7 @@ import { Save, Trash2, Plus, RefreshCw } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { getClubInfo } from "../../api/tauri";
 import { FORMATIONS, type Tactic } from "../../types";
+import { useT } from "../../i18n";
 
 // Keys must match FORMATIONS values exactly (no dashes)
 const FORMATION_POSITIONS: Record<string, { x: number; y: number; role: string }[]> = {
@@ -66,17 +67,17 @@ const FORMATION_POSITIONS: Record<string, { x: number; y: number; role: string }
 };
 
 const SLIDERS = [
-  { key: "defensiveStyle", label: "Style défensif" },
-  { key: "defensiveWidth", label: "Largeur déf." },
-  { key: "defensiveDepth", label: "Profondeur" },
-  { key: "offensiveStyle", label: "Style offensif" },
-  { key: "offensiveWidth", label: "Largeur off." },
-  { key: "playersInBox",   label: "Joueurs ds la boîte" },
+  { key: "defensiveStyle", labelKey: "tactics.defStyle" },
+  { key: "defensiveWidth", labelKey: "tactics.defWidth" },
+  { key: "defensiveDepth", labelKey: "tactics.depth" },
+  { key: "offensiveStyle", labelKey: "tactics.offStyle" },
+  { key: "offensiveWidth", labelKey: "tactics.offWidth" },
+  { key: "playersInBox",   labelKey: "tactics.playersInBox" },
 ];
 
-const defaultTactic = (): Tactic => ({
+const defaultTactic = (t: (k: string) => string): Tactic => ({
   id: Date.now().toString(),
-  name: "Nouvelle tactique",
+  name: t("tactics.newTactic"),
   formation: "433",
   sliders: Object.fromEntries(SLIDERS.map((s) => [s.key, 50])),
   notes: "",
@@ -102,30 +103,31 @@ function genCode(): string {
 }
 
 export function TacticsTab() {
+  const t = useT();
   const { tactics, saveTactic, deleteTactic, persistSettings, currentClub } = useAppStore();
-  const [current, setCurrent] = useState<Tactic>(defaultTactic());
+  const [current, setCurrent] = useState<Tactic>(defaultTactic(t));
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
 
   const handleSave = () => { saveTactic(current); persistSettings(); };
-  const handleLoad = (t: Tactic) => setCurrent({ ...t });
+  const handleLoad = (tc: Tactic) => setCurrent({ ...tc });
   const handleDelete = (id: string) => {
     deleteTactic(id);
     persistSettings();
-    if (current.id === id) setCurrent(defaultTactic());
+    if (current.id === id) setCurrent(defaultTactic(t));
   };
 
   const handleImport = async () => {
-    if (!currentClub) { setImportMsg("Aucun club sélectionné"); return; }
+    if (!currentClub) { setImportMsg(t("tactics.noClub")); return; }
     setImporting(true);
     setImportMsg(null);
     try {
       const info = await getClubInfo(currentClub.id, currentClub.platform) as Record<string, unknown> | null;
-      if (!info) { setImportMsg("Aucune donnée"); return; }
+      if (!info) { setImportMsg(t("tactics.noData")); return; }
 
       // EA response: { clubId: { name, customKit, tactics?: { clubFormation, ... } } }
       const clubObj = (info[currentClub.id] ?? Object.values(info)[0]) as Record<string, unknown> | undefined;
-      if (!clubObj) { setImportMsg("Structure inconnue"); return; }
+      if (!clubObj) { setImportMsg(t("tactics.unknownStruct")); return; }
 
       const tactics = clubObj["tactics"] as Record<string, unknown> | undefined;
       const rawFormation = (
@@ -163,13 +165,13 @@ export function TacticsTab() {
       }
 
       if (Object.keys(updates).length === 0) {
-        setImportMsg("Aucune tactique trouvée dans les données EA");
+        setImportMsg(t("tactics.noTacticFound"));
       } else {
         setCurrent((c) => ({ ...c, ...updates }));
-        setImportMsg(`Importé : ${updates.formation ?? current.formation}`);
+        setImportMsg(`${t("tactics.imported")} : ${updates.formation ?? current.formation}`);
       }
     } catch {
-      setImportMsg("Erreur lors de la récupération");
+      setImportMsg(t("tactics.fetchError"));
     } finally {
       setImporting(false);
     }
@@ -188,7 +190,7 @@ export function TacticsTab() {
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <label style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em",
             fontFamily: "'Bebas Neue', sans-serif", whiteSpace: "nowrap" }}>
-            FORMATION
+            {t("tactics.formation")}
           </label>
           <select
             value={current.formation}
@@ -260,7 +262,7 @@ export function TacticsTab() {
             fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em",
           }}>
             <RefreshCw size={11} style={{ animation: importing ? "spin 1s linear infinite" : "none" }} />
-            {importing ? "IMPORT…" : "IMPORTER DU CLUB"}
+            {importing ? t("tactics.importing") : t("tactics.importFromClub")}
           </button>
         )}
         {importMsg && (
@@ -271,7 +273,7 @@ export function TacticsTab() {
         {/* Tactic name */}
         <input value={current.name}
           onChange={(e) => setCurrent((c) => ({ ...c, name: e.target.value }))}
-          placeholder="Nom de la tactique"
+          placeholder={t("tactics.tacticName")}
           style={INPUT}
           onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
           onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
@@ -279,17 +281,17 @@ export function TacticsTab() {
 
         {/* Sliders */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {SLIDERS.map(({ key, label }) => (
-            <div key={key}>
+          {SLIDERS.map((s) => (
+            <div key={s.key}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                <span style={{ fontSize: 10, color: "var(--muted)" }}>{label}</span>
+                <span style={{ fontSize: 10, color: "var(--muted)" }}>{t(s.labelKey)}</span>
                 <span style={{ fontSize: 10, color: "var(--text)", fontWeight: 600 }}>
-                  {Math.round(current.sliders[key] ?? 50)}
+                  {Math.round(current.sliders[s.key] ?? 50)}
                 </span>
               </div>
-              <input type="range" min={0} max={100} value={current.sliders[key] ?? 50}
+              <input type="range" min={0} max={100} value={current.sliders[s.key] ?? 50}
                 onChange={(e) => setCurrent((c) => ({
-                  ...c, sliders: { ...c.sliders, [key]: Number(e.target.value) },
+                  ...c, sliders: { ...c.sliders, [s.key]: Number(e.target.value) },
                 }))}
                 style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer" }}
               />
@@ -299,18 +301,18 @@ export function TacticsTab() {
 
         {/* EA Code */}
         <div>
-          <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 4 }}>CODE EA</div>
+          <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 4 }}>{t("tactics.eaCode")}</div>
           <div style={{ display: "flex", gap: 6 }}>
             <input value={current.eaCode ?? ""}
               onChange={(e) => setCurrent((c) => ({ ...c, eaCode: e.target.value.toUpperCase() }))}
-              placeholder="8 caractères"
+              placeholder={t("tactics.chars")}
               maxLength={8}
               style={{ ...INPUT, textTransform: "uppercase", fontFamily: "monospace", letterSpacing: "0.12em" }}
               onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
               onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
             />
             <button onClick={() => setCurrent((c) => ({ ...c, eaCode: genCode() }))}
-              title="Générer un code aléatoire"
+              title={t("tactics.genCode")}
               style={{ padding: "0 10px", background: "var(--bg)", border: "1px solid var(--border)",
                 borderRadius: 6, color: "var(--accent)", cursor: "pointer", fontSize: 10,
                 flexShrink: 0, fontFamily: "'Bebas Neue', sans-serif" }}>
@@ -330,7 +332,7 @@ export function TacticsTab() {
         {/* Notes */}
         <textarea value={current.notes}
           onChange={(e) => setCurrent((c) => ({ ...c, notes: e.target.value }))}
-          placeholder="Notes…" rows={3}
+          placeholder={t("tactics.notes")} rows={3}
           style={{ ...INPUT, resize: "none", lineHeight: 1.5 }}
           onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
           onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
@@ -348,7 +350,7 @@ export function TacticsTab() {
           onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,212,255,0.2)")}
           onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(0,212,255,0.12)")}
         >
-          <Save size={13} /> SAUVEGARDER
+          <Save size={13} /> {t("tactics.save")}
         </button>
 
         {/* Saved tactics list */}
@@ -356,19 +358,19 @@ export function TacticsTab() {
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
             <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
               fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>
-              SAUVEGARDÉES
+              {t("tactics.saved")}
             </p>
-            {tactics.map((t) => (
-              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 4,
+            {tactics.map((tc) => (
+              <div key={tc.id} style={{ display: "flex", alignItems: "center", gap: 4,
                 padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
-                <button onClick={() => handleLoad(t)} style={{
+                <button onClick={() => handleLoad(tc)} style={{
                   flex: 1, textAlign: "left", background: "none", border: "none",
                   cursor: "pointer", padding: 0,
                 }}>
-                  <span style={{ fontSize: 12, color: "var(--text)" }}>{t.name}</span>
-                  <span style={{ fontSize: 10, color: "var(--muted)", marginLeft: 6 }}>{t.formation}</span>
+                  <span style={{ fontSize: 12, color: "var(--text)" }}>{tc.name}</span>
+                  <span style={{ fontSize: 10, color: "var(--muted)", marginLeft: 6 }}>{tc.formation}</span>
                 </button>
-                <button onClick={() => handleDelete(t.id)} style={{
+                <button onClick={() => handleDelete(tc.id)} style={{
                   background: "none", border: "none", cursor: "pointer",
                   color: "var(--muted)", padding: 2, display: "flex",
                 }}
@@ -382,12 +384,12 @@ export function TacticsTab() {
         )}
 
         {/* New tactic button */}
-        <button onClick={() => setCurrent(defaultTactic())} style={{
+        <button onClick={() => setCurrent(defaultTactic(t))} style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
           padding: "6px 14px", background: "var(--card)", border: "1px solid var(--border)",
           borderRadius: 6, color: "var(--muted)", fontSize: 11, cursor: "pointer",
         }}>
-          <Plus size={11} /> Nouvelle
+          <Plus size={11} /> {t("tactics.new")}
         </button>
       </div>
     </div>

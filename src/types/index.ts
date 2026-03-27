@@ -112,6 +112,8 @@ export interface Settings {
   fontSize?: string;
   fontFamily?: string;
   customAccent?: string;
+  language?: string;
+  onboarded?: boolean;
 }
 
 export interface ClubData {

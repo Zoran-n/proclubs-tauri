@@ -7,11 +7,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAppStore } from "../../store/useAppStore";
 import { THEMES } from "../../types";
+import { useT, LANGUAGES } from "../../i18n";
+import type { Lang } from "../../i18n";
 
 export function SettingsTab() {
   const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent,
-    setTheme, setDarkMode, setShowAnimations, setShowLogs,
-    setShowIdSearch, setFontSize, setFontFamily, setCustomAccent, persistSettings } = useAppStore();
+    language, setTheme, setDarkMode, setShowAnimations, setShowLogs,
+    setShowIdSearch, setFontSize, setFontFamily, setCustomAccent, setLanguage, persistSettings } = useAppStore();
+  const t = useT();
 
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "up-to-date" | "error">("idle");
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
@@ -71,7 +74,8 @@ export function SettingsTab() {
 
   const Toggle = ({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "8px 0" }}>
+      padding: "8px 0" }} role="switch" aria-checked={value} aria-label={label} tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); apply(() => onChange(!value)); } }}>
       <span style={{ fontSize: 13, color: "var(--text)" }}>{label}</span>
       <div onClick={() => apply(() => onChange(!value))} style={{
         width: 40, height: 24, borderRadius: 12, flexShrink: 0, cursor: "pointer",
@@ -88,33 +92,58 @@ export function SettingsTab() {
   );
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "4px 14px 20px" }}>
+    <div style={{ flex: 1, overflowY: "auto", padding: "4px 14px 20px" }} role="region" aria-label={t("settings.title")}>
 
       {/* ── APPARENCE ── */}
-      <Section label="APPARENCE" />
-      <Toggle label="Mode sombre" value={darkMode} onChange={setDarkMode} />
+      <Section label={t("settings.appearance")} />
+      <Toggle label={t("settings.darkMode")} value={darkMode} onChange={setDarkMode} />
+
+      {/* ── LANGUE ── */}
+      <Section label={t("settings.language")} />
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+        {LANGUAGES.map((l) => {
+          const active = language === l.id;
+          return (
+            <button key={l.id} onClick={() => apply(() => setLanguage(l.id as Lang))}
+              aria-pressed={active}
+              style={{
+                flex: 1, minWidth: 60, padding: "6px 4px",
+                background: active ? "var(--accent)" : "var(--hover)",
+                color: active ? "#fff" : "var(--text)",
+                border: "none", borderRadius: 4, cursor: "pointer",
+                fontSize: 11, fontWeight: active ? 700 : 400,
+                transition: "all 0.1s",
+              }}>
+              <div style={{ fontSize: 10, marginBottom: 1 }}>{l.flag}</div>
+              {l.label}
+            </button>
+          );
+        })}
+      </div>
 
       {/* ── THEME DE COULEUR ── */}
-      <Section label="COULEUR D'ACCENT" />
+      <Section label={t("settings.accentColor")} />
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-        {THEMES.map((t) => {
-          const active = theme === t.id;
+        {THEMES.map((th) => {
+          const active = theme === th.id;
           return (
-            <button key={t.id} title={t.label} onClick={() => apply(() => setTheme(t.id))} style={{
-              width: 32, height: 32, borderRadius: "50%", padding: 0, cursor: "pointer",
-              border: active ? `3px solid var(--text)` : "3px solid transparent",
-              background: t.color,
-              transition: "all 0.15s", flexShrink: 0,
-              boxShadow: active ? `0 0 0 2px ${t.color}` : "none",
-            }} />
+            <button key={th.id} title={th.label} onClick={() => apply(() => setTheme(th.id))}
+              aria-pressed={active}
+              style={{
+                width: 32, height: 32, borderRadius: "50%", padding: 0, cursor: "pointer",
+                border: active ? `3px solid var(--text)` : "3px solid transparent",
+                background: th.color,
+                transition: "all 0.15s", flexShrink: 0,
+                boxShadow: active ? `0 0 0 2px ${th.color}` : "none",
+              }} />
           );
         })}
         {/* Custom color button */}
         <div style={{ position: "relative" }}>
-          <button title="Personnalisé" onClick={() => {
+          <button title={t("settings.custom")} onClick={() => {
             const el = document.getElementById("custom-color-picker");
             if (el) el.click();
-          }} style={{
+          }} aria-pressed={theme === "custom"} style={{
             width: 32, height: 32, borderRadius: "50%", padding: 0, cursor: "pointer",
             border: theme === "custom" ? `3px solid var(--text)` : "3px solid transparent",
             background: theme === "custom" ? (customAccent || "#888") : "linear-gradient(135deg, #ff0000, #00ff00, #0000ff)",
@@ -124,7 +153,7 @@ export function SettingsTab() {
           }}>
             {theme !== "custom" && <Palette size={14} color="#fff" />}
           </button>
-          <input id="custom-color-picker" type="color"
+          <input id="custom-color-picker" type="color" aria-label={t("settings.custom")}
             value={customAccent || "#00d4ff"}
             onChange={(e) => { setCustomAccent(e.target.value); persistSettings(); }}
             style={{ position: "absolute", opacity: 0, width: 0, height: 0, top: 0, left: 0 }}
@@ -139,7 +168,7 @@ export function SettingsTab() {
       )}
 
       {/* ── TAILLE DU TEXTE ── */}
-      <Section label="TAILLE DU TEXTE" />
+      <Section label={t("settings.textSize")} />
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
         <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>A</span>
         <input
@@ -147,6 +176,7 @@ export function SettingsTab() {
           value={fontSize}
           onChange={(e) => apply(() => setFontSize(Number(e.target.value)))}
           className="settings-slider"
+          aria-label={t("settings.textSize")}
         />
         <span style={{ fontSize: 15, color: "var(--muted)", flexShrink: 0 }}>A</span>
       </div>
@@ -155,40 +185,66 @@ export function SettingsTab() {
       </div>
 
       {/* ── POLICE ── */}
-      <Section label="POLICE" />
+      <Section label={t("settings.font")} />
       <div style={{ display: "flex", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
         {([
           { id: "barlow",  label: "Barlow",  font: '"Barlow", sans-serif' },
           { id: "inter",   label: "Inter",   font: '"Inter", sans-serif' },
           { id: "roboto",  label: "Roboto",  font: '"Roboto", sans-serif' },
-          { id: "system",  label: "Système", font: 'system-ui, sans-serif' },
+          { id: "system",  label: t("settings.system"), font: 'system-ui, sans-serif' },
         ] as const).map((f) => {
           const active = fontFamily === f.id;
           return (
-            <button key={f.id} onClick={() => apply(() => setFontFamily(f.id))} style={{
-              flex: 1, padding: "6px 4px",
-              background: active ? "var(--accent)" : "var(--hover)",
-              color: active ? "#fff" : "var(--text)",
-              border: "none", borderRadius: 4, cursor: "pointer",
-              fontSize: 12, fontWeight: active ? 600 : 400,
-              fontFamily: f.font,
-              transition: "all 0.1s",
-            }}>{f.label}</button>
+            <button key={f.id} onClick={() => apply(() => setFontFamily(f.id))}
+              aria-pressed={active}
+              style={{
+                flex: 1, padding: "6px 4px",
+                background: active ? "var(--accent)" : "var(--hover)",
+                color: active ? "#fff" : "var(--text)",
+                border: "none", borderRadius: 4, cursor: "pointer",
+                fontSize: 12, fontWeight: active ? 600 : 400,
+                fontFamily: f.font,
+                transition: "all 0.1s",
+              }}>{f.label}</button>
           );
         })}
       </div>
 
       {/* ── EFFETS VISUELS ── */}
-      <Section label="EFFETS VISUELS" />
-      <Toggle label="Animations" value={showAnimations} onChange={setShowAnimations} />
+      <Section label={t("settings.effects")} />
+      <Toggle label={t("settings.animations")} value={showAnimations} onChange={setShowAnimations} />
 
       {/* ── INTERFACE ── */}
-      <Section label="INTERFACE" />
-      <Toggle label="Afficher les logs"  value={showLogs}     onChange={setShowLogs} />
-      <Toggle label="Recherche par ID"   value={showIdSearch} onChange={setShowIdSearch} />
+      <Section label={t("settings.interface")} />
+      <Toggle label={t("settings.showLogs")}  value={showLogs}     onChange={setShowLogs} />
+      <Toggle label={t("settings.idSearch")}   value={showIdSearch} onChange={setShowIdSearch} />
 
-      {/* ── MISES À JOUR ── */}
-      <Section label="MISES À JOUR" />
+      {/* ── RACCOURCIS ── */}
+      <Section label={t("settings.shortcuts")} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 4 }}>
+        {[
+          { keys: "F11",           label: t("shortcut.fullscreen") },
+          { keys: "Ctrl+F",       label: t("shortcut.search") },
+          { keys: "Ctrl+E",       label: t("shortcut.export") },
+          { keys: "Ctrl+1-5",     label: t("nav.players") + " / " + t("nav.matches") + " / ..." },
+          { keys: "Ctrl+Shift+D", label: t("shortcut.devPanel") },
+        ].map((s) => (
+          <div key={s.keys} style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "4px 0",
+          }}>
+            <span style={{ fontSize: 12, color: "var(--text)" }}>{s.label}</span>
+            <kbd style={{
+              padding: "2px 6px", background: "var(--hover)", borderRadius: 3,
+              fontSize: 10, fontWeight: 700, color: "var(--accent)",
+              border: "1px solid var(--border)", fontFamily: "monospace",
+            }}>{s.keys}</kbd>
+          </div>
+        ))}
+      </div>
+
+      {/* ── MISES A JOUR ── */}
+      <Section label={t("settings.updates")} />
       <button onClick={handleCheckUpdate}
         disabled={updateStatus === "checking" || updateStatus === "downloading"}
         style={{
@@ -206,12 +262,12 @@ export function SettingsTab() {
           opacity: updateStatus === "checking" || updateStatus === "downloading" ? 0.7 : 1,
           transition: "all 0.15s",
         }}>
-        {updateStatus === "checking" && <><RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> Vérification…</>}
-        {updateStatus === "downloading" && !updateUrl && <><Download size={14} /> Installation v{updateVersion}…</>}
-        {updateStatus === "downloading" && updateUrl && <><ExternalLink size={14} /> v{updateVersion} disponible</>}
-        {updateStatus === "up-to-date" && <><Check size={14} /> À jour</>}
-        {updateStatus === "error" && <><RefreshCw size={14} /> Réessayer</>}
-        {updateStatus === "idle" && <><RefreshCw size={14} /> Vérifier les mises à jour</>}
+        {updateStatus === "checking" && <><RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> {t("settings.checking")}</>}
+        {updateStatus === "downloading" && !updateUrl && <><Download size={14} /> {t("settings.installing")} v{updateVersion}…</>}
+        {updateStatus === "downloading" && updateUrl && <><ExternalLink size={14} /> v{updateVersion} {t("settings.available")}</>}
+        {updateStatus === "up-to-date" && <><Check size={14} /> {t("settings.upToDate")}</>}
+        {updateStatus === "error" && <><RefreshCw size={14} /> {t("settings.retry")}</>}
+        {updateStatus === "idle" && <><RefreshCw size={14} /> {t("settings.checkUpdates")}</>}
       </button>
       {updateStatus === "downloading" && updateUrl && (
         <button onClick={() => openUrl(updateUrl)} style={{
@@ -221,7 +277,7 @@ export function SettingsTab() {
           alignItems: "center", justifyContent: "center", gap: 6,
           fontSize: 13, fontWeight: 600,
         }}>
-          <Download size={14} /> Télécharger v{updateVersion}
+          <Download size={14} /> {t("settings.download")} v{updateVersion}
         </button>
       )}
       {updateStatus === "error" && updateError && (

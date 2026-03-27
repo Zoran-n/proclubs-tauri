@@ -60,6 +60,42 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ─── Accessibility: focus-visible ──────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+:focus:not(:focus-visible) { outline: none; }
+
+/* Skip-to-content (hidden unless focused) */
+.skip-link {
+  position: absolute;
+  top: -40px; left: 8px;
+  background: var(--accent); color: #fff;
+  padding: 6px 14px; border-radius: 0 0 6px 6px;
+  font-size: 13px; font-weight: 700;
+  z-index: 100000;
+  transition: top 0.15s;
+}
+.skip-link:focus { top: 0; }
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode improvements */
+@media (forced-colors: active) {
+  .channel-item.active { border: 2px solid ButtonText; }
+  .guild-icon.active { border: 2px solid Highlight; }
+}
+
 /* ─── Light mode ─────────────────────────────────────────────────────────────── */
 [data-light] {
   --bg:        #f2f3f5;

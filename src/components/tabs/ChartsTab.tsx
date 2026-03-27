@@ -4,6 +4,7 @@ import { PieChart, Pie, Cell, Label, ResponsiveContainer } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
 import { ExportModal } from "../ui/ExportModal";
 import { getSeasonHistory, getLeaderboard } from "../../api/tauri";
+import { useT } from "../../i18n";
 import type { Match, Player } from "../../types";
 
 function aggregateMatchPlayers(matches: Match[], clubId: string): Player[] {
@@ -166,6 +167,7 @@ function parseLeaderboard(raw: unknown, myClubId: string): LeaderRow[] {
 }
 
 function SeasonHistorySection({ clubId, platform }: { clubId: string; platform: string }) {
+  const t = useT();
   const [seasons, setSeasons] = useState<SeasonRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [tried, setTried] = useState(false);
@@ -189,7 +191,7 @@ function SeasonHistorySection({ clubId, platform }: { clubId: string; platform: 
     <div style={{ background: "var(--card)", borderRadius: 8, padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em", fontFamily: "'Bebas Neue', sans-serif" }}>
-          HISTORIQUE DES SAISONS
+          {t("charts.seasonHistory")}
         </p>
         {!tried && (
           <button onClick={load} style={{
@@ -197,13 +199,13 @@ function SeasonHistorySection({ clubId, platform }: { clubId: string; platform: 
             background: "none", border: "1px solid var(--accent)", color: "var(--accent)",
             fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em",
           }}>
-            CHARGER
+            {t("charts.load")}
           </button>
         )}
       </div>
-      {loading && <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>Chargement…</p>}
+      {loading && <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>{t("misc.loading")}</p>}
       {tried && !loading && seasons.length === 0 && (
-        <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>Données non disponibles pour ce club</p>
+        <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>{t("charts.noDataClub")}</p>
       )}
       {seasons.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -233,6 +235,7 @@ function SeasonHistorySection({ clubId, platform }: { clubId: string; platform: 
 }
 
 function LeaderboardSection({ clubId, platform }: { clubId: string; platform: string }) {
+  const t = useT();
   const [rows, setRows] = useState<LeaderRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [tried, setTried] = useState(false);
@@ -257,7 +260,7 @@ function LeaderboardSection({ clubId, platform }: { clubId: string; platform: st
     <div style={{ background: "var(--card)", borderRadius: 8, padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em", fontFamily: "'Bebas Neue', sans-serif" }}>
-          CLASSEMENT ALL TIME — {platform.toUpperCase()}
+          {t("charts.leaderboardTitle") + " — " + platform.toUpperCase()}
         </p>
         {!tried && (
           <button onClick={load} style={{
@@ -265,13 +268,13 @@ function LeaderboardSection({ clubId, platform }: { clubId: string; platform: st
             background: "none", border: "1px solid var(--accent)", color: "var(--accent)",
             fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em",
           }}>
-            CHARGER
+            {t("charts.load")}
           </button>
         )}
       </div>
-      {loading && <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>Chargement…</p>}
+      {loading && <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>{t("misc.loading")}</p>}
       {tried && !loading && rows.length === 0 && (
-        <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>Données non disponibles</p>
+        <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>{t("charts.noData")}</p>
       )}
       {rows.length > 0 && (
         <div style={{ overflowX: "auto" }}>
@@ -310,6 +313,7 @@ function LeaderboardSection({ clubId, platform }: { clubId: string; platform: st
 }
 
 export function ChartsTab() {
+  const t = useT();
   const [mode, setMode] = useState<Mode>("last10");
   const [exportModal, setExportModal] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -340,9 +344,9 @@ export function ChartsTab() {
       ? { wins: currentClub.wins, ties: currentClub.ties, losses: currentClub.losses }
       : last10;
     return [
-      { name: "Victoires", value: src.wins,   color: "#22c55e" },
-      { name: "Nuls",      value: src.ties,   color: "#eab308" },
-      { name: "Défaites",  value: src.losses, color: "#ef4444" },
+      { name: t("charts.winsShort"), value: src.wins,   color: "#22c55e" },
+      { name: t("charts.drawsShort"),      value: src.ties,   color: "#eab308" },
+      { name: t("charts.lossesShort"),  value: src.losses, color: "#ef4444" },
     ];
   }, [currentClub, mode, last10]);
 
@@ -354,8 +358,8 @@ export function ChartsTab() {
     const assists = mode === "alltime" ? allTimeAssists    : last10.assists;
     return {
       data: [
-        { name: "Buts",      value: goals,   color: "#00d4ff" },
-        { name: "Passes D.", value: assists, color: "#22c55e" },
+        { name: t("charts.goalsShort"),      value: goals,   color: "#00d4ff" },
+        { name: t("charts.assistsShort"), value: assists, color: "#22c55e" },
       ],
       total: goals + assists,
     };
@@ -386,7 +390,7 @@ export function ChartsTab() {
             background: "transparent", color: mode === m ? "var(--accent)" : "var(--muted)",
             transition: "all 0.15s",
           }}>
-            {m === "last10" ? "10 DERNIERS MATCHS" : "ALL TIME"}
+            {m === "last10" ? t("charts.last10") : t("charts.allTime")}
           </button>
         ))}
         <button onClick={() => setExportModal(true)} style={{ ...BTN, marginLeft: 8 }}>
@@ -396,23 +400,23 @@ export function ChartsTab() {
 
       <div ref={contentRef} style={{ background: "var(--card)" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
-          <ChartCard title="VICTOIRES / NULS / DEFAITES">
-            <DonutChart data={wdlData} centerValue={wdlTotal} centerSub="MATCHS" />
+          <ChartCard title={t("charts.wdl")}>
+            <DonutChart data={wdlData} centerValue={wdlTotal} centerSub={t("charts.matchesLabel")} />
             <WdlLegend data={wdlData} total={wdlTotal} />
           </ChartCard>
-          <ChartCard title="BUTS / PASSES DECISIVES">
-            <DonutChart data={butsData.data} centerValue={butsData.total} centerSub="TOTAL" />
+          <ChartCard title={t("charts.goalsAssists")}>
+            <DonutChart data={butsData.data} centerValue={butsData.total} centerSub={t("charts.totalLabel")} />
             <WdlLegend data={butsData.data} total={butsData.total} />
           </ChartCard>
-          <ChartCard title="TOP BUTEURS">
+          <ChartCard title={t("charts.topScorers")}>
             <HBarChart players={topScorers} valueKey="goals" color="cyan" />
           </ChartCard>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-          <ChartCard title="TOP PASSES DECISIVES">
+          <ChartCard title={t("charts.topAssists")}>
             <HBarChart players={topAssists} valueKey="assists" color="orange" />
           </ChartCard>
-          <ChartCard title="TOP PASSES REUSSIES">
+          <ChartCard title={t("charts.topPasses")}>
             <HBarChart players={topPasses} valueKey="passesMade" color="purple" />
           </ChartCard>
         </div>

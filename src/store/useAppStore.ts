@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Club, Player, Match, Session, Tactic, EaProfile, CompareEntry } from "../types";
 import { saveSettings as apiSave, loadSettings as apiLoad, setProxy as apiSetProxy } from "../api/tauri";
+import type { Lang } from "../i18n";
 
 export type ActiveTab = "players" | "matches" | "charts" | "session" | "compare";
 export type SidebarTab = "search" | "favs" | "settings";
@@ -40,6 +41,8 @@ interface AppState {
   fontSize: number;
   fontFamily: string;
   customAccent: string;
+  language: Lang;
+  onboarded: boolean;
   proxyUrl: string;
   isLoading: boolean;
   error: string | null;
@@ -79,6 +82,8 @@ interface AppState {
   setFontSize: (v: number) => void;
   setFontFamily: (v: string) => void;
   setCustomAccent: (v: string) => void;
+  setLanguage: (v: Lang) => void;
+  setOnboarded: () => void;
   setEaProfile: (p: EaProfile) => void;
   saveTactic: (t: Tactic) => void;
   deleteTactic: (id: string) => void;
@@ -100,6 +105,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   theme: "cyan", darkMode: true, showGrid: true, showAnimations: true,
   showLogs: true, showIdSearch: false, fontSize: 13, fontFamily: "barlow",
   customAccent: "",
+  language: "fr" as Lang,
+  onboarded: false,
   proxyUrl: "",
   isLoading: false, error: null,
   activeTab: "players", sidebarTab: "search",
@@ -193,6 +200,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ customAccent, theme: "custom" });
     document.documentElement.setAttribute("data-theme", "custom");
   },
+  setLanguage: (language) => set({ language }),
+  setOnboarded: () => set({ onboarded: true }),
   setEaProfile: (eaProfile) => set({ eaProfile }),
   saveTactic: (t) => set((s) => ({ tactics: [...s.tactics.filter((x) => x.id !== t.id), t] })),
   deleteTactic: (id) => set((s) => ({ tactics: s.tactics.filter((t) => t.id !== id) })),
@@ -245,6 +254,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         showIdSearch:    s.showIdSearch    ?? false,
         fontSize: numFs,
         fontFamily: ff,
+        language: (s.language as Lang) ?? "fr",
+        onboarded: s.onboarded ?? false,
         proxyUrl: s.proxyUrl ?? "",
       });
     } catch { /* first launch */ }
@@ -252,7 +263,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   persistSettings: async () => {
     const { history, favs, tactics, sessions, compareHistory, eaProfile, theme, darkMode, proxyUrl,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent } = get();
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, language, onboarded } = get();
     await apiSave({
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -262,6 +273,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       fontSize: String(fontSize),
       fontFamily,
       customAccent: customAccent || undefined,
+      language,
+      onboarded,
     });
   },
 }));

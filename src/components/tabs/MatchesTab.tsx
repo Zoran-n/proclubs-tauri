@@ -3,27 +3,14 @@ import { Download, ChevronDown, Search, Calendar, List, ChevronLeft, ChevronRigh
 import { useAppStore } from "../../store/useAppStore";
 import { getMatches } from "../../api/tauri";
 import { ExportModal } from "../ui/ExportModal";
+import { useT } from "../../i18n";
 import type { Match } from "../../types";
 
-const TYPES = [
-  { value: "leagueMatch",   label: "CHAMPIONNAT", icon: "⚽" },
-  { value: "playoffMatch",  label: "PLAYOFF",     icon: "🏆" },
-  { value: "friendlyMatch", label: "AMICAL",      icon: "🤝" },
-] as const;
-
-const RESULT_LABEL: Record<string, { text: string; color: string }> = {
-  W: { text: "VICTOIRE", color: "var(--green)" },
-  D: { text: "NUL",      color: "#eab308" },
-  L: { text: "DEFAITE",  color: "var(--red)" },
-};
-
-const MONTHS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-
-function formatDate(ts: string | number) {
+function formatDate(ts: string | number, locale: string) {
   const n = Number(ts) * 1000 || Number(ts);
   const d = new Date(isNaN(n) ? ts : n);
   if (isNaN(d.getTime())) return String(ts);
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString(locale, { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function formatDuration(secs?: number) {
@@ -51,6 +38,22 @@ const BTN: React.CSSProperties = {
 
 export function MatchesTab() {
   const { currentClub, matches: leagueCache } = useAppStore();
+  const lang = useAppStore((s) => s.language);
+  const t = useT();
+  const locale = lang === "fr" ? "fr-FR" : lang === "es" ? "es-ES" : lang === "de" ? "de-DE" : lang === "pt" ? "pt-BR" : "en-US";
+
+  const TYPES = [
+    { value: "leagueMatch" as const,   label: t("matches.league"),   icon: "⚽" },
+    { value: "playoffMatch" as const,  label: t("matches.playoff"),  icon: "🏆" },
+    { value: "friendlyMatch" as const, label: t("matches.friendly"), icon: "🤝" },
+  ];
+
+  const RESULT_LABEL: Record<string, { text: string; color: string }> = {
+    W: { text: t("match.win"),  color: "var(--green)" },
+    D: { text: t("match.draw"), color: "#eab308" },
+    L: { text: t("match.loss"), color: "var(--red)" },
+  };
+
   const [type, setType] = useState<"leagueMatch" | "playoffMatch" | "friendlyMatch">("leagueMatch");
   const [pages, setPages] = useState<Partial<Record<string, Match[]>>>({ leagueMatch: leagueCache });
   const [cursors, setCursors] = useState<Partial<Record<string, string | null>>>({});
@@ -111,11 +114,11 @@ export function MatchesTab() {
     return `${my?.["goals"] ?? "?"}-${opp?.["goals"] ?? "?"}`;
   };
 
-  const getOppName = (m: Match) => {
+  const getOppName = (m: Match, fallback?: string) => {
     const myId = currentClub?.id ?? "";
     const opp = Object.entries(m.clubs).find(([k]) => k !== myId)?.[1] as Record<string, unknown> | undefined;
     const det = opp?.["details"] as Record<string, unknown> | undefined;
-    return String(det?.["name"] ?? opp?.["name"] ?? "Adversaire");
+    return String(det?.["name"] ?? opp?.["name"] ?? (fallback || t("matches.opponent")));
   };
 
   // Filter by opponent name
@@ -125,9 +128,9 @@ export function MatchesTab() {
     return allList.filter((m) => getOppName(m).toLowerCase().includes(q));
   }, [allList, oppFilter]);
 
-  const csvHeaders = ["Date", "Adversaire", "Score", "Résultat", "Type"];
+  const csvHeaders = [t("matches.date"), t("matches.opponent"), t("matches.score"), t("matches.result"), t("matches.type")];
   const csvRows = list.map((m) => [
-    formatDate(m.timestamp), getOppName(m), getScore(m),
+    formatDate(m.timestamp, locale), getOppName(m), getScore(m),
     RESULT_LABEL[getResult(m)].text, type,
   ]);
   const dateStr = new Date().toISOString().slice(0, 10);
@@ -157,10 +160,10 @@ export function MatchesTab() {
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px",
         flexShrink: 0, borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 8, flex: 1 }}>
-          {TYPES.map((t) => {
-            const active = type === t.value;
+          {TYPES.map((tp) => {
+            const active = type === tp.value;
             return (
-              <button key={t.value} onClick={() => setType(t.value)} style={{
+              <button key={tp.value} onClick={() => setType(tp.value)} style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20,
                 border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
                 background: active ? "rgba(0,212,255,0.08)" : "transparent",
@@ -168,11 +171,11 @@ export function MatchesTab() {
                 fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: 1,
                 cursor: "pointer", whiteSpace: "nowrap",
               }}>
-                <span>{t.icon}</span>{t.label}
+                <span>{tp.icon}</span>{tp.label}
               </button>
             );
           })}
-          {loading && <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>Chargement…</span>}
+          {loading && <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>{t("misc.loading")}</span>}
           {!loading && list.length > 0 && (
             <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>
               {list.length} match{list.length > 1 ? "s" : ""}
@@ -185,7 +188,7 @@ export function MatchesTab() {
           <Search size={11} style={{ position: "absolute", left: 7, top: "50%", transform: "translateY(-50%)",
             color: "var(--muted)", pointerEvents: "none" }} />
           <input value={oppFilter} onChange={(e) => setOppFilter(e.target.value)}
-            placeholder="Adversaire…"
+            placeholder={t("matches.opponentPlaceholder")}
             style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
               padding: "5px 8px 5px 24px", borderRadius: 5, fontSize: 11, outline: "none", width: "100%",
               transition: "border-color 0.15s" }}
@@ -198,7 +201,7 @@ export function MatchesTab() {
         <button onClick={() => setViewMode(viewMode === "list" ? "calendar" : "list")}
           style={{ ...BTN, color: viewMode === "calendar" ? "var(--accent)" : "var(--muted)" }}>
           {viewMode === "list" ? <Calendar size={11} /> : <List size={11} />}
-          {viewMode === "list" ? "Calendrier" : "Liste"}
+          {viewMode === "list" ? t("matches.calendar") : t("matches.listView")}
         </button>
 
         <button onClick={() => setExportModal("png")} style={BTN}>
@@ -216,7 +219,7 @@ export function MatchesTab() {
         {viewMode === "list" ? (
           <>
             {!loading && list.length === 0 && (
-              <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>Aucun match</div>
+              <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>{t("matches.noMatches")}</div>
             )}
             {list.map((m) => {
               const res = getResult(m);
@@ -240,7 +243,7 @@ export function MatchesTab() {
                       vs {getOppName(m)}
                     </div>
                     <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                      {formatDate(m.timestamp)}
+                      {formatDate(m.timestamp, locale)}
                     </div>
                   </div>
                   <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14,
@@ -254,7 +257,7 @@ export function MatchesTab() {
                     onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
                     onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
                   >
-                    ▶ détails
+                    {"▶ " + t("matches.details")}
                   </button>
                 </div>
               );
@@ -270,12 +273,12 @@ export function MatchesTab() {
                   borderRadius: 8, cursor: "pointer", color: "var(--muted)", fontSize: 12,
                   marginTop: 4, width: "100%",
                 }}>
-                <ChevronDown size={14} /> Charger les 10 matchs suivants
+                <ChevronDown size={14} /> {t("matches.loadMore")}
               </button>
             )}
             {!hasMore && !loading && list.length > 0 && cursors[type] === null && (
               <div style={{ textAlign: "center", fontSize: 11, color: "var(--muted)", padding: "8px 0" }}>
-                Tous les matchs affichés
+                {t("matches.allShown")}
               </div>
             )}
           </>
@@ -289,7 +292,7 @@ export function MatchesTab() {
               })} style={{ ...BTN }}><ChevronLeft size={13} /></button>
               <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--text)",
                 letterSpacing: "0.06em", minWidth: 160, textAlign: "center" }}>
-                {MONTHS_FR[calMonth.month]} {calMonth.year}
+                {t(`months.${calMonth.month}`)} {calMonth.year}
               </span>
               <button onClick={() => setCalMonth((c) => {
                 const d = new Date(c.year, c.month + 1, 1);
@@ -299,7 +302,7 @@ export function MatchesTab() {
 
             {/* Day headers */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
-              {["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"].map((d) => (
+              {[t("days.mon"), t("days.tue"), t("days.wed"), t("days.thu"), t("days.fri"), t("days.sat"), t("days.sun")].map((d) => (
                 <div key={d} style={{ textAlign: "center", fontSize: 9, color: "var(--muted)",
                   fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em", padding: 4 }}>
                   {d}
@@ -360,22 +363,22 @@ export function MatchesTab() {
 
 interface TeamStat { label: string; my: string | number; opp: string | number }
 
-function extractTeamStats(match: Match, clubId: string): TeamStat[] {
+function extractTeamStats(match: Match, clubId: string, t: (key: string) => string): TeamStat[] {
   const myData  = match.clubs[clubId] as Record<string, unknown> | undefined;
   const oppEntry = Object.entries(match.clubs).find(([k]) => k !== clubId);
   const oppData = oppEntry?.[1] as Record<string, unknown> | undefined;
   if (!myData || !oppData) return [];
 
   const statKeys: [string, string][] = [
-    ["possession", "Possession"],
-    ["shots", "Tirs"],
-    ["shotsOnTarget", "Tirs cadrés"],
-    ["corners", "Corners"],
-    ["passesAttempted", "Passes tentées"],
-    ["passesCompleted", "Passes réussies"],
-    ["fouls", "Fautes"],
-    ["offsides", "Hors-jeu"],
-    ["tackles", "Tacles"],
+    ["possession", t("matches.possession")],
+    ["shots", t("matches.shots")],
+    ["shotsOnTarget", t("matches.shotsOnTarget")],
+    ["corners", t("matches.corners")],
+    ["passesAttempted", t("matches.passesAttempted")],
+    ["passesCompleted", t("matches.passesCompleted")],
+    ["fouls", t("players.fouls")],
+    ["offsides", t("matches.offsides")],
+    ["tackles", t("players.tackles")],
   ];
 
   const stats: TeamStat[] = [];
@@ -423,11 +426,15 @@ function extractMatchEvents(match: Match, clubId: string): MatchEvent[] {
 }
 
 function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; onClose: () => void }) {
+  const t = useT();
+  const lang = useAppStore((s) => s.language);
+  const locale = lang === "fr" ? "fr-FR" : lang === "es" ? "es-ES" : lang === "de" ? "de-DE" : lang === "pt" ? "pt-BR" : "en-US";
+
   const myData   = match.clubs[clubId] as Record<string, unknown> | undefined;
   const oppEntry = Object.entries(match.clubs).find(([k]) => k !== clubId);
   const oppData  = oppEntry?.[1] as Record<string, unknown> | undefined;
   const oppDet   = oppData?.["details"] as Record<string, unknown> | undefined;
-  const oppName  = String(oppDet?.["name"] ?? oppData?.["name"] ?? "Adversaire");
+  const oppName  = String(oppDet?.["name"] ?? oppData?.["name"] ?? t("matches.opponent"));
 
   const myPlayers = Object.entries(
     (match.players[clubId] ?? {}) as Record<string, Record<string, unknown>>
@@ -448,6 +455,13 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
   const myGoals  = String(myData?.["goals"]  ?? "?");
   const oppGoals = String(oppData?.["goals"] ?? "?");
   const res = myData?.["wins"] === "1" ? "W" : myData?.["losses"] === "1" ? "L" : "D";
+
+  const RESULT_LABEL: Record<string, { text: string; color: string }> = {
+    W: { text: t("match.win"),  color: "var(--green)" },
+    D: { text: t("match.draw"), color: "#eab308" },
+    L: { text: t("match.loss"), color: "var(--red)" },
+  };
+
   const rl  = RESULT_LABEL[res];
 
   const hasInterceptions = myPlayers.some((p) => p.interceptions > 0);
@@ -455,7 +469,7 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
   const hasFouls         = myPlayers.some((p) => p.fouls > 0);
   const hasCards         = myPlayers.some((p) => p.yellowCards > 0 || p.redCards > 0);
 
-  const teamStats = extractTeamStats(match, clubId);
+  const teamStats = extractTeamStats(match, clubId, t);
   const events = extractMatchEvents(match, clubId);
 
   return (
@@ -472,7 +486,7 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
             </div>
             <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginTop: 2 }}>vs {oppName}</div>
             <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
-              {formatDate(match.timestamp)}
+              {formatDate(match.timestamp, locale)}
               {match.matchDuration ? ` · ${formatDuration(match.matchDuration)}` : ""}
               <span style={{ color: rl.color, fontFamily: "'Bebas Neue', sans-serif", marginLeft: 10, letterSpacing: 1 }}>{rl.text}</span>
             </div>
@@ -512,7 +526,7 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
         {teamStats.length > 0 && (
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
-              fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>STATS ÉQUIPE</div>
+              fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>{t("matches.teamStats")}</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "4px 10px",
               padding: "10px 12px", background: "var(--bg)", borderRadius: 8, border: "1px solid var(--border)" }}>
               {teamStats.map(({ label, my, opp }) => {
@@ -538,17 +552,17 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
         {myPlayers.length > 0 ? (
           <div style={{ overflowX: "auto" }}>
             <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
-              fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>JOUEURS</div>
+              fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>{t("matches.playerStats")}</div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
                   {[
-                    "Joueur", "Note", "Buts", "PD", "Passes",
-                    ...(hasTackles       ? ["Tacles"]  : []),
-                    ...(hasInterceptions ? ["Interc."] : []),
-                    ...(hasFouls         ? ["Fautes"]  : []),
-                    ...(hasCards         ? ["Cartons"] : []),
-                    "MOTM",
+                    t("players.name"), t("players.rating"), t("players.goals"), t("players.assists"), t("players.passes"),
+                    ...(hasTackles       ? [t("players.tackles")]      : []),
+                    ...(hasInterceptions ? [t("players.interceptions")] : []),
+                    ...(hasFouls         ? [t("players.fouls")]        : []),
+                    ...(hasCards         ? [t("players.yellowCards")]   : []),
+                    t("session.motm"),
                   ].map((h) => (
                     <th key={h} style={{ padding: "4px 8px", textAlign: "left", fontSize: 10,
                       color: "var(--muted)", fontWeight: "normal", whiteSpace: "nowrap" }}>{h}</th>
@@ -583,7 +597,7 @@ function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; 
             </table>
           </div>
         ) : (
-          <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, marginTop: 16 }}>Pas de stats joueurs</p>
+          <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, marginTop: 16 }}>{t("matches.noPlayerStats")}</p>
         )}
       </div>
     </div>
