@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef, Fragment } from "react";
-import { Search, Download, ChevronUp, ChevronDown, Users } from "lucide-react";
+import { Search, Download, ChevronUp, ChevronDown, Users, Filter } from "lucide-react";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
 } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
@@ -26,6 +27,29 @@ const POS_LABELS: Record<string, string> = {
   "13":"RW","14":"LW","15":"RF","16":"CF","17":"LF","18":"ST","19":"ST",
   "20":"ST","25":"CF","26":"CAM",
 };
+
+const AVATAR_COLORS = ["#5865f2", "#eb459e", "#57f287", "#fee75c", "#ed4245", "#ff6b35", "#8b5cf6", "#00d4ff"];
+
+function avatarColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function PlayerAvatar({ name, size = 28 }: { name: string; size?: number }) {
+  const initials = name.split(/\s+/).map((w) => w[0]?.toUpperCase() ?? "").join("").slice(0, 2) || "?";
+  const bg = avatarColor(name);
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%", flexShrink: 0,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: bg, color: "#fff", fontSize: size * 0.4, fontWeight: 700,
+      fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em",
+    }}>
+      {initials}
+    </div>
+  );
+}
 
 function ratingColor(r: number) {
   if (r >= 9)   return "#ffd700";
@@ -71,6 +95,10 @@ export function PlayersTab() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<Player | null>(null);
   const [filter, setFilter] = useState("");
+  const [filterPos, setFilterPos] = useState<string>("all");
+  const [filterMinRating, setFilterMinRating] = useState<number>(0);
+  const [filterMinGames, setFilterMinGames] = useState<number>(0);
+  const [showFilters, setShowFilters] = useState(false);
   const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -78,13 +106,24 @@ export function PlayersTab() {
   const [compareMode, setCompareMode] = useState(false);
   const [compareSelected, setCompareSelected] = useState<Player[]>([]);
 
+  const positions = useMemo(() => {
+    const set = new Set(players.map((p) => POS_LABELS[p.position] || p.position || "—"));
+    return Array.from(set).sort();
+  }, [players]);
+
   const sorted = useMemo(() => [...players]
-    .filter((p) => p.name.toLowerCase().includes(filter.toLowerCase()))
+    .filter((p) => {
+      if (!p.name.toLowerCase().includes(filter.toLowerCase())) return false;
+      if (filterPos !== "all" && (POS_LABELS[p.position] || p.position || "—") !== filterPos) return false;
+      if (filterMinRating > 0 && p.rating < filterMinRating) return false;
+      if (filterMinGames > 0 && p.gamesPlayed < filterMinGames) return false;
+      return true;
+    })
     .sort((a, b) => {
       const av = a[sortKey], bv = b[sortKey];
       if (typeof av === "number" && typeof bv === "number") return sortDir === "desc" ? bv - av : av - bv;
       return sortDir === "desc" ? String(bv).localeCompare(String(av)) : String(av).localeCompare(String(bv));
-    }), [players, sortKey, sortDir, filter]);
+    }), [players, sortKey, sortDir, filter, filterPos, filterMinRating, filterMinGames]);
 
   const csvHeaders = ["Joueur", "Poste", "MJ", "Buts", "PD", "Passes", "Tacles", "MOTM", "Note"];
   const csvRows = sorted.map((p) => [
@@ -141,6 +180,13 @@ export function PlayersTab() {
           {sortDir === "desc" ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
         </button>
 
+        {/* Filter button */}
+        <button onClick={() => setShowFilters((v) => !v)}
+          style={{ ...BTN, color: showFilters || filterPos !== "all" || filterMinRating > 0 || filterMinGames > 0 ? "var(--accent)" : "var(--muted)",
+            borderColor: showFilters ? "var(--accent)" : "var(--border)" }}>
+          <Filter size={11} /> FILTRES
+        </button>
+
         {/* Compare button */}
         <button onClick={() => { setCompareMode(!compareMode); setCompareSelected([]); }}
           style={{ ...BTN, color: compareMode ? "#000" : "var(--muted)",
@@ -168,6 +214,44 @@ export function PlayersTab() {
         </div>
       )}
 
+      {/* Filter panel */}
+      {showFilters && (
+        <div style={{ padding: "8px 16px", background: "var(--card)", borderBottom: "1px solid var(--border)",
+          display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 10, color: "var(--muted)" }}>Poste</span>
+            <select value={filterPos} onChange={(e) => setFilterPos(e.target.value)}
+              style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)",
+                padding: "4px 6px", borderRadius: 4, fontSize: 11, outline: "none", cursor: "pointer" }}>
+              <option value="all">Tous</option>
+              {positions.map((pos) => <option key={pos} value={pos}>{pos}</option>)}
+            </select>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 10, color: "var(--muted)" }}>Note min</span>
+            <input type="number" min={0} max={10} step={0.5} value={filterMinRating || ""}
+              onChange={(e) => setFilterMinRating(Number(e.target.value) || 0)}
+              placeholder="0"
+              style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)",
+                padding: "4px 6px", borderRadius: 4, fontSize: 11, outline: "none", width: 50 }} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 10, color: "var(--muted)" }}>MJ min</span>
+            <input type="number" min={0} step={1} value={filterMinGames || ""}
+              onChange={(e) => setFilterMinGames(Number(e.target.value) || 0)}
+              placeholder="0"
+              style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)",
+                padding: "4px 6px", borderRadius: 4, fontSize: 11, outline: "none", width: 50 }} />
+          </div>
+          {(filterPos !== "all" || filterMinRating > 0 || filterMinGames > 0) && (
+            <button onClick={() => { setFilterPos("all"); setFilterMinRating(0); setFilterMinGames(0); }}
+              style={{ ...BTN, fontSize: 10, color: "var(--red)" }}>
+              Réinitialiser
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Cards list */}
       <div ref={contentRef} style={{ flex: 1, overflowY: "auto", padding: "10px 16px",
         display: "flex", flexDirection: "column", gap: 6 }}>
@@ -187,17 +271,14 @@ export function PlayersTab() {
               onMouseEnter={(e) => { if (!sel) e.currentTarget.style.borderColor = "var(--accent)"; }}
               onMouseLeave={(e) => { if (!sel) e.currentTarget.style.borderColor = "var(--border)"; }}
             >
-              {/* Rank bubble */}
-              <div style={{
-                width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 12, fontWeight: 700, lineHeight: 1,
-                background: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7c3b" : "var(--bg)",
-                color: i < 3 ? "#000" : "var(--muted)",
-                border: i >= 3 ? "1px solid var(--border)" : "none",
+              {/* Rank + Avatar */}
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7c3b" : "var(--muted)",
+                width: 18, textAlign: "center", flexShrink: 0,
               }}>
                 {i + 1}
-              </div>
+              </span>
+              <PlayerAvatar name={p.name} size={32} />
 
               {/* Name + position */}
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -278,7 +359,33 @@ function StatCell({ label, value, color }: { label: string; value: string | numb
 }
 
 function PlayerModal({ player, onClose }: { player: Player; onClose: () => void }) {
+  const { matches, currentClub } = useAppStore();
+  const [evoStat, setEvoStat] = useState<"rating" | "goals" | "assists">("rating");
   const posLabel = POS_LABELS[player.position] ?? player.position ?? "—";
+
+  // Build per-match evolution data
+  const evoData = useMemo(() => {
+    if (!currentClub) return [];
+    const points: { match: string; value: number; date: string }[] = [];
+    const sorted = [...matches].sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
+    for (const m of sorted) {
+      const clubPlayers = m.players[currentClub.id] as Record<string, Record<string, unknown>> | undefined;
+      if (!clubPlayers) continue;
+      for (const p of Object.values(clubPlayers)) {
+        const name = String(p["name"] ?? p["playername"] ?? p["playerName"] ?? "");
+        if (name.toLowerCase() !== player.name.toLowerCase()) continue;
+        const val = evoStat === "rating"
+          ? Number(p["rating"] ?? p["ratingAve"] ?? 0)
+          : evoStat === "goals"
+          ? Number(p["goals"] ?? 0)
+          : Number(p["assists"] ?? 0);
+        const ts = Number(m.timestamp);
+        const date = ts > 0 ? new Date(ts * 1000).toLocaleDateString() : "";
+        points.push({ match: `M${points.length + 1}`, value: Math.round(val * 100) / 100, date });
+      }
+    }
+    return points;
+  }, [matches, currentClub, player.name, evoStat]);
 
   const baseStats: [string, string | number, string][] = [
     ["MJ",        player.gamesPlayed,          "var(--text)"],
@@ -304,12 +411,15 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50,
       display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 460,
+      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 500,
+        maxHeight: "90vh", overflowY: "auto",
         border: "1px solid var(--border)", animation: "fadeSlideIn 0.15s ease-out" }}
         onClick={(e) => e.stopPropagation()}>
 
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
-          <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <PlayerAvatar name={player.name} size={44} />
+            <div>
             <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "var(--text)",
               letterSpacing: "0.06em", lineHeight: 1 }}>
               {player.name}
@@ -319,6 +429,7 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
               fontSize: 11, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif" }}>
               {posLabel}
             </span>
+            </div>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)",
             cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
@@ -341,6 +452,42 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
                 <StatCell key={label} label={label} value={value} color={color} />
               ))}
             </div>
+          </>
+        )}
+
+        {/* Evolution chart */}
+        {evoData.length > 1 && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "14px 0 8px" }}>
+              <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+                fontFamily: "'Bebas Neue', sans-serif" }}>ÉVOLUTION</span>
+              {(["rating", "goals", "assists"] as const).map((s) => (
+                <button key={s} onClick={() => setEvoStat(s)}
+                  style={{
+                    padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                    background: evoStat === s ? "var(--accent)" : "var(--bg)",
+                    color: evoStat === s ? "#000" : "var(--muted)",
+                    border: evoStat === s ? "1px solid var(--accent)" : "1px solid var(--border)",
+                    fontWeight: 600,
+                  }}>
+                  {s === "rating" ? "Note" : s === "goals" ? "Buts" : "PD"}
+                </button>
+              ))}
+            </div>
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={evoData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="match" tick={{ fill: "var(--muted)", fontSize: 9 }} />
+                <YAxis tick={{ fill: "var(--muted)", fontSize: 9 }} domain={evoStat === "rating" ? [0, 10] : [0, "auto"]} />
+                <Tooltip
+                  contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11 }}
+                  labelStyle={{ color: "var(--muted)" }}
+                  formatter={(v: unknown) => { const n = Number(v); return [evoStat === "rating" ? n.toFixed(1) : n, evoStat === "rating" ? "Note" : evoStat === "goals" ? "Buts" : "PD"]; }}
+                  labelFormatter={(_l: unknown, payload: unknown) => { const p = payload as Array<{ payload?: { date?: string } }>; return p?.[0]?.payload?.date ?? ""; }}
+                />
+                <Line type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3, fill: "var(--accent)" }} />
+              </LineChart>
+            </ResponsiveContainer>
           </>
         )}
       </div>
