@@ -30,7 +30,7 @@ type Mode = "last10" | "alltime";
 const BTN: React.CSSProperties = {
   padding: "6px 10px", background: "var(--card)", border: "1px solid var(--border)",
   borderRadius: 6, cursor: "pointer", color: "var(--muted)", fontSize: 11,
-  display: "flex", alignItems: "center", gap: 4,
+  display: "flex", alignItems: "center", gap: 0,
 };
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -81,7 +81,7 @@ function WdlLegend({ data, total }: { data: { name: string; value: number; color
         const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
         return (
           <div key={d.name} style={{ textAlign: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0 }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, display: "inline-block" }} />
               <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "#fff" }}>{d.value}</span>
             </div>
@@ -395,7 +395,7 @@ export function ChartsTab() {
       </div>
 
       <div ref={contentRef} style={{ background: "var(--bg)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginBottom: 4 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, marginBottom: 0 }}>
           <ChartCard title="VICTOIRES / NULS / DEFAITES">
             <DonutChart data={wdlData} centerValue={wdlTotal} centerSub="MATCHS" />
             <WdlLegend data={wdlData} total={wdlTotal} />
@@ -408,7 +408,7 @@ export function ChartsTab() {
             <HBarChart players={topScorers} valueKey="goals" color="cyan" />
           </ChartCard>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 4 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, marginBottom: 0 }}>
           <ChartCard title="TOP PASSES DECISIVES">
             <HBarChart players={topAssists} valueKey="assists" color="orange" />
           </ChartCard>
@@ -416,7 +416,7 @@ export function ChartsTab() {
             <HBarChart players={topPasses} valueKey="passesMade" color="purple" />
           </ChartCard>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
           <SeasonHistorySection clubId={currentClub.id} platform={currentClub.platform} />
           <LeaderboardSection clubId={currentClub.id} platform={currentClub.platform} />
         </div>
