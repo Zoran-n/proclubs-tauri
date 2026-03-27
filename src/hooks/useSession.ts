@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { pollSession } from "../api/tauri";
 import { useAppStore } from "../store/useAppStore";
+import { notifyNewMatches } from "../utils/notifications";
 
 export function useSession() {
   const { activeSession, currentClub, addSessionMatch, addLog } = useAppStore();
@@ -34,6 +35,7 @@ export function useSession() {
         if (newMatches.length > 0) {
           addSessionMatch(newMatches);
           addLog(`Session: ${newMatches.length} nouveau(x) match(s)`);
+          notifyNewMatches(newMatches, clubId).catch(() => {});
         }
       } catch { /* ignore */ }
     };

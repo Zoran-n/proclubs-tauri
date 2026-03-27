@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
-import { Play, Square, Trophy, Trash2, Archive, Download } from "lucide-react";
+import { Play, Square, Trophy, Trash2, Archive, Download, Crown, Target, Handshake } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useSession } from "../../hooks/useSession";
 import { Badge } from "../ui/Badge";
 import { ExportModal } from "../ui/ExportModal";
-import type { Match } from "../../types";
+import type { Match, Session as SessionType } from "../../types";
+import { generateSessionPdf } from "../../utils/pdfExport";
 
 function sessionKpis(matches: Match[]) {
   let goals = 0, assists = 0, passes = 0, tackles = 0, motm = 0;
@@ -20,6 +21,33 @@ function sessionKpis(matches: Match[]) {
     }
   }
   return { goals, assists, passes, tackles, motm };
+}
+
+interface PlayerMvp { name: string; goals: number; assists: number; motm: number; rating: number; games: number }
+
+function sessionMvpStats(matches: Match[], clubId?: string) {
+  const acc: Record<string, PlayerMvp> = {};
+  for (const m of matches) {
+    const clubIds = clubId ? [clubId] : Object.keys(m.players);
+    for (const cid of clubIds) {
+      const players = m.players[cid] as Record<string, Record<string, unknown>> | undefined;
+      if (!players) continue;
+      for (const [pid, p] of Object.entries(players)) {
+        const name = String(p["name"] ?? p["playername"] ?? p["playerName"] ?? pid);
+        if (!acc[name]) acc[name] = { name, goals: 0, assists: 0, motm: 0, rating: 0, games: 0 };
+        acc[name].goals   += Number(p["goals"] ?? 0);
+        acc[name].assists += Number(p["assists"] ?? 0);
+        acc[name].rating  += Number(p["rating"] ?? 0);
+        acc[name].games   += 1;
+        if (p["mom"] === "1" || p["manofthematch"] === "1") acc[name].motm++;
+      }
+    }
+  }
+  const all = Object.values(acc);
+  const topScorer   = all.length > 0 ? all.reduce((a, b) => b.goals > a.goals ? b : a) : null;
+  const topAssister = all.length > 0 ? all.reduce((a, b) => b.assists > a.assists ? b : a) : null;
+  const topMotm     = all.length > 0 ? all.reduce((a, b) => b.motm > a.motm ? b : a) : null;
+  return { topScorer, topAssister, topMotm, all };
 }
 
 const BTN: React.CSSProperties = {
@@ -56,15 +84,30 @@ export function SessionTab() {
     deleteSession, archiveSession } = useAppStore();
   const [showArchived, setShowArchived] = useState(false);
   const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
+  const [pdfPrompt, setPdfPrompt] = useState<SessionType | null>(null);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 10;
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const handleStop = () => { stopSession(); persistSettings(); };
+  const handleStop = () => {
+    const session = useAppStore.getState().activeSession;
+    stopSession();
+    persistSettings();
+    if (session && session.matches.length > 0) {
+      setPdfPrompt(session);
+    }
+  };
 
-  const visible = sessions.filter((s) => showArchived ? s.archived : !s.archived);
+  const allVisible = sessions.filter((s) => showArchived ? s.archived : !s.archived);
+  const totalPages = Math.max(1, Math.ceil(allVisible.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const visible = allVisible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
   const kpis    = activeSession ? sessionKpis(activeSession.matches) : null;
+  const mvps    = activeSession && activeSession.matches.length > 0
+    ? sessionMvpStats(activeSession.matches, activeSession.clubId) : null;
 
   const csvHeaders = ["Date", "Club", "MJ", "Buts", "PD", "Passes", "Tacles", "MOTM"];
-  const csvRows = visible.map((s) => {
+  const csvRows = allVisible.map((s) => {
     const k = sessionKpis(s.matches);
     return [new Date(s.date).toLocaleDateString(), s.clubName,
       s.matches.length, k.goals, k.assists, k.passes, k.tackles, k.motm];
@@ -96,6 +139,25 @@ export function SessionTab() {
             </button>
           </div>
           {kpis && <KpiGrid kpis={kpis} />}
+          {mvps && (mvps.topScorer || mvps.topAssister || mvps.topMotm) && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginTop: 8 }}>
+              {[
+                { icon: <Target size={13} />, label: "Top Buteur", player: mvps.topScorer, stat: mvps.topScorer ? `${mvps.topScorer.goals} but${mvps.topScorer.goals !== 1 ? "s" : ""}` : "" },
+                { icon: <Handshake size={13} />, label: "Top Passeur", player: mvps.topAssister, stat: mvps.topAssister ? `${mvps.topAssister.assists} PD` : "" },
+                { icon: <Crown size={13} />, label: "MOTM", player: mvps.topMotm, stat: mvps.topMotm ? `${mvps.topMotm.motm}x` : "" },
+              ].map(({ icon, label, player, stat }) => player && (player.goals > 0 || player.assists > 0 || player.motm > 0) ? (
+                <div key={label} style={{ background: "var(--bg)", borderRadius: 8, padding: "8px 10px",
+                  border: "1px solid var(--border)", textAlign: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 4 }}>
+                    <span style={{ color: "var(--gold)" }}>{icon}</span>
+                    <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em", fontWeight: 600 }}>{label}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>{player.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 2 }}>{stat}</div>
+                </div>
+              ) : null)}
+            </div>
+          )}
           {activeSession.matches.length > 0 && (
             <div style={{ marginTop: 10 }}>
               <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
@@ -142,9 +204,9 @@ export function SessionTab() {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
               fontFamily: "'Bebas Neue', sans-serif", flex: 1 }}>
-              SESSIONS PASSÉES {visible.length > 0 ? `(${visible.length})` : ""}
+              SESSIONS PASSÉES {allVisible.length > 0 ? `(${allVisible.length})` : ""}
             </span>
-            <button onClick={() => setShowArchived((v) => !v)} style={{ ...BTN }}>
+            <button onClick={() => { setShowArchived((v) => !v); setPage(0); }} style={{ ...BTN }}>
               <Archive size={11} /> {showArchived ? "Actives" : "Archivées"}
             </button>
             <button onClick={() => setExportModal("png")} style={{ ...BTN }}>
@@ -155,7 +217,7 @@ export function SessionTab() {
             </button>
           </div>
 
-          {visible.length === 0 && (
+          {allVisible.length === 0 && (
             <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 12, padding: 16 }}>
               {showArchived ? "Aucune session archivée" : "Aucune session"}
             </div>
@@ -205,6 +267,23 @@ export function SessionTab() {
               </div>
             );
           })}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "8px 0" }}>
+              <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={safePage === 0}
+                style={{ ...BTN, opacity: safePage === 0 ? 0.4 : 1, cursor: safePage === 0 ? "default" : "pointer" }}>
+                ‹ Préc
+              </button>
+              <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                {safePage + 1} / {totalPages}
+              </span>
+              <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={safePage >= totalPages - 1}
+                style={{ ...BTN, opacity: safePage >= totalPages - 1 ? 0.4 : 1, cursor: safePage >= totalPages - 1 ? "default" : "pointer" }}>
+                Suiv ›
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -215,6 +294,47 @@ export function SessionTab() {
       {exportModal === "csv" && (
         <ExportModal type="csv" csvHeaders={csvHeaders} csvRows={csvRows}
           defaultFilename={`sessions-${dateStr}`} onClose={() => setExportModal(null)} />
+      )}
+
+      {/* PDF export prompt after session stop */}
+      {pdfPrompt && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 100,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
+        }} onClick={() => setPdfPrompt(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: "var(--card)", border: "1px solid var(--border)",
+            borderRadius: 12, padding: 24, width: 340, textAlign: "center",
+          }}>
+            <Download size={28} style={{ color: "var(--accent)", marginBottom: 8 }} />
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "var(--text)",
+              letterSpacing: "0.06em", marginBottom: 4 }}>
+              Session terminée
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>
+              {pdfPrompt.matches.length} match{pdfPrompt.matches.length !== 1 ? "s" : ""} joué{pdfPrompt.matches.length !== 1 ? "s" : ""} — Exporter le résumé en PDF ?
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+              <button onClick={() => { generateSessionPdf(pdfPrompt); setPdfPrompt(null); }}
+                style={{
+                  padding: "8px 18px", background: "rgba(0,212,255,0.15)",
+                  border: "1px solid rgba(0,212,255,0.3)", borderRadius: 8,
+                  color: "var(--accent)", fontSize: 13, cursor: "pointer", fontWeight: 600,
+                }}>
+                Exporter PDF
+              </button>
+              <button onClick={() => setPdfPrompt(null)}
+                style={{
+                  padding: "8px 18px", background: "var(--hover)",
+                  border: "1px solid var(--border)", borderRadius: 8,
+                  color: "var(--muted)", fontSize: 13, cursor: "pointer",
+                }}>
+                Non merci
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

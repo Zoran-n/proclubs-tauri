@@ -135,7 +135,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   }),
   stopSession: () => set((s) => {
     if (!s.activeSession) return {};
-    return { sessions: [s.activeSession, ...s.sessions].slice(0, 20), activeSession: null };
+    return { sessions: [s.activeSession, ...s.sessions], activeSession: null };
   }),
 
   setViewingSession: (viewingSession) => set({ viewingSession }),
