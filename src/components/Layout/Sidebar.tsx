@@ -35,7 +35,8 @@ const NAV_ITEMS: { id: ActiveTab; icon: ReactNode; label: string }[] = [
 ];
 
 export function Sidebar() {
-  const { sidebarTab, currentClub, activeTab, setActiveTab, favs, activeSession } = useAppStore();
+  const { sidebarTab, currentClub, activeTab, setActiveTab, favs, activeSession, history, toggleFav, persistSettings } = useAppStore();
+  const { load } = useClub();
 
   // Settings view
   if (sidebarTab === "settings") {
@@ -137,6 +138,49 @@ export function Sidebar() {
             <FavsList />
           </>
         )}
+
+        {/* Clubs Récents */}
+        {history.length > 0 && (
+          <>
+            <div className="category-header" style={{ marginTop: 8 }}>
+              <ChevronDown size={10} style={{ marginRight: 2 }} />
+              Clubs Récents
+            </div>
+            {history.map((club) => (
+              <div key={club.id}
+                className={`channel-item ${currentClub?.id === club.id ? "active" : ""}`}
+                onClick={() => { load(club.id, club.platform); persistSettings(); }}>
+                <ClubLogo club={club} size={20} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {club.name || `Club #${club.id}`}
+                </span>
+                <button onClick={(e) => { e.stopPropagation(); toggleFav(club); persistSettings(); }}
+                  style={{
+                    marginLeft: "auto", background: "none", border: "none", cursor: "pointer",
+                    padding: 2, color: favs.some((f) => f.id === club.id) ? "var(--gold)" : "var(--muted)",
+                    flexShrink: 0, opacity: 0.6, transition: "opacity 0.1s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.6"; }}>
+                  <Star size={12} fill={favs.some((f) => f.id === club.id) ? "currentColor" : "none"} />
+                </button>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Rafraîchissement */}
+        <div className="category-header" style={{ marginTop: 8 }}>
+          <ChevronDown size={10} style={{ marginRight: 2 }} />
+          Rafraîchissement
+        </div>
+        <div
+          className="channel-item"
+          onClick={() => { if (currentClub) load(currentClub.id, currentClub.platform); }}
+          style={{ cursor: "pointer" }}>
+          <RefreshCw size={18} style={{ color: "var(--muted)", flexShrink: 0 }} />
+          <span>Rafraîchir</span>
+        </div>
       </div>
 
       {/* Bottom user panel (like Discord user area) */}
