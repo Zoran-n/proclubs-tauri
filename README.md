@@ -38,6 +38,10 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Cache par type et par quantité (pas de rechargement inutile)
 - Carte par match : score, adversaire, date, résultat (VICTOIRE / NUL / DEFAITE)
 - Modale détail match : score final, durée, stats joueurs avec colonnes **avancées** : tacles, interceptions, fautes, cartons (colonnes affichées uniquement si les données existent)
+- **Résumé d'événements** : buteurs, passeurs, cartons et MOTM affichés en badges dans la modale match
+- **Stats d'équipe** : possession, tirs, tirs cadrés, corners, passes, fautes, hors-jeu (affichées si disponibles via l'API EA)
+- **Filtrage par adversaire** : champ de recherche pour retrouver les matchs contre un club spécifique
+- **Vue calendrier** : vue mensuelle des matchs avec navigation mois par mois, résultats colorés par jour
 - Export **PNG** et **CSV** avec prévisualisation
 
 ### Graphiques
@@ -151,10 +155,10 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - ~~**Photo de profil**~~ ✅ Avatars initiales colorées (style Discord) — l'API EA ne fournit pas de photos joueur
 
 ### Matchs
-- **Replay ou timeline** : si EA expose les événements (buts, cartons, remplacements)
-- **Filtrage par adversaire** : retrouver tous les matchs contre un club spécifique
-- **Statistiques d'équipe par match** : possession, tirs, corners issus des données EA
-- **Calendrier** : vue mensuelle des matchs
+- ~~**Replay/timeline**~~ ✅ Résumé d'événements (buteurs, passeurs, cartons, MOTM) en badges — l'API EA ne fournit pas d'événements minute par minute
+- ~~**Filtrage par adversaire**~~ ✅ Champ de recherche pour filtrer les matchs par nom d'adversaire
+- ~~**Statistiques d'équipe par match**~~ ✅ Possession, tirs, corners, passes, fautes, hors-jeu côte à côte dans la modale
+- ~~**Calendrier**~~ ✅ Vue mensuelle avec navigation, résultats colorés (V/N/D) cliquables par jour
 
 ### Comparaison
 - ~~**Comparaison élargie**~~ ✅ Meilleurs joueurs par poste (GK/DEF/MIL/ATT) des deux clubs côte à côte
