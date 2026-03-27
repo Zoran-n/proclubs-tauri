@@ -21,11 +21,13 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 ### Joueurs
 - Liste des membres du club avec leurs statistiques saison
 - Tri par n'importe quelle colonne : matchs joués, buts, passes décisives, passes, tacles, MOTM, note
-- Filtrage par nom en temps réel
+- Filtrage par nom en temps réel + **filtrage multi-critères** (par poste, note min, matchs min)
+- **Avatar initiales colorées** (style Discord) pour chaque joueur
 - Podium visuel (or / argent / bronze) pour le top 3
 - Badge de position (GK, ST, CM…)
 - Badge de note coloré (or, vert, jaune, rouge)
 - Modale détail joueur : stats de base + **statistiques avancées** (tirs cadrés, interceptions, fautes, cartons jaunes/rouges, clean sheets, arrêts GK) — affichées uniquement si disponibles via l'API EA
+- **Graphique d'évolution** par joueur : line chart note/buts/PD par match avec toggle
 - Export **PNG** (capture avec prévisualisation) et **CSV** (tableau complet)
 - **Comparaison de joueurs** : mode COMPARER, sélection de 2 joueurs, radar chart normalisé + tableau face-à-face avec highlight du meilleur
 
@@ -140,10 +142,10 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Profil joueur EA** : 🛠️ WIP : lier le gamertag EA pour accéder aux stats individuelles cross-club / login EA OAuth Impossible 
 
 ### Joueurs
-- **Graphique d'évolution** par joueur (progression de note, buts/match sur le temps)
+- ~~**Graphique d'évolution**~~ ✅ Line chart par joueur dans la modale (note, buts, PD par match avec toggle)
 - ~~**Comparaison de joueurs**~~ ✅ Radar comparatif avec normalisation par rapport à l'équipe + tableau face-à-face
-- **Filtrage multi-critères** : par poste, par seuil de note, par nombre de matchs minimum
-- **Photo de profil** : charger l'avatar EA du joueur si disponible
+- ~~**Filtrage multi-critères**~~ ✅ Panneau de filtres : par poste, seuil de note min, nombre de matchs minimum
+- ~~**Photo de profil**~~ ✅ Avatars initiales colorées (style Discord) — l'API EA ne fournit pas de photos joueur
 
 ### Matchs
 - **Replay ou timeline** : si EA expose les événements (buts, cartons, remplacements)
@@ -160,7 +162,8 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - ~~**Alerte de nouveau match**~~ ✅ Notification système via Tauri notification plugin
 - ~~**Résumé automatique**~~ ✅ Export PDF proposé en fin de session (jsPDF + autotable)
 - ~~**Statistiques de session enrichies**~~ ✅ Meilleur buteur, meilleur passeur, MOTM de la session
-- ~~**Historique de sessions illimité**~~ ✅ Pagination (10 par page), plus de limite de 20
+- ~~**Historique de sessions illimité**~~ ✅ Pagination (10 par page), plus de limite de 20 
+- **Revoir L'UI/UX**
 
 ### UX / Interface
 - **Mode plein écran** : raccourci clavier F11
