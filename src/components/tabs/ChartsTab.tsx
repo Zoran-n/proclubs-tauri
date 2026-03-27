@@ -35,7 +35,7 @@ const BTN: React.CSSProperties = {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px" }}>
+    <div style={{ background: "var(--card)", borderRadius: 8, padding: "14px 16px" }}>
       <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
         fontFamily: "'Bebas Neue', sans-serif", marginBottom: 10 }}>{title}</p>
       {children}
@@ -186,7 +186,7 @@ function SeasonHistorySection({ clubId, platform }: { clubId: string; platform: 
   const maxW = Math.max(...seasons.map((s) => s.wins), 1);
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px" }}>
+    <div style={{ background: "var(--card)", borderRadius: 8, padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em", fontFamily: "'Bebas Neue', sans-serif" }}>
           HISTORIQUE DES SAISONS
@@ -254,7 +254,7 @@ function LeaderboardSection({ clubId, platform }: { clubId: string; platform: st
   void myRank;
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px" }}>
+    <div style={{ background: "var(--card)", borderRadius: 8, padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em", fontFamily: "'Bebas Neue', sans-serif" }}>
           CLASSEMENT ALL TIME — {platform.toUpperCase()}
@@ -394,7 +394,7 @@ export function ChartsTab() {
         </button>
       </div>
 
-      <div ref={contentRef} style={{ background: "var(--bg)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div ref={contentRef} style={{ background: "var(--bg)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
         <ChartCard title="VICTOIRES / NULS / DEFAITES">
           <DonutChart data={wdlData} centerValue={wdlTotal} centerSub="MATCHS" />
           <WdlLegend data={wdlData} total={wdlTotal} />
