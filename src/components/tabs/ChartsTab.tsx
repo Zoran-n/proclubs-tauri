@@ -186,7 +186,7 @@ function SeasonHistorySection({ clubId, platform }: { clubId: string; platform: 
   const maxW = Math.max(...seasons.map((s) => s.wins), 1);
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px", marginTop: 14 }}>
+    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em", fontFamily: "'Bebas Neue', sans-serif" }}>
           HISTORIQUE DES SAISONS
@@ -254,7 +254,7 @@ function LeaderboardSection({ clubId, platform }: { clubId: string; platform: st
   void myRank;
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px", marginTop: 14 }}>
+    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em", fontFamily: "'Bebas Neue', sans-serif" }}>
           CLASSEMENT ALL TIME — {platform.toUpperCase()}
@@ -394,34 +394,26 @@ export function ChartsTab() {
         </button>
       </div>
 
-      <div ref={contentRef} style={{ background: "var(--bg)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
-          <ChartCard title="VICTOIRES / NULS / DEFAITES">
-            <DonutChart data={wdlData} centerValue={wdlTotal} centerSub="MATCHS" />
-            <WdlLegend data={wdlData} total={wdlTotal} />
-          </ChartCard>
-          <ChartCard title="BUTS / PASSES DECISIVES">
-            <DonutChart data={butsData.data} centerValue={butsData.total} centerSub="TOTAL" />
-            <WdlLegend data={butsData.data} total={butsData.total} />
-          </ChartCard>
-          <ChartCard title="TOP BUTEURS">
-            <HBarChart players={topScorers} valueKey="goals" color="cyan" />
-          </ChartCard>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <ChartCard title="TOP PASSES DECISIVES">
-            <HBarChart players={topAssists} valueKey="assists" color="orange" />
-          </ChartCard>
-          <ChartCard title="TOP PASSES REUSSIES">
-            <HBarChart players={topPasses} valueKey="passesMade" color="purple" />
-          </ChartCard>
-        </div>
-
-        {/* Season history + leaderboard (lazy-loaded) */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <SeasonHistorySection clubId={currentClub.id} platform={currentClub.platform} />
-          <LeaderboardSection clubId={currentClub.id} platform={currentClub.platform} />
-        </div>
+      <div ref={contentRef} style={{ background: "var(--bg)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <ChartCard title="VICTOIRES / NULS / DEFAITES">
+          <DonutChart data={wdlData} centerValue={wdlTotal} centerSub="MATCHS" />
+          <WdlLegend data={wdlData} total={wdlTotal} />
+        </ChartCard>
+        <ChartCard title="BUTS / PASSES DECISIVES">
+          <DonutChart data={butsData.data} centerValue={butsData.total} centerSub="TOTAL" />
+          <WdlLegend data={butsData.data} total={butsData.total} />
+        </ChartCard>
+        <ChartCard title="TOP BUTEURS">
+          <HBarChart players={topScorers} valueKey="goals" color="cyan" />
+        </ChartCard>
+        <ChartCard title="TOP PASSES DECISIVES">
+          <HBarChart players={topAssists} valueKey="assists" color="orange" />
+        </ChartCard>
+        <ChartCard title="TOP PASSES REUSSIES">
+          <HBarChart players={topPasses} valueKey="passesMade" color="purple" />
+        </ChartCard>
+        <SeasonHistorySection clubId={currentClub.id} platform={currentClub.platform} />
+        <LeaderboardSection clubId={currentClub.id} platform={currentClub.platform} />
       </div>
 
       {exportModal && (
