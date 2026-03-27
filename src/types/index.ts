@@ -102,6 +102,7 @@ export interface Settings {
   showLogs?: boolean;
   showIdSearch?: boolean;
   fontSize?: string;
+  fontFamily?: string;
   customAccent?: string;
 }
 

@@ -9,9 +9,9 @@ import { useAppStore } from "../../store/useAppStore";
 import { THEMES } from "../../types";
 
 export function SettingsTab() {
-  const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize, customAccent,
+  const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent,
     setTheme, setDarkMode, setShowAnimations, setShowLogs,
-    setShowIdSearch, setFontSize, setCustomAccent, persistSettings } = useAppStore();
+    setShowIdSearch, setFontSize, setFontFamily, setCustomAccent, persistSettings } = useAppStore();
 
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "up-to-date" | "error">("idle");
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
@@ -140,20 +140,40 @@ export function SettingsTab() {
 
       {/* ── TAILLE DU TEXTE ── */}
       <Section label="TAILLE DU TEXTE" />
-      <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
-        {(["small", "medium", "large"] as const).map((s, i) => {
-          const active = fontSize === s;
-          const labels = ["Petit", "Normal", "Grand"];
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+        <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>A</span>
+        <input
+          type="range" min={10} max={20} step={1}
+          value={fontSize}
+          onChange={(e) => apply(() => setFontSize(Number(e.target.value)))}
+          className="settings-slider"
+        />
+        <span style={{ fontSize: 15, color: "var(--muted)", flexShrink: 0 }}>A</span>
+      </div>
+      <div style={{ textAlign: "center", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>
+        {fontSize}px
+      </div>
+
+      {/* ── POLICE ── */}
+      <Section label="POLICE" />
+      <div style={{ display: "flex", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+        {([
+          { id: "barlow",  label: "Barlow",  font: '"Barlow", sans-serif' },
+          { id: "inter",   label: "Inter",   font: '"Inter", sans-serif' },
+          { id: "roboto",  label: "Roboto",  font: '"Roboto", sans-serif' },
+          { id: "system",  label: "Système", font: 'system-ui, sans-serif' },
+        ] as const).map((f) => {
+          const active = fontFamily === f.id;
           return (
-            <button key={s} onClick={() => apply(() => setFontSize(s))} style={{
+            <button key={f.id} onClick={() => apply(() => setFontFamily(f.id))} style={{
               flex: 1, padding: "6px 4px",
               background: active ? "var(--accent)" : "var(--hover)",
               color: active ? "#fff" : "var(--text)",
-              border: "none",
-              borderRadius: 4, cursor: "pointer",
+              border: "none", borderRadius: 4, cursor: "pointer",
               fontSize: 12, fontWeight: active ? 600 : 400,
+              fontFamily: f.font,
               transition: "all 0.1s",
-            }}>{labels[i]}</button>
+            }}>{f.label}</button>
           );
         })}
       </div>

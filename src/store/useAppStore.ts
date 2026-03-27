@@ -20,7 +20,8 @@ interface AppState {
   showAnimations: boolean;
   showLogs: boolean;
   showIdSearch: boolean;
-  fontSize: "small" | "medium" | "large";
+  fontSize: number;
+  fontFamily: string;
   customAccent: string;
   proxyUrl: string;
   isLoading: boolean;
@@ -55,7 +56,8 @@ interface AppState {
   setShowAnimations: (v: boolean) => void;
   setShowLogs: (v: boolean) => void;
   setShowIdSearch: (v: boolean) => void;
-  setFontSize: (v: "small" | "medium" | "large") => void;
+  setFontSize: (v: number) => void;
+  setFontFamily: (v: string) => void;
   setCustomAccent: (v: string) => void;
   setEaProfile: (p: EaProfile) => void;
   saveTactic: (t: Tactic) => void;
@@ -76,7 +78,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentClub: null, players: [], matches: [], sessions: [], tactics: [],
   history: [], favs: [], eaProfile: null,
   theme: "cyan", darkMode: true, showGrid: true, showAnimations: true,
-  showLogs: true, showIdSearch: false, fontSize: "medium",
+  showLogs: true, showIdSearch: false, fontSize: 13, fontFamily: "barlow",
   customAccent: "",
   proxyUrl: "",
   isLoading: false, error: null,
@@ -149,8 +151,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   setShowLogs: (showLogs) => set({ showLogs }),
   setShowIdSearch: (showIdSearch) => set({ showIdSearch }),
   setFontSize: (fontSize) => {
-    document.documentElement.setAttribute("data-fs", fontSize);
-    set({ fontSize });
+    const clamped = Math.max(10, Math.min(20, fontSize));
+    document.documentElement.style.setProperty("--fs", `${clamped}px`);
+    set({ fontSize: clamped });
+  },
+  setFontFamily: (fontFamily) => {
+    if (fontFamily === "barlow") {
+      document.documentElement.removeAttribute("data-font");
+    } else {
+      document.documentElement.setAttribute("data-font", fontFamily);
+    }
+    set({ fontFamily });
   },
   setCustomAccent: (customAccent) => {
     document.documentElement.style.setProperty("--accent", customAccent);
@@ -180,7 +191,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       const root = document.documentElement;
       const theme = s.theme ?? "cyan";
       root.setAttribute("data-theme", theme);
-      root.setAttribute("data-fs", s.fontSize ?? "medium");
+      // Convert old string values to numeric px
+      const fsRaw = s.fontSize;
+      const numFs = fsRaw === "small" ? 11 : fsRaw === "large" ? 15 : fsRaw === "medium" ? 13
+        : Math.max(10, Math.min(20, Number(fsRaw) || 13));
+      root.removeAttribute("data-fs");
+      root.style.setProperty("--fs", `${numFs}px`);
+      // Font family
+      const ff = s.fontFamily ?? "barlow";
+      if (ff === "barlow") root.removeAttribute("data-font");
+      else root.setAttribute("data-font", ff);
       root.toggleAttribute("data-light",   !(s.darkMode ?? true));
       root.toggleAttribute("data-no-grid", !(s.showGrid ?? true));
       root.toggleAttribute("data-no-anim", !(s.showAnimations ?? true));
@@ -197,7 +217,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         showAnimations:  s.showAnimations  ?? true,
         showLogs:        s.showLogs        ?? true,
         showIdSearch:    s.showIdSearch    ?? false,
-        fontSize:        (s.fontSize as "small" | "medium" | "large" | undefined) ?? "medium",
+        fontSize: numFs,
+        fontFamily: ff,
         proxyUrl: s.proxyUrl ?? "",
       });
     } catch { /* first launch */ }
@@ -205,13 +226,15 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   persistSettings: async () => {
     const { history, favs, tactics, sessions, eaProfile, theme, darkMode, proxyUrl,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize, customAccent } = get();
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent } = get();
     await apiSave({
       history, favs, tactics, sessions,
       eaProfile: eaProfile ?? undefined,
       theme, darkMode,
       proxyUrl: proxyUrl.trim() || undefined,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize,
+      showGrid, showAnimations, showLogs, showIdSearch,
+      fontSize: String(fontSize),
+      fontFamily,
       customAccent: customAccent || undefined,
     });
   },
