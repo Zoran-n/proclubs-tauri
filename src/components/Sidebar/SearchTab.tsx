@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { RefreshCw, Search, Hash, User } from "lucide-react";
+import { RefreshCw, Search, Hash, User, Send } from "lucide-react";
 import { searchClub, detectPlatform, getLogo } from "../../api/tauri";
+import { sendDiscordWebhook } from "../../api/discord";
+import { buildClubOverviewEmbed } from "../../utils/discordEmbeds";
 import { useAppStore } from "../../store/useAppStore";
 import { useClub } from "../../hooks/useClub";
 import type { Club } from "../../types";
@@ -25,16 +27,28 @@ function ClubLogo({ club, size = 32 }: { club: Club; size?: number }) {
 }
 
 export function SearchTab({ compact }: { compact?: boolean } = {}) {
-  const { history, favs, toggleFav, showIdSearch, showLogs, logs, addLog, persistSettings, setSearchResults, eaProfile } = useAppStore();
+  const { history, favs, toggleFav, showIdSearch, showLogs, logs, addLog, persistSettings,
+    setSearchResults, eaProfile, discordWebhook, addToast, players } = useAppStore();
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [directId, setDirectId] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [countdown, setCountdown] = useState(60);
+  const [sharing, setSharing] = useState(false);
   const { load } = useClub();
   const autoRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { currentClub } = useAppStore();
+
+  const shareOverview = async () => {
+    if (!discordWebhook || !currentClub) return;
+    setSharing(true);
+    try {
+      await sendDiscordWebhook(discordWebhook, [buildClubOverviewEmbed(currentClub, players)]);
+      addToast("Envoyé sur Discord !", "success");
+    } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
+    finally { setSharing(false); }
+  };
 
   const doSearch = async (q = query) => {
     if (!q.trim()) return;
@@ -198,6 +212,12 @@ export function SearchTab({ compact }: { compact?: boolean } = {}) {
         <button onClick={handleRefresh} style={{ width: "100%", padding: "7px", background: "transparent", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 6 }}>
           <RefreshCw size={12} /> RAFRAÎCHIR
         </button>
+        {discordWebhook && currentClub && (
+          <button onClick={shareOverview} disabled={sharing}
+            style={{ width: "100%", padding: "7px", background: "rgba(88,101,242,0.1)", border: "1px solid rgba(88,101,242,0.25)", color: sharing ? "var(--muted)" : "#5865f2", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, cursor: sharing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 6, opacity: sharing ? 0.6 : 1, transition: "all 0.15s" }}>
+            <Send size={12} /> {sharing ? "ENVOI…" : "STATS DISCORD"}
+          </button>
+        )}
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted)", cursor: "pointer" }}>
           <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
           Auto ({autoRefresh ? `${countdown}s` : "60s"})

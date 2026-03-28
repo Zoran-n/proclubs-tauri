@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BarChart2, Hash, Settings } from "lucide-react";
+import { BarChart2, Hash, Settings, Send } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { PlayersTab } from "../tabs/PlayersTab";
 import { MatchesTab } from "../tabs/MatchesTab";
@@ -10,12 +10,30 @@ import { SettingsTab } from "../Sidebar/SettingsTab";
 import { ProfilePanel } from "../ui/ProfilePanel";
 import { Spinner } from "../ui/Spinner";
 import { getLogo } from "../../api/tauri";
+import { sendDiscordWebhook } from "../../api/discord";
+import { buildPlayersEmbed, buildMatchesEmbed, buildChartsEmbed } from "../../utils/discordEmbeds";
 import { useT } from "../../i18n";
 
 export function MainPanel() {
-  const { currentClub, activeTab, isLoading, error, activeSession, sidebarTab, setSidebarTab } = useAppStore();
+  const { currentClub, players, matches, activeTab, isLoading, error, activeSession,
+    sidebarTab, setSidebarTab, discordWebhook, addToast } = useAppStore();
   const t = useT();
   const [logo, setLogo] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+
+  const shareTab = async () => {
+    if (!discordWebhook || !currentClub) return;
+    setSharing(true);
+    try {
+      let embed;
+      if (activeTab === "players") embed = buildPlayersEmbed(players, currentClub.name);
+      else if (activeTab === "matches") embed = buildMatchesEmbed(matches, currentClub.id, currentClub.name);
+      else embed = buildChartsEmbed(currentClub);
+      await sendDiscordWebhook(discordWebhook, [embed]);
+      addToast("Envoyé sur Discord !", "success");
+    } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
+    finally { setSharing(false); }
+  };
 
   const TAB_LABELS: Record<string, string> = {
     players: t("nav.players"),
@@ -120,9 +138,23 @@ export function MainPanel() {
                 </span>
               )}
             </div>
+            {discordWebhook && ["players", "matches", "charts"].includes(activeTab) && (
+              <button onClick={shareTab} disabled={sharing} title="Partager sur Discord"
+                style={{
+                  marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
+                  padding: "4px 10px", background: "rgba(88,101,242,0.12)",
+                  border: "1px solid rgba(88,101,242,0.25)", borderRadius: 5,
+                  color: sharing ? "var(--muted)" : "#5865f2", fontSize: 11, cursor: sharing ? "default" : "pointer",
+                  opacity: sharing ? 0.6 : 1, transition: "all 0.15s",
+                  fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em",
+                }}>
+                <Send size={12} /> DISCORD
+              </button>
+            )}
             {activeSession && (
               <span style={{
-                marginLeft: "auto", fontSize: 10, color: "#fff",
+                marginLeft: discordWebhook && ["players","matches","charts"].includes(activeTab) ? 8 : "auto",
+                fontSize: 10, color: "#fff",
                 background: "var(--red)", padding: "2px 8px", borderRadius: 3, fontWeight: 700,
                 display: "flex", alignItems: "center", gap: 4,
               }} role="status">
