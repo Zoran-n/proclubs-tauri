@@ -52,7 +52,7 @@ function GuildIcon({ club, active, onClick }: { club: Club; active: boolean; onC
 }
 
 export function GuildBar() {
-  const { favs, history, currentClub, setSidebarTab, sidebarTab, eaProfile } = useAppStore();
+  const { favs, history, currentClub, setSidebarTab, sidebarTab, eaProfile, discordWebhook } = useAppStore();
   const { load } = useClub();
   const [searchHover, setSearchHover] = useState(false);
   const [profileHover, setProfileHover] = useState(false);
@@ -131,19 +131,29 @@ export function GuildBar() {
           height: sidebarTab === "profile" ? 40 : profileHover ? 20 : 0,
           transition: "height 0.15s",
         }} />
-        <div onClick={() => setSidebarTab("profile")} style={{
-          width: 48, height: 48, borderRadius: sidebarTab === "profile" ? 16 : 24,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer", transition: "border-radius 0.15s, background-color 0.15s",
-          background: sidebarTab === "profile" ? "var(--accent)" : "var(--surface)",
-          overflow: "hidden",
-        }}>
-          {eaProfile?.gamertag
-            ? <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: sidebarTab === "profile" ? "#fff" : "var(--accent)" }}>
-                {eaProfile.gamertag[0].toUpperCase()}
-              </span>
-            : <User size={22} color={sidebarTab === "profile" ? "#fff" : "var(--muted)"} />
-          }
+        <div style={{ position: "relative" }}>
+          <div onClick={() => setSidebarTab("profile")} style={{
+            width: 48, height: 48, borderRadius: sidebarTab === "profile" ? 16 : 24,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", transition: "border-radius 0.15s, background-color 0.15s",
+            background: sidebarTab === "profile" ? "var(--accent)" : "var(--surface)",
+            overflow: "hidden",
+          }}>
+            {eaProfile?.gamertag
+              ? <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: sidebarTab === "profile" ? "#fff" : "var(--accent)" }}>
+                  {eaProfile.gamertag[0].toUpperCase()}
+                </span>
+              : <User size={22} color={sidebarTab === "profile" ? "#fff" : "var(--muted)"} />
+            }
+          </div>
+          {discordWebhook && (
+            <div style={{
+              position: "absolute", bottom: 0, right: 0,
+              width: 14, height: 14, borderRadius: "50%",
+              background: "#5865f2", border: "2px solid var(--guild-bar)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }} title="Discord configuré" />
+          )}
         </div>
         {profileHover && <div className="discord-tooltip">Mon profil</div>}
       </div>
