@@ -17,7 +17,7 @@ function App() {
   const {
     loadSettings, theme, showGrid, showAnimations, darkMode, fontSize,
     addRawLog, toggleDevPanel, showDevPanel, setProxyInfo,
-    setSidebarTab, setActiveTab, onboarded,
+    setSidebarTab, setActiveTab, onboarded, settingsLoaded,
   } = useAppStore();
 
   useEffect(() => {
@@ -98,7 +98,7 @@ function App() {
       </div>
       {showDevPanel && <DevPanel />}
       <SearchModal />
-      {!onboarded && <Onboarding />}
+      {settingsLoaded && !onboarded && <Onboarding />}
     </div>
   );
 }

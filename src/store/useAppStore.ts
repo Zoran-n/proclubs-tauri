@@ -43,6 +43,7 @@ interface AppState {
   customAccent: string;
   language: Lang;
   onboarded: boolean;
+  settingsLoaded: boolean;
   proxyUrl: string;
   isLoading: boolean;
   error: string | null;
@@ -107,6 +108,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   customAccent: "",
   language: "fr" as Lang,
   onboarded: false,
+  settingsLoaded: false,
   proxyUrl: "",
   isLoading: false, error: null,
   activeTab: "players", sidebarTab: "search",
@@ -257,8 +259,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         language: (s.language as Lang) ?? "fr",
         onboarded: s.onboarded ?? false,
         proxyUrl: s.proxyUrl ?? "",
+        settingsLoaded: true,
       });
-    } catch { /* first launch */ }
+    } catch { /* first launch */ } finally {
+      set({ settingsLoaded: true });
+    }
   },
 
   persistSettings: async () => {
