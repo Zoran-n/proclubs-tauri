@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Settings } from "lucide-react";
+import { Search, Plus, Settings, User } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useClub } from "../../hooks/useClub";
 import { getLogo } from "../../api/tauri";
@@ -52,9 +52,10 @@ function GuildIcon({ club, active, onClick }: { club: Club; active: boolean; onC
 }
 
 export function GuildBar() {
-  const { favs, history, currentClub, setSidebarTab, sidebarTab } = useAppStore();
+  const { favs, history, currentClub, setSidebarTab, sidebarTab, eaProfile } = useAppStore();
   const { load } = useClub();
   const [searchHover, setSearchHover] = useState(false);
+  const [profileHover, setProfileHover] = useState(false);
   const [settingsHover, setSettingsHover] = useState(false);
 
   // Combine favs + recent history (deduplicated)
@@ -120,6 +121,32 @@ export function GuildBar() {
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
+
+      {/* Profile icon */}
+      <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}
+        onMouseEnter={() => setProfileHover(true)} onMouseLeave={() => setProfileHover(false)}>
+        <div style={{
+          position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
+          width: 4, borderRadius: "0 4px 4px 0", background: "var(--text)",
+          height: sidebarTab === "profile" ? 40 : profileHover ? 20 : 0,
+          transition: "height 0.15s",
+        }} />
+        <div onClick={() => setSidebarTab("profile")} style={{
+          width: 48, height: 48, borderRadius: sidebarTab === "profile" ? 16 : 24,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "pointer", transition: "border-radius 0.15s, background-color 0.15s",
+          background: sidebarTab === "profile" ? "var(--accent)" : "var(--surface)",
+          overflow: "hidden",
+        }}>
+          {eaProfile?.gamertag
+            ? <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: sidebarTab === "profile" ? "#fff" : "var(--accent)" }}>
+                {eaProfile.gamertag[0].toUpperCase()}
+              </span>
+            : <User size={22} color={sidebarTab === "profile" ? "#fff" : "var(--muted)"} />
+          }
+        </div>
+        {profileHover && <div className="discord-tooltip">Mon profil</div>}
+      </div>
 
       {/* Settings icon at bottom */}
       <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}

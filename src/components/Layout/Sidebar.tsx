@@ -98,9 +98,9 @@ export function Sidebar() {
               <div
                 key={item.id}
                 className={`channel-item ${activeTab === item.id ? "active" : ""}`}
-                onClick={() => { setActiveTab(item.id); setSidebarTab("search"); }}
+                onClick={() => { setActiveTab(item.id); setSidebarTab("search"); persistSettings(); }}
                 role="tab" aria-selected={activeTab === item.id} tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter") { setActiveTab(item.id); setSidebarTab("search"); } }}
+                onKeyDown={(e) => { if (e.key === "Enter") { setActiveTab(item.id); setSidebarTab("search"); persistSettings(); } }}
               >
                 <span style={{ color: activeTab === item.id ? "var(--text)" : "var(--muted)", flexShrink: 0, display: "flex" }}>{item.icon}</span>
                 <span>{item.label}</span>

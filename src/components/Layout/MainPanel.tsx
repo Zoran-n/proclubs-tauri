@@ -7,6 +7,7 @@ import { ChartsTab } from "../tabs/ChartsTab";
 import { SessionTab } from "../tabs/SessionTab";
 import { CompareTab } from "../Sidebar/CompareTab";
 import { SettingsTab } from "../Sidebar/SettingsTab";
+import { ProfilePanel } from "../ui/ProfilePanel";
 import { Spinner } from "../ui/Spinner";
 import { getLogo } from "../../api/tauri";
 import { useT } from "../../i18n";
@@ -42,6 +43,23 @@ export function MainPanel() {
     { label: t("main.winRate"),  value: `${winPct}%`,              color: "var(--accent)" },
     { label: t("main.goals"),    value: currentClub.goals,         color: "var(--gold)" },
   ] : [];
+
+  // ── Profile page ───────────────────────────────────────────────────
+  if (sidebarTab === "profile") {
+    return (
+      <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--main-bg)" }}
+        role="main" aria-label="Mon profil">
+        <div style={{
+          height: 48, display: "flex", alignItems: "center", gap: 8,
+          padding: "0 16px", borderBottom: "1px solid rgba(0,0,0,0.24)",
+          flexShrink: 0, background: "var(--main-bg)",
+        }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>Mon profil</span>
+        </div>
+        <ProfilePanel />
+      </main>
+    );
+  }
 
   // ── Settings page ──────────────────────────────────────────────────
   if (!isLoading && sidebarTab === "settings") {
