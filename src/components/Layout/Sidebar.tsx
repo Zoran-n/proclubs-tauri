@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Users, Swords, BarChart3, Timer, GitCompare, Star, ChevronDown, Search, RefreshCw } from "lucide-react";
+import { Users, Swords, BarChart3, Timer, GitCompare, Star, ChevronDown, Search, RefreshCw, Send } from "lucide-react";
 import { useAppStore, type ActiveTab } from "../../store/useAppStore";
 import { SearchTab } from "../Sidebar/SearchTab";
 import { useClub } from "../../hooks/useClub";
 import { getLogo, searchClub } from "../../api/tauri";
+import { sendDiscordWebhook } from "../../api/discord";
+import { buildClubOverviewEmbed } from "../../utils/discordEmbeds";
 import { useT } from "../../i18n";
 import type { Club } from "../../types";
 import type { ReactNode } from "react";
@@ -39,10 +41,23 @@ function useNavItems(): { id: ActiveTab; icon: ReactNode; label: string }[] {
 }
 
 export function Sidebar() {
-  const { currentClub, activeTab, setActiveTab, setSidebarTab, favs, activeSession, history, toggleFav, persistSettings } = useAppStore();
+  const { currentClub, activeTab, setActiveTab, setSidebarTab, favs, activeSession, history,
+    toggleFav, persistSettings, discordWebhook, players, addToast } = useAppStore();
   const { load } = useClub();
   const t = useT();
   const NAV_ITEMS = useNavItems();
+  const [sharing, setSharing] = useState(false);
+
+  const shareOverview = async () => {
+    if (!discordWebhook) { addToast("Configure le webhook Discord dans Mon Profil", "error"); return; }
+    if (!currentClub) { addToast("Charge un club d'abord", "error"); return; }
+    setSharing(true);
+    try {
+      await sendDiscordWebhook(discordWebhook, [buildClubOverviewEmbed(currentClub, players)]);
+      addToast("Envoyé sur Discord !", "success");
+    } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
+    finally { setSharing(false); }
+  };
 
   // No club loaded: launch panel with search + nav + history
   if (!currentClub) {
@@ -173,6 +188,12 @@ export function Sidebar() {
           <RefreshCw size={18} style={{ color: "var(--muted)", flexShrink: 0 }} />
           <span>{t("sidebar.refreshBtn")}</span>
         </div>
+        <div className="channel-item" style={{ cursor: sharing ? "default" : "pointer", opacity: sharing ? 0.6 : 1 }}
+          onClick={shareOverview} role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter") shareOverview(); }}>
+          <Send size={18} style={{ color: "#5865f2", flexShrink: 0 }} />
+          <span style={{ color: "#5865f2" }}>{sharing ? "Envoi…" : "Stats Discord"}</span>
+        </div>
         <AutoRefreshItem clubId={currentClub?.id} platform={currentClub?.platform} load={load} />
       </div>
 
@@ -185,11 +206,25 @@ export function Sidebar() {
 /* ── Launch sidebar (no club loaded) ─────────────────────────────── */
 
 function LaunchSidebar() {
-  const { history, favs, toggleFav, persistSettings, setActiveTab, activeTab, addLog, setSearchResults } = useAppStore();
+  const { history, favs, toggleFav, persistSettings, setActiveTab, activeTab, addLog, setSearchResults,
+    discordWebhook, players, addToast } = useAppStore();
   const { load } = useClub();
   const t = useT();
   const NAV_ITEMS = useNavItems();
   const [query, setQuery] = useState("");
+  const [sharing, setSharing] = useState(false);
+
+  const shareOverview = async () => {
+    if (!discordWebhook) { addToast("Configure le webhook Discord dans Mon Profil", "error"); return; }
+    const club = history[0] || favs[0];
+    if (!club) { addToast("Charge un club d'abord", "error"); return; }
+    setSharing(true);
+    try {
+      await sendDiscordWebhook(discordWebhook, [buildClubOverviewEmbed(club, players)]);
+      addToast("Envoyé sur Discord !", "success");
+    } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
+    finally { setSharing(false); }
+  };
 
   const lastClub = history[0] || favs[0];
 
@@ -343,6 +378,12 @@ function LaunchSidebar() {
           style={{ cursor: "pointer" }}>
           <RefreshCw size={18} style={{ color: "var(--muted)", flexShrink: 0 }} />
           <span>{t("sidebar.refreshBtn")}</span>
+        </div>
+        <div className="channel-item" style={{ cursor: sharing ? "default" : "pointer", opacity: sharing ? 0.6 : 1 }}
+          onClick={shareOverview} role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter") shareOverview(); }}>
+          <Send size={18} style={{ color: "#5865f2", flexShrink: 0 }} />
+          <span style={{ color: "#5865f2" }}>{sharing ? "Envoi…" : "Stats Discord"}</span>
         </div>
         <AutoRefreshItem clubId={lastClub?.id} platform={lastClub?.platform} load={load} />
       </div>
