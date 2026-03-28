@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { Users, Swords, BarChart3, Timer, GitCompare, Star, ChevronDown, Search, RefreshCw } from "lucide-react";
 import { useAppStore, type ActiveTab } from "../../store/useAppStore";
 import { SearchTab } from "../Sidebar/SearchTab";
-import { SettingsTab } from "../Sidebar/SettingsTab";
 import { useClub } from "../../hooks/useClub";
 import { getLogo, searchClub } from "../../api/tauri";
 import { useT } from "../../i18n";
@@ -40,31 +39,10 @@ function useNavItems(): { id: ActiveTab; icon: ReactNode; label: string }[] {
 }
 
 export function Sidebar() {
-  const { sidebarTab, currentClub, activeTab, setActiveTab, favs, activeSession, history, toggleFav, persistSettings } = useAppStore();
+  const { currentClub, activeTab, setActiveTab, favs, activeSession, history, toggleFav, persistSettings } = useAppStore();
   const { load } = useClub();
   const t = useT();
   const NAV_ITEMS = useNavItems();
-
-  // Settings view
-  if (sidebarTab === "settings") {
-    return (
-      <aside style={{
-        width: 240, flexShrink: 0, height: "100%",
-        background: "var(--sidebar-bg)", display: "flex", flexDirection: "column",
-      }} role="navigation" aria-label={t("settings.title")}>
-        <div style={{
-          height: 48, display: "flex", alignItems: "center", padding: "0 16px",
-          borderBottom: "1px solid rgba(0,0,0,0.24)", flexShrink: 0,
-          fontWeight: 600, fontSize: 15, color: "var(--text)",
-        }}>
-          {t("settings.title")}
-        </div>
-        <div key="settings" className="sidebar-tab" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <SettingsTab />
-        </div>
-      </aside>
-    );
-  }
 
   // No club loaded: launch panel with search + nav + history
   if (!currentClub) {

@@ -43,8 +43,8 @@ export function MainPanel() {
     { label: t("main.goals"),    value: currentClub.goals,         color: "var(--gold)" },
   ] : [];
 
-  // ── No club loaded: settings page ──────────────────────────────────
-  if (!currentClub && !isLoading && sidebarTab === "settings") {
+  // ── Settings page ──────────────────────────────────────────────────
+  if (!isLoading && sidebarTab === "settings") {
     return (
       <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--main-bg)" }}
         role="main" aria-label={t("settings.title")}>
