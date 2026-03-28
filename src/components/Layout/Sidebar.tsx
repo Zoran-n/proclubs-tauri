@@ -39,7 +39,7 @@ function useNavItems(): { id: ActiveTab; icon: ReactNode; label: string }[] {
 }
 
 export function Sidebar() {
-  const { currentClub, activeTab, setActiveTab, favs, activeSession, history, toggleFav, persistSettings } = useAppStore();
+  const { currentClub, activeTab, setActiveTab, setSidebarTab, favs, activeSession, history, toggleFav, persistSettings } = useAppStore();
   const { load } = useClub();
   const t = useT();
   const NAV_ITEMS = useNavItems();
@@ -98,9 +98,9 @@ export function Sidebar() {
               <div
                 key={item.id}
                 className={`channel-item ${activeTab === item.id ? "active" : ""}`}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => { setActiveTab(item.id); setSidebarTab("search"); }}
                 role="tab" aria-selected={activeTab === item.id} tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter") setActiveTab(item.id); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { setActiveTab(item.id); setSidebarTab("search"); } }}
               >
                 <span style={{ color: activeTab === item.id ? "var(--text)" : "var(--muted)", flexShrink: 0, display: "flex" }}>{item.icon}</span>
                 <span>{item.label}</span>
