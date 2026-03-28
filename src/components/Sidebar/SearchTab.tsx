@@ -212,13 +212,16 @@ export function SearchTab({ compact }: { compact?: boolean } = {}) {
         <button onClick={handleRefresh} style={{ width: "100%", padding: "7px", background: "transparent", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 6 }}>
           <RefreshCw size={12} /> RAFRAÎCHIR
         </button>
-        {discordWebhook && (
-          <button onClick={shareOverview} disabled={sharing || !currentClub}
-            title={!currentClub ? "Charge un club d'abord" : "Envoyer les stats sur Discord"}
-            style={{ width: "100%", padding: "7px", background: "rgba(88,101,242,0.1)", border: "1px solid rgba(88,101,242,0.25)", color: sharing ? "var(--muted)" : !currentClub ? "var(--muted)" : "#5865f2", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, cursor: sharing || !currentClub ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 6, opacity: sharing || !currentClub ? 0.45 : 1, transition: "all 0.15s" }}>
-            <Send size={12} /> {sharing ? "ENVOI…" : "STATS DISCORD"}
-          </button>
-        )}
+        <button
+          onClick={() => {
+            if (!discordWebhook) { addToast("Configure le webhook Discord dans Mon Profil", "error"); return; }
+            if (!currentClub) { addToast("Charge un club d'abord", "error"); return; }
+            shareOverview();
+          }}
+          disabled={sharing}
+          style={{ width: "100%", padding: "7px", background: "rgba(88,101,242,0.1)", border: "1px solid rgba(88,101,242,0.25)", color: sharing ? "var(--muted)" : "#5865f2", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, cursor: sharing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 6, opacity: sharing ? 0.6 : 1, transition: "all 0.15s" }}>
+          <Send size={12} /> {sharing ? "ENVOI…" : "STATS DISCORD"}
+        </button>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted)", cursor: "pointer" }}>
           <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
           Auto ({autoRefresh ? `${countdown}s` : "60s"})
