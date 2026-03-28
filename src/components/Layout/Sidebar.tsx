@@ -188,13 +188,9 @@ export function Sidebar() {
           <RefreshCw size={18} style={{ color: "var(--muted)", flexShrink: 0 }} />
           <span>{t("sidebar.refreshBtn")}</span>
         </div>
-        <div className="channel-item" style={{ cursor: sharing ? "default" : "pointer", opacity: sharing ? 0.6 : 1 }}
-          onClick={shareOverview} role="button" tabIndex={0}
-          onKeyDown={(e) => { if (e.key === "Enter") shareOverview(); }}>
-          <Send size={18} style={{ color: "#5865f2", flexShrink: 0 }} />
-          <span style={{ color: "#5865f2" }}>{sharing ? "Envoi…" : "Stats Discord"}</span>
-        </div>
         <AutoRefreshItem clubId={currentClub?.id} platform={currentClub?.platform} load={load} />
+
+        <DiscordSection onShare={shareOverview} sharing={sharing} />
       </div>
 
       {/* Bottom user panel (like Discord user area) */}
@@ -379,15 +375,75 @@ function LaunchSidebar() {
           <RefreshCw size={18} style={{ color: "var(--muted)", flexShrink: 0 }} />
           <span>{t("sidebar.refreshBtn")}</span>
         </div>
-        <div className="channel-item" style={{ cursor: sharing ? "default" : "pointer", opacity: sharing ? 0.6 : 1 }}
-          onClick={shareOverview} role="button" tabIndex={0}
-          onKeyDown={(e) => { if (e.key === "Enter") shareOverview(); }}>
-          <Send size={18} style={{ color: "#5865f2", flexShrink: 0 }} />
-          <span style={{ color: "#5865f2" }}>{sharing ? "Envoi…" : "Stats Discord"}</span>
-        </div>
         <AutoRefreshItem clubId={lastClub?.id} platform={lastClub?.platform} load={load} />
+
+        <DiscordSection onShare={shareOverview} sharing={sharing} />
       </div>
     </>
+  );
+}
+
+/* ── Discord section ─────────────────────────────────────────────── */
+
+function DiscordSection({ onShare, sharing }: { onShare: () => void; sharing: boolean }) {
+  const { discordWebhook, setSidebarTab } = useAppStore();
+
+  return (
+    <div style={{ margin: "12px 8px 4px", borderRadius: 8, overflow: "hidden", border: "1px solid rgba(88,101,242,0.25)" }}>
+      {/* Header */}
+      <div style={{
+        background: "rgba(88,101,242,0.18)",
+        padding: "7px 10px",
+        display: "flex", alignItems: "center", gap: 7,
+        borderBottom: "1px solid rgba(88,101,242,0.2)",
+      }}>
+        {/* Discord logo SVG */}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#5865f2">
+          <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+        </svg>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#5865f2", letterSpacing: "0.04em", flex: 1 }}>
+          DISCORD
+        </span>
+        {discordWebhook
+          ? <span style={{ fontSize: 9, background: "rgba(35,165,89,0.2)", color: "var(--green)", padding: "2px 6px", borderRadius: 10, fontWeight: 600 }}>Actif</span>
+          : <span style={{ fontSize: 9, background: "rgba(255,255,255,0.06)", color: "var(--muted)", padding: "2px 6px", borderRadius: 10 }}>Non configuré</span>
+        }
+      </div>
+
+      {/* Share button */}
+      <div style={{ padding: "8px 8px 6px" }}>
+        <button
+          onClick={onShare}
+          disabled={sharing}
+          style={{
+            width: "100%", padding: "7px 10px",
+            background: sharing ? "rgba(88,101,242,0.08)" : "rgba(88,101,242,0.15)",
+            border: "none", borderRadius: 6,
+            color: sharing ? "var(--muted)" : "#5865f2",
+            fontSize: 12, fontWeight: 700, cursor: sharing ? "default" : "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            transition: "all 0.15s",
+            fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em",
+          }}
+          onMouseEnter={(e) => { if (!sharing) e.currentTarget.style.background = "rgba(88,101,242,0.25)"; }}
+          onMouseLeave={(e) => { if (!sharing) e.currentTarget.style.background = "rgba(88,101,242,0.15)"; }}
+        >
+          <Send size={13} />
+          {sharing ? "ENVOI EN COURS…" : "PARTAGER LES STATS"}
+        </button>
+
+        {!discordWebhook && (
+          <button onClick={() => setSidebarTab("profile")} style={{
+            width: "100%", marginTop: 5, padding: "5px 10px",
+            background: "none", border: "none",
+            color: "var(--muted)", fontSize: 10, cursor: "pointer",
+            textDecoration: "underline", textDecorationStyle: "dotted",
+          }}>
+            Configurer dans Mon Profil
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
