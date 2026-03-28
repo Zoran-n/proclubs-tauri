@@ -1,6 +1,9 @@
+import { useState } from "react";
+import { Send } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useT } from "../../i18n";
 import type { Match } from "../../types";
+import { sendDiscordWebhook } from "../../api/discord";
 
 export function formatDate(ts: string | number, locale: string) {
   const n = Number(ts) * 1000 || Number(ts);
@@ -84,6 +87,9 @@ export function extractMatchEvents(match: Match, clubId: string): MatchEvent[] {
 export function MatchModal({ match, clubId, onClose }: { match: Match; clubId: string; onClose: () => void }) {
   const t = useT();
   const lang = useAppStore((s) => s.language);
+  const discordWebhook = useAppStore((s) => s.discordWebhook);
+  const addToast = useAppStore((s) => s.addToast);
+  const [sharing, setSharing] = useState(false);
   const locale = lang === "fr" ? "fr-FR" : lang === "es" ? "es-ES" : lang === "de" ? "de-DE" : lang === "pt" ? "pt-BR" : "en-US";
 
   const myData   = match.clubs[clubId] as Record<string, unknown> | undefined;
@@ -128,6 +134,30 @@ export function MatchModal({ match, clubId, onClose }: { match: Match; clubId: s
   const teamStats = extractTeamStats(match, clubId, t);
   const events = extractMatchEvents(match, clubId);
 
+  const shareToDiscord = async () => {
+    if (!discordWebhook) { addToast(t("discord.noWebhook"), "error"); return; }
+    setSharing(true);
+    try {
+      const color = res === "W" ? 0x23a559 : res === "L" ? 0xda373c : 0xfaa81a;
+      const goalsList = events.filter((e) => e.type === "goal").map((e) => e.player);
+      const assistList = events.filter((e) => e.type === "assist").map((e) => e.player);
+      const motmList = events.filter((e) => e.type === "motm").map((e) => e.player);
+      const fields: { name: string; value: string; inline?: boolean }[] = [];
+      if (goalsList.length) fields.push({ name: "⚽ Buts", value: goalsList.join(", "), inline: true });
+      if (assistList.length) fields.push({ name: "🅰️ Passes D.", value: assistList.join(", "), inline: true });
+      if (motmList.length) fields.push({ name: "★ MOTM", value: motmList.join(", "), inline: true });
+      await sendDiscordWebhook(discordWebhook, [{
+        title: `${myGoals} — ${oppGoals} vs ${oppName}`,
+        color,
+        description: `${rl.text} · ${formatDate(match.timestamp, locale)} · ${match.matchType}`,
+        fields,
+        footer: { text: "ProClubs Stats" },
+      }]);
+      addToast(t("discord.sent"), "success");
+    } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
+    finally { setSharing(false); }
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 50,
       display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -147,7 +177,21 @@ export function MatchModal({ match, clubId, onClose }: { match: Match; clubId: s
               <span style={{ color: rl.color, fontFamily: "'Bebas Neue', sans-serif", marginLeft: 10, letterSpacing: 1 }}>{rl.text}</span>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {discordWebhook && (
+              <button onClick={shareToDiscord} disabled={sharing} title={t("discord.share")}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "5px 10px", background: "rgba(88,101,242,0.15)",
+                  border: "1px solid rgba(88,101,242,0.3)", borderRadius: 6,
+                  color: "#5865f2", fontSize: 11, cursor: sharing ? "default" : "pointer",
+                  opacity: sharing ? 0.5 : 1, transition: "all 0.15s",
+                }}>
+                <Send size={12} /> Discord
+              </button>
+            )}
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
+          </div>
         </div>
 
         {/* Match events recap */}

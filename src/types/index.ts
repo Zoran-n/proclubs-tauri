@@ -159,6 +159,7 @@ export interface Settings {
   language?: string;
   onboarded?: boolean;
   matchCache?: Record<string, Match[]>;
+  discordWebhook?: string;
 }
 
 export interface ClubData {

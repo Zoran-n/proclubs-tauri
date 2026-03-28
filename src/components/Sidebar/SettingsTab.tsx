@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { RefreshCw, Download, ExternalLink, Palette, Check } from "lucide-react";
+import { RefreshCw, Download, ExternalLink, Palette, Check, Send } from "lucide-react";
+import { sendDiscordWebhook } from "../../api/discord";
 import { check as checkUpdate } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { getVersion } from "@tauri-apps/api/app";
@@ -12,9 +13,12 @@ import type { Lang } from "../../i18n";
 
 export function SettingsTab() {
   const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent,
-    language, setTheme, setDarkMode, setShowAnimations, setShowLogs,
-    setShowIdSearch, setFontSize, setFontFamily, setCustomAccent, setLanguage, persistSettings } = useAppStore();
+    language, discordWebhook, setTheme, setDarkMode, setShowAnimations, setShowLogs,
+    setShowIdSearch, setFontSize, setFontFamily, setCustomAccent, setLanguage, setDiscordWebhook,
+    persistSettings, addToast } = useAppStore();
   const t = useT();
+
+  const [discordTesting, setDiscordTesting] = useState(false);
 
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "up-to-date" | "error">("idle");
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
@@ -241,6 +245,61 @@ export function SettingsTab() {
             }}>{s.keys}</kbd>
           </div>
         ))}
+      </div>
+
+      {/* ── DISCORD ── */}
+      <Section label={t("settings.discord")} />
+      <div style={{ marginBottom: 4 }}>
+        <label style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.08em",
+          fontFamily: "'Bebas Neue', sans-serif", display: "block", marginBottom: 5 }}>
+          {t("discord.webhookUrl")}
+        </label>
+        <div style={{ display: "flex", gap: 6 }}>
+          <input
+            value={discordWebhook}
+            onChange={(e) => setDiscordWebhook(e.target.value)}
+            onBlur={() => persistSettings()}
+            placeholder={t("discord.placeholder")}
+            style={{
+              flex: 1, background: "var(--card)", border: "1px solid var(--border)",
+              color: "var(--text)", padding: "7px 10px", borderRadius: 6, fontSize: 11,
+              outline: "none", minWidth: 0,
+              transition: "border-color 0.15s",
+            }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+          />
+          <button
+            disabled={!discordWebhook.trim() || discordTesting}
+            onClick={async () => {
+              setDiscordTesting(true);
+              try {
+                await sendDiscordWebhook(discordWebhook.trim(), [{
+                  title: "✅ ProClubs Stats — Test",
+                  color: 0x00d4ff,
+                  description: "Le webhook Discord est correctement configuré !",
+                  footer: { text: "ProClubs Stats" },
+                }]);
+                addToast(t("discord.testSent"), "success");
+              } catch (e) {
+                addToast(`Discord: ${String(e)}`, "error");
+              } finally {
+                setDiscordTesting(false);
+              }
+            }}
+            style={{
+              padding: "7px 10px", background: "var(--hover)", border: "1px solid var(--border)",
+              borderRadius: 6, cursor: discordWebhook.trim() ? "pointer" : "default",
+              color: discordWebhook.trim() ? "var(--accent)" : "var(--muted)",
+              opacity: discordWebhook.trim() && !discordTesting ? 1 : 0.5,
+              display: "flex", alignItems: "center", gap: 4, fontSize: 11, flexShrink: 0,
+              transition: "all 0.15s",
+            }}>
+            <Send size={12} /> {t("discord.test")}
+          </button>
+        </div>
+        <p style={{ fontSize: 10, color: "var(--muted)", marginTop: 5, lineHeight: 1.5 }}>
+          {t("discord.hint")}
+        </p>
       </div>
 
       {/* ── MISES A JOUR ── */}
