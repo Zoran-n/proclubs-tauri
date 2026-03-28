@@ -139,17 +139,51 @@ export function MatchModal({ match, clubId, onClose }: { match: Match; clubId: s
     setSharing(true);
     try {
       const color = res === "W" ? 0x23a559 : res === "L" ? 0xda373c : 0xfaa81a;
-      const goalsList = events.filter((e) => e.type === "goal").map((e) => e.player);
-      const assistList = events.filter((e) => e.type === "assist").map((e) => e.player);
-      const motmList = events.filter((e) => e.type === "motm").map((e) => e.player);
+
+      // Events line (like the badges in the modal)
+      const eventsLine = events.map((ev) => {
+        if (ev.type === "goal")   return `⚽ ${ev.player}`;
+        if (ev.type === "assist") return `🅰️ ${ev.player}`;
+        if (ev.type === "motm")   return `★ ${ev.player}`;
+        if (ev.type === "card")   return `${ev.detail} ${ev.player}`;
+        return "";
+      }).filter(Boolean).join("  ·  ");
+
+      // Player table as a code block
+      const showTackles = myPlayers.some((p) => p.tackles > 0);
+      const showInterceptions = myPlayers.some((p) => p.interceptions > 0);
+      const col = (s: string, w: number) => s.padEnd(w).slice(0, w);
+      const header = [
+        col("Joueur", 14),
+        col("Note", 5),
+        col("Buts", 5),
+        col("PD", 4),
+        col("Passes", 7),
+        ...(showTackles ? [col("Tack.", 6)] : []),
+        ...(showInterceptions ? [col("Int.", 5)] : []),
+        "MOTM",
+      ].join(" ");
+      const divider = "-".repeat(header.length);
+      const rows = myPlayers.map((p) => [
+        col(p.name, 14),
+        col(p.rating > 0 ? p.rating.toFixed(1) : "—", 5),
+        col(p.goals   > 0 ? String(p.goals)   : "—", 5),
+        col(p.assists > 0 ? String(p.assists) : "—", 4),
+        col(String(p.passes), 7),
+        ...(showTackles       ? [col(p.tackles       > 0 ? String(p.tackles)       : "—", 6)] : []),
+        ...(showInterceptions ? [col(p.interceptions > 0 ? String(p.interceptions) : "—", 5)] : []),
+        p.motm ? "★" : "",
+      ].join(" "));
+      const tableBlock = "```\n" + [header, divider, ...rows].join("\n") + "\n```";
+
       const fields: { name: string; value: string; inline?: boolean }[] = [];
-      if (goalsList.length) fields.push({ name: "⚽ Buts", value: goalsList.join(", "), inline: true });
-      if (assistList.length) fields.push({ name: "🅰️ Passes D.", value: assistList.join(", "), inline: true });
-      if (motmList.length) fields.push({ name: "★ MOTM", value: motmList.join(", "), inline: true });
+      if (eventsLine) fields.push({ name: "\u200b", value: eventsLine, inline: false });
+      fields.push({ name: "JOUEURS", value: tableBlock, inline: false });
+
       await sendDiscordWebhook(discordWebhook, [{
-        title: `${myGoals} — ${oppGoals} vs ${oppName}`,
+        title: `${myGoals} — ${oppGoals}  ·  vs ${oppName}`,
         color,
-        description: `${rl.text} · ${formatDate(match.timestamp, locale)} · ${match.matchType}`,
+        description: `${formatDate(match.timestamp, locale)}  **${rl.text.toUpperCase()}**`,
         fields,
         footer: { text: "ProClubs Stats" },
       }]);
