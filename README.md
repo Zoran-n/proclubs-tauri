@@ -81,6 +81,15 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Format **PNG** : capture html2canvas (scale ×2, fond correct)
 - Format **CSV** : encodage UTF-8 BOM, compatible Excel
 
+### Intégration Discord
+- **Webhook personnel** configuré dans **Mon Profil** (URL privée, non partagée)
+- Badge violet sur l'icône profil quand le webhook est actif
+- **Partage par onglet** : bouton Discord dans le header de chaque onglet (Joueurs / Matchs / Graphiques) — embed formaté avec les données de la vue courante
+- **Partage de match** : bouton dans chaque modale match — embed avec score, buteurs, passeurs, MOTM
+- **Partage de session** : bouton sur chaque session passée — embed avec bilan V/N/D, buts, top buteur/passeur, couleur dynamique (vert/jaune/rouge selon le ratio)
+- **Stats générales** : section Discord dédiée dans la sidebar — envoie un overview du club (bilan, win rate, SR, top joueurs)
+- Embeds Discord colorés dynamiquement : vert (victoire dominante), jaune (équilibré), rouge (défaites dominantes)
+
 ### Paramètres
 - 6 thèmes de couleur accent : Cyan, Violet, Orange, Vert, Rouge, Discord
 - **Couleur d'accent personnalisée** : color picker libre (n'importe quelle couleur hex)
@@ -91,6 +100,12 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Affichage des logs API (debug)
 - Recherche par ID activable/désactivable
 - **Sélecteur de langue** : FR / EN / ES / DE / PT
+
+### Mon Profil
+- **Liaison gamertag EA** : entre ton pseudo EA + le nom de ton club — l'app vérifie que le gamertag est bien membre du club via `getMembers()`, puis lie le profil
+- Bouton "Charger mon club" : charge directement le club lié sans resaisir
+- **Webhook Discord** : configuré dans le profil (URL privée par utilisateur), bouton Tester inclus
+- Indicateur "Webhook configuré" (point vert) + badge violet sur l'icône profil dans la guild bar
 
 ### Interface
 - Fenêtre frameless avec barre de titre draggable (minimize / maximize / close)
@@ -126,6 +141,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 | Icônes | lucide-react |
 | Police | Bebas Neue + Barlow (Google Fonts) |
 | Persistance | JSON local (`~/.local/share/com.codespace.proclubs-tauri/settings.json`) |
+| Discord | Webhook API (fetch natif, embeds formatés) |
 
 ---
 
@@ -155,7 +171,7 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - ~~**Cache local des matchs**~~ ✅ Matchs persistés dans `settings.json` par clé `clubId_platform_type` — chargés depuis le cache au lancement, mis à jour après chaque fetch ou "charger plus"
 - ~~**Comparaison temporelle**~~ ✅ Comparaison saison en cours vs saison précédente (V/N/D, buts, %V) affichée sous l'historique des saisons dans l'onglet Graphiques
 - ~~**Détection automatique du club**~~ ✅ Bouton "Charger mon club" dans la sidebar de recherche quand un gamertag est lié — charge le club directement sans resaisir
-- **Webhook / intégration Discord** : poster le résumé de session ou les stats du match dans un serveur Discord automatiquement
+- ~~**Webhook / intégration Discord**~~ ✅ Webhook configurable dans **Mon Profil** — bouton de partage sur chaque onglet (Joueurs, Matchs, Graphiques), dans chaque modale match et sur chaque session passée + section dédiée dans la sidebar
 
 ### Joueurs
 - ~~**Graphique d'évolution**~~ ✅ Line chart note/buts/PD par match dans la modale
