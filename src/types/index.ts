@@ -53,12 +53,56 @@ export interface LeaderboardEntry {
   skillRating?: string;
 }
 
+/** Shape of a club entry returned by the EA API inside a match */
+export interface EaMatchClub {
+  goals?: string;
+  wins?: string;
+  losses?: string;
+  ties?: string;
+  details?: {
+    name?: string;
+    clubId?: string;
+    regionId?: string;
+    customKit?: Record<string, string>;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+/** Shape of a player entry returned by the EA API inside a match */
+export interface EaMatchPlayer {
+  name?: string;
+  playername?: string;
+  playerName?: string;
+  goals?: string;
+  assists?: string;
+  passesMade?: string;
+  passesmade?: string;
+  tacklesMade?: string;
+  tacklesmade?: string;
+  interceptions?: string;
+  foulsCommited?: string;
+  foulscommited?: string;
+  yellowCards?: string;
+  yellowcards?: string;
+  redCards?: string;
+  redcards?: string;
+  rating?: string;
+  ratingAve?: string;
+  mom?: string;
+  manofthematch?: string;
+  shotsOnTarget?: string;
+  cleanSheetDef?: string;
+  savedGoals?: string;
+  [key: string]: unknown;
+}
+
 export interface Match {
   matchId: string;
   timestamp: string;
   matchDuration?: number;
-  clubs: Record<string, unknown>;
-  players: Record<string, unknown>;
+  clubs: Record<string, EaMatchClub>;
+  players: Record<string, Record<string, EaMatchPlayer>>;
   matchType: string;
 }
 

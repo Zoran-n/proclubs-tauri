@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { Play, Square, Trophy, Trash2, Archive, Download, Crown, Target, Handshake } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useSession } from "../../hooks/useSession";
@@ -100,20 +100,32 @@ export function SessionTab() {
     }
   };
 
-  const allVisible = sessions.filter((s) => showArchived ? s.archived : !s.archived);
+  const allVisible = useMemo(
+    () => sessions.filter((s) => showArchived ? s.archived : !s.archived),
+    [sessions, showArchived],
+  );
   const totalPages = Math.max(1, Math.ceil(allVisible.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
-  const visible = allVisible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
-  const kpis    = activeSession ? sessionKpis(activeSession.matches) : null;
-  const mvps    = activeSession && activeSession.matches.length > 0
-    ? sessionMvpStats(activeSession.matches, activeSession.clubId) : null;
+  const visible = useMemo(
+    () => allVisible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE),
+    [allVisible, safePage],
+  );
+  const kpis = useMemo(
+    () => activeSession ? sessionKpis(activeSession.matches) : null,
+    [activeSession],
+  );
+  const mvps = useMemo(
+    () => activeSession && activeSession.matches.length > 0
+      ? sessionMvpStats(activeSession.matches, activeSession.clubId) : null,
+    [activeSession],
+  );
 
   const csvHeaders = ["Date", "Club", t("players.gp"), t("players.goals"), t("players.assists"), t("players.passes"), t("players.tackles"), t("session.motm")];
-  const csvRows = allVisible.map((s) => {
+  const csvRows = useMemo(() => allVisible.map((s) => {
     const k = sessionKpis(s.matches);
     return [new Date(s.date).toLocaleDateString(), s.clubName,
       s.matches.length, k.goals, k.assists, k.passes, k.tackles, k.motm];
-  });
+  }), [allVisible]);
   const dateStr = new Date().toISOString().slice(0, 10);
 
   return (

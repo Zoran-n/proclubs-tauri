@@ -1,54 +1,14 @@
-import { useState, useMemo, useRef, Fragment } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Search, Download, ChevronUp, ChevronDown, Users, Filter } from "lucide-react";
-import {
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer,
-} from "recharts";
 import { useAppStore } from "../../store/useAppStore";
 import { ExportModal } from "../ui/ExportModal";
 import { useT } from "../../i18n";
 import type { Player } from "../../types";
+import { PlayerModal, POS_LABELS, PlayerAvatar, ratingColor } from "../modals/PlayerModal";
+import { CompareModal } from "../modals/CompareModal";
+import { useDebounce } from "../../hooks/useDebounce";
 
 type Col = keyof Player;
-
-const POS_LABELS: Record<string, string> = {
-  "0":"GK","1":"RB","2":"RB","3":"CB","4":"CB","5":"LB","6":"LB",
-  "7":"CDM","8":"CM","9":"CM","10":"CAM","11":"RM","12":"LM",
-  "13":"RW","14":"LW","15":"RF","16":"CF","17":"LF","18":"ST","19":"ST",
-  "20":"ST","25":"CF","26":"CAM",
-};
-
-const AVATAR_COLORS = ["#5865f2", "#eb459e", "#57f287", "#fee75c", "#ed4245", "#ff6b35", "#8b5cf6", "#00d4ff"];
-
-function avatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function PlayerAvatar({ name, size = 28 }: { name: string; size?: number }) {
-  const initials = name.split(/\s+/).map((w) => w[0]?.toUpperCase() ?? "").join("").slice(0, 2) || "?";
-  const bg = avatarColor(name);
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%", flexShrink: 0,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: bg, color: "#fff", fontSize: size * 0.4, fontWeight: 700,
-      fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em",
-    }}>
-      {initials}
-    </div>
-  );
-}
-
-function ratingColor(r: number) {
-  if (r >= 9)   return "#ffd700";
-  if (r >= 7.5) return "var(--green)";
-  if (r >= 6.5) return "#eab308";
-  if (r > 0)    return "var(--red)";
-  return "var(--muted)";
-}
 
 function RatingBadge({ r }: { r: number }) {
   const color = ratingColor(r);
@@ -87,6 +47,7 @@ export function PlayersTab() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<Player | null>(null);
   const [filter, setFilter] = useState("");
+  const debouncedFilter = useDebounce(filter, 200);
   const [filterPos, setFilterPos] = useState<string>("all");
   const [filterMinRating, setFilterMinRating] = useState<number>(0);
   const [filterMinGames, setFilterMinGames] = useState<number>(0);
@@ -115,7 +76,7 @@ export function PlayersTab() {
 
   const sorted = useMemo(() => [...players]
     .filter((p) => {
-      if (!p.name.toLowerCase().includes(filter.toLowerCase())) return false;
+      if (!p.name.toLowerCase().includes(debouncedFilter.toLowerCase())) return false;
       if (filterPos !== "all" && (POS_LABELS[p.position] || p.position || "—") !== filterPos) return false;
       if (filterMinRating > 0 && p.rating < filterMinRating) return false;
       if (filterMinGames > 0 && p.gamesPlayed < filterMinGames) return false;
@@ -125,7 +86,7 @@ export function PlayersTab() {
       const av = a[sortKey], bv = b[sortKey];
       if (typeof av === "number" && typeof bv === "number") return sortDir === "desc" ? bv - av : av - bv;
       return sortDir === "desc" ? String(bv).localeCompare(String(av)) : String(av).localeCompare(String(bv));
-    }), [players, sortKey, sortDir, filter, filterPos, filterMinRating, filterMinGames]);
+    }), [players, sortKey, sortDir, debouncedFilter, filterPos, filterMinRating, filterMinGames]);
 
   const csvHeaders = [t("players.playerCount"), t("players.pos"), t("players.gp"), t("players.goals"), t("players.assistsShort"), t("players.passes"), t("players.tackles"), t("session.motm"), t("players.rating")];
   const csvRows = sorted.map((p) => [
@@ -345,268 +306,3 @@ export function PlayersTab() {
   );
 }
 
-function StatCell({ label, value, color }: { label: string; value: string | number; color: string }) {
-  return (
-    <div style={{ background: "var(--bg)", border: "1px solid var(--border)",
-      borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
-      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color, lineHeight: 1 }}>
-        {String(value)}
-      </div>
-      <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.08em", marginTop: 4,
-        fontFamily: "'Bebas Neue', sans-serif" }}>
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function PlayerModal({ player, onClose }: { player: Player; onClose: () => void }) {
-  const t = useT();
-  const { matches, currentClub } = useAppStore();
-  const [evoStat, setEvoStat] = useState<"rating" | "goals" | "assists">("rating");
-  const posLabel = POS_LABELS[player.position] ?? player.position ?? "—";
-
-  // Build per-match evolution data
-  const evoData = useMemo(() => {
-    if (!currentClub) return [];
-    const points: { match: string; value: number; date: string }[] = [];
-    const sorted = [...matches].sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
-    for (const m of sorted) {
-      const clubPlayers = m.players[currentClub.id] as Record<string, Record<string, unknown>> | undefined;
-      if (!clubPlayers) continue;
-      for (const p of Object.values(clubPlayers)) {
-        const name = String(p["name"] ?? p["playername"] ?? p["playerName"] ?? "");
-        if (name.toLowerCase() !== player.name.toLowerCase()) continue;
-        const val = evoStat === "rating"
-          ? Number(p["rating"] ?? p["ratingAve"] ?? 0)
-          : evoStat === "goals"
-          ? Number(p["goals"] ?? 0)
-          : Number(p["assists"] ?? 0);
-        const ts = Number(m.timestamp);
-        const date = ts > 0 ? new Date(ts * 1000).toLocaleDateString() : "";
-        points.push({ match: `M${points.length + 1}`, value: Math.round(val * 100) / 100, date });
-      }
-    }
-    return points;
-  }, [matches, currentClub, player.name, evoStat]);
-
-  const baseStats: [string, string | number, string][] = [
-    [t("players.gp"),       player.gamesPlayed,          "var(--text)"],
-    [t("players.goals"),    player.goals,                "var(--accent)"],
-    [t("players.assists"),  player.assists,              "var(--text)"],
-    [t("players.passes"),   player.passesMade,           "var(--muted)"],
-    [t("players.tackles"),  player.tacklesMade,          "var(--muted)"],
-    [t("session.motm"),     player.motm,                 "#ffd700"],
-    [t("players.rating"),   player.rating > 0 ? player.rating.toFixed(1) : "—", ratingColor(player.rating)],
-  ];
-
-  // Advanced stats — only show if at least one is non-zero
-  const advStats: [string, string | number, string][] = [
-    ...(player.shotsOnTarget  ? [[t("players.shotsOnTarget"),  player.shotsOnTarget,  "var(--accent)"] as [string, number, string]] : []),
-    ...(player.interceptions  ? [[t("players.interceptions"),  player.interceptions,  "var(--text)"] as [string, number, string]] : []),
-    ...(player.foulsCommitted ? [[t("players.fouls"),          player.foulsCommitted, "var(--muted)"] as [string, number, string]] : []),
-    ...(player.yellowCards    ? [[t("players.yellowCards"),     player.yellowCards,    "#eab308"] as [string, number, string]] : []),
-    ...(player.redCards       ? [[t("players.redCards"),        player.redCards,       "var(--red)"] as [string, number, string]] : []),
-    ...(player.cleanSheets    ? [[t("players.cleanSheets"),    player.cleanSheets,    "var(--green)"] as [string, number, string]] : []),
-    ...(player.saveAttempts   ? [[t("players.saves"),          player.saveAttempts,   "var(--text)"] as [string, number, string]] : []),
-  ];
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50,
-      display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 500,
-        maxHeight: "90vh", overflowY: "auto",
-        border: "1px solid var(--border)", animation: "fadeSlideIn 0.15s ease-out" }}
-        onClick={(e) => e.stopPropagation()}>
-
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <PlayerAvatar name={player.name} size={44} />
-            <div>
-            <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "var(--text)",
-              letterSpacing: "0.06em", lineHeight: 1 }}>
-              {player.name}
-            </h3>
-            <span style={{ display: "inline-block", marginTop: 6, padding: "2px 8px", borderRadius: 4,
-              background: "var(--bg)", border: "1px solid var(--border)",
-              fontSize: 11, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif" }}>
-              {posLabel}
-            </span>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)",
-            cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-          {baseStats.map(([label, value, color]) => (
-            <StatCell key={label} label={label} value={value} color={color} />
-          ))}
-        </div>
-
-        {advStats.length > 0 && (
-          <>
-            <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
-              fontFamily: "'Bebas Neue', sans-serif", margin: "14px 0 8px" }}>
-              {t("players.advancedStats")}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-              {advStats.map(([label, value, color]) => (
-                <StatCell key={label} label={label} value={value} color={color} />
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Evolution chart */}
-        {evoData.length > 1 && (
-          <>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "14px 0 8px" }}>
-              <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
-                fontFamily: "'Bebas Neue', sans-serif" }}>{t("players.evolution")}</span>
-              {(["rating", "goals", "assists"] as const).map((s) => (
-                <button key={s} onClick={() => setEvoStat(s)}
-                  style={{
-                    padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-                    background: evoStat === s ? "var(--accent)" : "var(--bg)",
-                    color: evoStat === s ? "#000" : "var(--muted)",
-                    border: evoStat === s ? "1px solid var(--accent)" : "1px solid var(--border)",
-                    fontWeight: 600,
-                  }}>
-                  {s === "rating" ? t("players.rating") : s === "goals" ? t("players.goals") : t("players.assistsShort")}
-                </button>
-              ))}
-            </div>
-            <ResponsiveContainer width="100%" height={160}>
-              <LineChart data={evoData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="match" tick={{ fill: "var(--muted)", fontSize: 9 }} />
-                <YAxis tick={{ fill: "var(--muted)", fontSize: 9 }} domain={evoStat === "rating" ? [0, 10] : [0, "auto"]} />
-                <Tooltip
-                  contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11 }}
-                  labelStyle={{ color: "var(--muted)" }}
-                  formatter={(v: unknown) => { const n = Number(v); return [evoStat === "rating" ? n.toFixed(1) : n, evoStat === "rating" ? t("players.rating") : evoStat === "goals" ? t("players.goals") : t("players.assistsShort")]; }}
-                  labelFormatter={(_l: unknown, payload: unknown) => { const p = payload as Array<{ payload?: { date?: string } }>; return p?.[0]?.payload?.date ?? ""; }}
-                />
-                <Line type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3, fill: "var(--accent)" }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Radar Comparison Modal ─── */
-
-function CompareModal({ p1, p2, allPlayers, onClose }: {
-  p1: Player; p2: Player; allPlayers: Player[]; onClose: () => void;
-}) {
-  const t = useT();
-
-  const RADAR_STATS = useMemo(() => [
-    { key: "goals" as keyof Player,       label: t("players.goalsShort") },
-    { key: "assists" as keyof Player,     label: t("players.assists") },
-    { key: "passesMade" as keyof Player,  label: t("players.passes") },
-    { key: "tacklesMade" as keyof Player, label: t("players.tackles") },
-    { key: "motm" as keyof Player,        label: t("session.motm") },
-    { key: "rating" as keyof Player,      label: t("players.rating") },
-  ], [t]);
-  const maxV = allPlayers.reduce((acc, p) => ({
-    goals:       Math.max(acc.goals,       p.goals),
-    assists:     Math.max(acc.assists,     p.assists),
-    passesMade:  Math.max(acc.passesMade,  p.passesMade),
-    tacklesMade: Math.max(acc.tacklesMade, p.tacklesMade),
-    motm:        Math.max(acc.motm,        p.motm),
-    rating:      Math.max(acc.rating,      p.rating),
-  }), { goals: 1, assists: 1, passesMade: 1, tacklesMade: 1, motm: 1, rating: 1 });
-
-  const norm = (val: number, max: number) => max > 0 ? Math.round((val / max) * 100) : 0;
-
-  const data = RADAR_STATS.map(({ key, label }) => ({
-    stat: label,
-    p1: norm(Number(p1[key]) || 0, maxV[key as keyof typeof maxV] ?? 1),
-    p2: norm(Number(p2[key]) || 0, maxV[key as keyof typeof maxV] ?? 1),
-  }));
-
-  const rows: { label: string; v1: number; v2: number; fmt?: (v: number) => string }[] = [
-    { label: t("players.gp"),       v1: p1.gamesPlayed, v2: p2.gamesPlayed },
-    { label: t("players.goalsShort"),  v1: p1.goals,       v2: p2.goals },
-    { label: t("players.assists"),  v1: p1.assists,     v2: p2.assists },
-    { label: t("players.passes"),   v1: p1.passesMade,  v2: p2.passesMade },
-    { label: t("players.tackles"),  v1: p1.tacklesMade, v2: p2.tacklesMade },
-    { label: t("session.motm"),     v1: p1.motm,        v2: p2.motm },
-    { label: t("players.rating"),   v1: p1.rating,      v2: p2.rating, fmt: (v) => v > 0 ? v.toFixed(1) : "—" },
-  ];
-
-  const P1_COLOR = "var(--accent)";
-  const P2_COLOR = "#8b5cf6";
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50,
-      display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 520,
-        maxHeight: "90vh", overflowY: "auto",
-        border: "1px solid var(--border)", animation: "fadeSlideIn 0.15s ease-out" }}
-        onClick={(e) => e.stopPropagation()}>
-
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: P1_COLOR }}>
-              {p1.name}
-            </span>
-            <span style={{ color: "var(--muted)", fontSize: 13, fontWeight: 700 }}>VS</span>
-            <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: P2_COLOR }}>
-              {p2.name}
-            </span>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)",
-            cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
-        </div>
-
-        {/* Radar chart */}
-        <ResponsiveContainer width="100%" height={280}>
-          <RadarChart data={data} cx="50%" cy="50%" outerRadius="75%">
-            <PolarGrid stroke="var(--border)" />
-            <PolarAngleAxis dataKey="stat"
-              tick={{ fill: "var(--muted)", fontSize: 10, fontFamily: "'Bebas Neue', sans-serif" }} />
-            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-            <Radar name={p1.name} dataKey="p1" stroke={P1_COLOR} fill={P1_COLOR} fillOpacity={0.25} />
-            <Radar name={p2.name} dataKey="p2" stroke={P2_COLOR} fill={P2_COLOR} fillOpacity={0.25} />
-            <Legend
-              wrapperStyle={{ fontSize: 11, fontFamily: "'Bebas Neue', sans-serif" }}
-              formatter={(value: string) => <span style={{ color: "var(--text)" }}>{value}</span>}
-            />
-          </RadarChart>
-        </ResponsiveContainer>
-
-        {/* Stats comparison table */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "6px 12px", marginTop: 16,
-          padding: "12px 16px", background: "var(--bg)", borderRadius: 8, border: "1px solid var(--border)" }}>
-          {rows.map(({ label, v1, v2, fmt }) => {
-            const f = fmt ?? ((v: number) => String(v));
-            const w1 = v1 > v2, w2 = v2 > v1;
-            return (
-              <Fragment key={label}>
-                <div style={{ textAlign: "right", fontFamily: "'Bebas Neue', sans-serif", fontSize: 18,
-                  color: w1 ? P1_COLOR : "var(--muted)" }}>
-                  {f(v1)}
-                </div>
-                <div style={{ textAlign: "center", fontSize: 9, color: "var(--muted)",
-                  fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em", alignSelf: "center" }}>
-                  {label}
-                </div>
-                <div style={{ textAlign: "left", fontFamily: "'Bebas Neue', sans-serif", fontSize: 18,
-                  color: w2 ? P2_COLOR : "var(--muted)" }}>
-                  {f(v2)}
-                </div>
-              </Fragment>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}

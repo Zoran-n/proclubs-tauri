@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Club, Player, Match, Session, Tactic, EaProfile, CompareEntry } from "../types";
+import type { ToastMessage } from "../components/ui/Toast";
 import { saveSettings as apiSave, loadSettings as apiLoad, setProxy as apiSetProxy } from "../api/tauri";
 import type { Lang } from "../i18n";
 
@@ -58,6 +59,7 @@ interface AppState {
   compareHistory: CompareEntry[];
   searchResults: Club[];
   showSearchModal: boolean;
+  toasts: ToastMessage[];
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -95,6 +97,8 @@ interface AppState {
   setProxyInfo: (v: string | null) => void;
   setSearchResults: (clubs: Club[], show: boolean) => void;
   closeSearchModal: () => void;
+  addToast: (message: string, type?: ToastMessage["type"]) => void;
+  removeToast: (id: string) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
@@ -120,6 +124,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   compareHistory: [],
   searchResults: [],
   showSearchModal: false,
+  toasts: [],
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
@@ -214,6 +219,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setProxyInfo: (proxyInfo) => set({ proxyInfo }),
   setSearchResults: (searchResults, show) => set({ searchResults, showSearchModal: show }),
   closeSearchModal: () => set({ showSearchModal: false, searchResults: [] }),
+  addToast: (message, type = "info") => set((s) => ({
+    toasts: [...s.toasts, { id: `${Date.now()}-${Math.random()}`, message, type }],
+  })),
+  removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
   applyProxy: async (url: string) => {
     await apiSetProxy(url.trim() || null);
