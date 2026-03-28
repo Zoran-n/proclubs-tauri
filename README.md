@@ -148,61 +148,74 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ## Axes d'amélioration possibles
 
 ### Données & API
-- ~~**Plus de matchs**~~ ❌ La Remonté de donner de l'API de EA ne permet pas plus de 15 matchs par requette
-- ~~**Statistiques avancées**~~ ✅ Interceptions, fautes, cartons, clean sheets, arrêts GK parsés depuis l'API EA et affichés dans les modales
-- ~~**Historique de saison**~~ ✅ Section lazy-load dans l'onglet Graphiques (endpoint `seasonalStats`)
-- ~~**Classement ligue**~~ ✅ Classement all-time lazy-load dans l'onglet Graphiques (top 25 clubs de la plateforme)
-- **Profil joueur EA** : 🛠️ WIP : lier le gamertag EA pour accéder aux stats individuelles cross-club / login EA OAuth Impossible 
+- ~~**Plus de matchs**~~ ❌ L'API EA ne remonte pas plus de 15 matchs par requête
+- ~~**Statistiques avancées**~~ ✅ Interceptions, fautes, cartons, clean sheets, arrêts GK
+- ~~**Historique de saison**~~ ✅ Bilan par saison dans l'onglet Graphiques
+- ~~**Classement ligue**~~ ✅ Top 25 clubs all-time lazy-load
+- **Cache local des matchs** : stocker les parties déjà chargées pour une consultation hors-ligne et éviter de retaper l'API à chaque ouverture
+- **Comparaison temporelle** : stats saison actuelle vs saison précédente côte à côte
+- **Détection automatique du club** : retrouver le club de l'utilisateur à partir de son gamertag EA sans OAuth
+- **Webhook / intégration Discord** : poster le résumé de session ou les stats du match dans un serveur Discord automatiquement
 
 ### Joueurs
-- ~~**Graphique d'évolution**~~ ✅ Line chart par joueur dans la modale (note, buts, PD par match avec toggle)
-- ~~**Comparaison de joueurs**~~ ✅ Radar comparatif avec normalisation par rapport à l'équipe + tableau face-à-face
-- ~~**Filtrage multi-critères**~~ ✅ Panneau de filtres : par poste, seuil de note min, nombre de matchs minimum
-- ~~**Photo de profil**~~ ✅ Avatars initiales colorées (style Discord) — l'API EA ne fournit pas de photos joueur
+- ~~**Graphique d'évolution**~~ ✅ Line chart note/buts/PD par match dans la modale
+- ~~**Comparaison de joueurs**~~ ✅ Radar normalisé + tableau face-à-face
+- ~~**Filtrage multi-critères**~~ ✅ Poste, note min, matchs min
+- ~~**Avatars initiales**~~ ✅ Style Discord, couleur unique par joueur
+- **Classement interne du club** : podium général avec score composite (buts + PD + note + MOTM pondérés)
+- **Fiche joueur complète** : historique de ses notes match par match sous forme de sparkline dans le tableau principal sans ouvrir la modale
+- **Export fiche joueur** : PDF individuel par joueur avec tous ses stats et son graphique d'évolution
+- **Alerte de performance** : signaler les joueurs en dessous d'un seuil de note sur les N derniers matchs
 
 ### Matchs
-- ~~**Replay/timeline**~~ ✅ Résumé d'événements (buteurs, passeurs, cartons, MOTM) en badges — l'API EA ne fournit pas d'événements minute par minute
-- ~~**Filtrage par adversaire**~~ ✅ Champ de recherche pour filtrer les matchs par nom d'adversaire
-- ~~**Statistiques d'équipe par match**~~ ✅ Possession, tirs, corners, passes, fautes, hors-jeu côte à côte dans la modale
-- ~~**Calendrier**~~ ✅ Vue mensuelle avec navigation, résultats colorés (V/N/D) cliquables par jour
+- ~~**Résumé d'événements**~~ ✅ Buteurs, passeurs, cartons, MOTM en badges
+- ~~**Stats d'équipe**~~ ✅ Possession, tirs, corners, passes, hors-jeu dans la modale
+- ~~**Filtrage par adversaire**~~ ✅ Recherche en temps réel
+- ~~**Vue calendrier**~~ ✅ Vue mensuelle avec résultats colorés
+- **Bilan contre un adversaire spécifique** : W/D/L et buts moyens sur tous les matchs contre ce club
+- **Graphique de forme** : courbe des 10 derniers résultats (W=3, D=1, L=0) en mini-chart dans l'onglet Matchs
+- **Filtre par période** : sélectionner une plage de dates pour n'afficher que les matchs de cette période
+- **Annotation de match** : ajouter une note ou un commentaire libre sur un match (stocké en local)
 
-### Comparaison
-- ~~**Comparaison élargie**~~ ✅ Meilleurs joueurs par poste (GK/DEF/MIL/ATT) des deux clubs côte à côte
-- ~~**Historique de comparaisons**~~ ✅ Sauvegarde automatique des matchups, rechargement en un clic
-- ~~**Export comparaison**~~ ✅ Export PNG et CSV du tableau comparatif
+### Comparaison de clubs
+- ~~**Comparaison élargie**~~ ✅ Meilleurs joueurs par poste GK/DEF/MIL/ATT
+- ~~**Historique des comparaisons**~~ ✅ Sauvegarde automatique, rechargement en un clic
+- ~~**Export comparaison**~~ ✅ PNG et CSV
+- **Comparaison multi-clubs** : aligner 3 clubs ou plus dans un seul tableau
+- **Historique H2H** : afficher tous les matchs directs entre les deux clubs si disponibles via l'API
+- **Graphique radar global** : radar des 6 stats clés (V%, buts, passes, tacles, note, MOTM) des deux clubs sur le même graphique
 
-### Session
-- ~~**Alerte de nouveau match**~~ ✅ Notification système via Tauri notification plugin
-- ~~**Résumé automatique**~~ ✅ Export PDF proposé en fin de session (jsPDF + autotable)
-- ~~**Statistiques de session enrichies**~~ ✅ Meilleur buteur, meilleur passeur, MOTM de la session
-- ~~**Historique de sessions illimité**~~ ✅ Pagination (10 par page), plus de limite de 20 
-- **Revoir L'UI/UX**
+### Session live
+- ~~**Notification à chaque match**~~ ✅ Notification système Tauri
+- ~~**Export PDF automatique**~~ ✅ Proposé en fin de session
+- ~~**MVP de session**~~ ✅ Meilleur buteur, passeur, MOTM
+- ~~**Pagination de l'historique**~~ ✅ 10 sessions par page
+- **Notes de session** : champ texte libre par session pour consigner les remarques tactiques
+- **Tags personnalisés** : étiqueter les sessions (tournoi, division, soirée, entraînement…) avec filtrage par tag
+- **Graphique de forme sur les sessions** : courbe du taux de victoire session par session pour visualiser la progression du club
+- **Objectifs de session** : fixer un objectif (ex. 5 victoires) et afficher une barre de progression live
 
 ### UX / Interface
 - ~~**Mode plein écran**~~ ✅ Raccourci F11
 - ~~**Raccourcis clavier globaux**~~ ✅ Ctrl+F, Ctrl+E, Ctrl+1–5, Ctrl+Shift+D
-- ~~**Thèmes personnalisés**~~ ✅ Color picker libre en plus des 6 thèmes prédéfinis
-- ~~**Internationalisation**~~ ✅ FR / EN / ES / DE / PT sur toute l'interface
+- ~~**Thèmes personnalisés**~~ ✅ Color picker libre + 6 thèmes prédéfinis
+- ~~**Internationalisation**~~ ✅ FR / EN / ES / DE / PT (~250 clés)
 - ~~**Onboarding**~~ ✅ Assistant 3 étapes au premier lancement
 - ~~**Accessibilité**~~ ✅ Focus-visible, skip-link, ARIA, reduced-motion
-- **Notifications in-app** : toasts/snackbars pour les actions (sauvegarde, erreur…)
-- **Mode compact** : densifier l'affichage pour les petits écrans
-- **Drag & drop** : réorganiser les favoris ou les colonnes du tableau joueurs
+- **Notifications in-app** : toasts/snackbars pour confirmer les actions (sauvegarde réussie, erreur réseau, copie…)
+- **Mode compact** : densifier les tableaux et cartes pour les petits écrans ou les utilisateurs qui préfèrent voir plus de données
+- **Drag & drop** : réordonner les favoris dans la sidebar ou les colonnes du tableau joueurs
+- **Tableau de bord personnalisable** : choisir quels KPIs et graphiques afficher sur la page principale
+- **Recherche globale** : barre de recherche unique qui trouve clubs, joueurs et sessions en même temps
 
-### Données & API
-- ~~**Plus de matchs**~~ ❌ L'API EA ne remonte pas plus de 15 matchs par requête
-- **Historique de matchs offline** : cache local des matchs déjà chargés pour consultation hors-ligne
-- **Statistiques comparées dans le temps** : comparer les stats de la saison actuelle vs saison précédente
-- **Profil joueur EA** : lier le gamertag EA pour les stats cross-club (OAuth EA non disponible publiquement)
-
-### Session
-- ~~**Revoir l'UI/UX session**~~ — possibilité d'ajouter des notes par session
-- **Tags personnalisés** sur les sessions (tournoi, soirée, entraînement…)
-- **Graphique de progression** : courbe de forme sur les sessions successives
-
-### Technique
-- **Tests automatisés** : Vitest pour les helpers (formatDate, getResult…), tests Rust pour les parsers
-- **Code splitting** : lazy-load html2canvas et jsPDF pour réduire le bundle initial (~800 KB → ~300 KB)
-- **Cache persistant** : stocker les matchs/joueurs en local pour un chargement hors-ligne
-- **Auto-update** : plugin Tauri updater (infrastructure déjà en place côté settings)
-- **Packaging** : installeur Windows (MSI/NSIS) et macOS (DMG) en plus du .deb/.rpm Linux
+### Amélioration du programme, révision & performance
+- **Réduction du bundle** : lazy-load html2canvas et jsPDF (chargés uniquement au clic export) pour passer de ~800 KB à ~300 KB à l'initialisation
+- **Virtualisation des listes** : utiliser `react-window` ou `react-virtual` pour les grands tableaux joueurs/matchs (> 50 entrées) afin d'éviter les rendus inutiles
+- **Mémoïsation** : revoir les `useMemo` et `useCallback` manquants dans les onglets Matchs et Session pour limiter les recalculs à chaque changement de langue
+- **Debounce des filtres** : ajouter un debounce sur les champs de recherche/filtre (joueurs, adversaire) pour ne pas recalculer la liste à chaque frappe
+- **Révision des re-renders** : auditer avec React DevTools Profiler les composants qui se re-rendent inutilement lors du changement de langue ou de thème
+- **Refactoring des modales** : extraire les modales PlayerModal, MatchModal et CompareModal dans des fichiers séparés pour alléger les fichiers onglets (> 600 lignes)
+- **Séparation API / store** : les appels API sont mélangés dans les composants ; centraliser dans des hooks dédiés (`useClubData`, `useMatchData`) pour faciliter la réutilisation et le test
+- **Gestion d'erreurs unifiée** : remplacer les `catch(() => {})` silencieux par un système centralisé d'affichage d'erreur (toast ou état d'erreur dans le store)
+- **Types stricts EA** : remplacer les `Record<string, unknown>` omniprésents par des interfaces TypeScript typées pour les réponses API EA, ce qui éliminerait les cast manuels partout
+- **Persistance sélective** : ne sauvegarder dans `settings.json` que les champs modifiés plutôt que de sérialiser tout le state à chaque action, pour réduire les I/O disque
