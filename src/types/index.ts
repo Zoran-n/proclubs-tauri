@@ -158,6 +158,7 @@ export interface Settings {
   customAccent?: string;
   language?: string;
   onboarded?: boolean;
+  matchCache?: Record<string, Match[]>;
 }
 
 export interface ClubData {

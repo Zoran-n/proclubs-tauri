@@ -26,7 +26,7 @@ const BTN: React.CSSProperties = {
 };
 
 export function MatchesTab() {
-  const { currentClub, matches: leagueCache } = useAppStore();
+  const { currentClub, matches: leagueCache, matchCache, setMatchCache, persistSettings } = useAppStore();
   const lang = useAppStore((s) => s.language);
   const t = useT();
   const locale = lang === "fr" ? "fr-FR" : lang === "es" ? "es-ES" : lang === "de" ? "de-DE" : lang === "pt" ? "pt-BR" : "en-US";
@@ -55,16 +55,30 @@ export function MatchesTab() {
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
   const contentRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setPages((p) => ({ ...p, leagueMatch: leagueCache })); }, [leagueCache]);
+  useEffect(() => {
+    setPages((p) => ({ ...p, leagueMatch: leagueCache }));
+    if (currentClub && leagueCache.length) {
+      setMatchCache(`${currentClub.id}_${currentClub.platform}_leagueMatch`, leagueCache);
+    }
+  }, [leagueCache]);
   useEffect(() => { setPages({ leagueMatch: leagueCache }); setCursors({}); }, [currentClub?.id]);
 
   useEffect(() => {
     if (!currentClub || pages[type] !== undefined) return;
+    const key = `${currentClub.id}_${currentClub.platform}_${type}`;
+    const cached = matchCache[key];
+    if (cached?.length) {
+      setPages((p) => ({ ...p, [type]: cached }));
+      setCursors((c) => ({ ...c, [type]: cached.length >= 10 ? oldestTimestamp(cached) : null }));
+      return;
+    }
     setLoading(true);
     getMatches(currentClub.id, currentClub.platform, type)
       .then((data) => {
         setPages((p) => ({ ...p, [type]: data }));
         setCursors((c) => ({ ...c, [type]: data.length >= 10 ? oldestTimestamp(data) : null }));
+        setMatchCache(key, data);
+        persistSettings();
       })
       .finally(() => setLoading(false));
   }, [type, currentClub]);
@@ -74,14 +88,16 @@ export function MatchesTab() {
     const cursor = cursors[type];
     if (!cursor) return;
     setLoading(true);
+    const key = `${currentClub.id}_${currentClub.platform}_${type}`;
     getMatches(currentClub.id, currentClub.platform, type, cursor)
       .then((data) => {
-        setPages((p) => {
-          const prev = p[type] ?? [];
-          const existing = new Set(prev.map((m) => m.matchId));
-          const fresh = data.filter((m) => !existing.has(m.matchId));
-          return { ...p, [type]: [...prev, ...fresh] };
-        });
+        const prev = pages[type] ?? [];
+        const existing = new Set(prev.map((m) => m.matchId));
+        const fresh = data.filter((m) => !existing.has(m.matchId));
+        const combined = [...prev, ...fresh];
+        setPages((p) => ({ ...p, [type]: combined }));
+        setMatchCache(key, combined);
+        persistSettings();
         setCursors((c) => ({ ...c, [type]: data.length >= 10 ? oldestTimestamp(data) : null }));
       })
       .finally(() => setLoading(false));

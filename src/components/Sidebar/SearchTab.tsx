@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { RefreshCw, Search, Hash } from "lucide-react";
+import { RefreshCw, Search, Hash, User } from "lucide-react";
 import { searchClub, detectPlatform, getLogo } from "../../api/tauri";
 import { useAppStore } from "../../store/useAppStore";
 import { useClub } from "../../hooks/useClub";
@@ -25,7 +25,7 @@ function ClubLogo({ club, size = 32 }: { club: Club; size?: number }) {
 }
 
 export function SearchTab({ compact }: { compact?: boolean } = {}) {
-  const { history, favs, toggleFav, showIdSearch, showLogs, logs, addLog, persistSettings, setSearchResults } = useAppStore();
+  const { history, favs, toggleFav, showIdSearch, showLogs, logs, addLog, persistSettings, setSearchResults, eaProfile } = useAppStore();
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [directId, setDirectId] = useState("");
@@ -101,6 +101,24 @@ export function SearchTab({ compact }: { compact?: boolean } = {}) {
 
   return (
     <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+
+      {/* Mon club (gamertag lié) */}
+      {eaProfile?.clubId && (
+        <div style={s.section}>
+          <label style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.08em", fontFamily: "'Bebas Neue', sans-serif", display: "block", marginBottom: 6 }}>
+            MON CLUB
+          </label>
+          <div style={{ background: "var(--card)", borderRadius: 5, padding: "7px 10px", border: "1px solid var(--border)", marginBottom: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>{eaProfile.gamertag}</div>
+            <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 1 }}>{eaProfile.clubName}</div>
+          </div>
+          <button onClick={() => { load(eaProfile.clubId, eaProfile.platform); persistSettings(); }}
+            style={{ width: "100%", padding: "7px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: 4, fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+            <User size={12} /> CHARGER MON CLUB
+          </button>
+        </div>
+      )}
+
       {/* Search by name */}
       <div style={s.section}>
         <label style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.08em", fontFamily: "'Bebas Neue', sans-serif", display: "block", marginBottom: 6 }}>

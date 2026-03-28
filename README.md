@@ -152,9 +152,9 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - ~~**Statistiques avancées**~~ ✅ Interceptions, fautes, cartons, clean sheets, arrêts GK
 - ~~**Historique de saison**~~ ✅ Bilan par saison dans l'onglet Graphiques
 - ~~**Classement ligue**~~ ✅ Top 25 clubs all-time lazy-load
-- **Cache local des matchs** : stocker les parties déjà chargées pour une consultation hors-ligne et éviter de retaper l'API à chaque ouverture
-- **Comparaison temporelle** : stats saison actuelle vs saison précédente côte à côte
-- **Détection automatique du club** : retrouver le club de l'utilisateur à partir de son gamertag EA sans OAuth
+- ~~**Cache local des matchs**~~ ✅ Matchs persistés dans `settings.json` par clé `clubId_platform_type` — chargés depuis le cache au lancement, mis à jour après chaque fetch ou "charger plus"
+- ~~**Comparaison temporelle**~~ ✅ Comparaison saison en cours vs saison précédente (V/N/D, buts, %V) affichée sous l'historique des saisons dans l'onglet Graphiques
+- ~~**Détection automatique du club**~~ ✅ Bouton "Charger mon club" dans la sidebar de recherche quand un gamertag est lié — charge le club directement sans resaisir
 - **Webhook / intégration Discord** : poster le résumé de session ou les stats du match dans un serveur Discord automatiquement
 
 ### Joueurs

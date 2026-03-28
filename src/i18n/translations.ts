@@ -231,6 +231,7 @@ export const translations: Translations = {
   "charts.lossesShort":      { fr: "Defaites",                    en: "Losses",                es: "Derrotas",                        de: "Niederlagen",                        pt: "Derrotas" },
   "charts.goalsShort":       { fr: "Buts",                        en: "Goals",                 es: "Goles",                           de: "Tore",                               pt: "Gols" },
   "charts.assistsShort":     { fr: "Passes D.",                   en: "Assists",               es: "Asistencias",                     de: "Assists",                            pt: "Assist." },
+  "charts.seasonCompare":    { fr: "COMPARAISON SAISONS",          en: "SEASON COMPARISON",     es: "COMPARACION TEMPORADAS",          de: "SAISONVERGLEICH",                    pt: "COMPARACAO DE TEMPORADAS" },
 
   // ── Session tab ──
   "session.end":             { fr: "Terminer",                    en: "End",                   es: "Terminar",                        de: "Beenden",                            pt: "Encerrar" },

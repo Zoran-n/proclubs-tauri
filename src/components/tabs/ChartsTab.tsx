@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, Fragment } from "react";
 import { Download } from "lucide-react";
 import { PieChart, Pie, Cell, Label, ResponsiveContainer } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
@@ -208,27 +208,68 @@ function SeasonHistorySection({ clubId, platform }: { clubId: string; platform: 
         <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>{t("charts.noDataClub")}</p>
       )}
       {seasons.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {seasons.map((s) => {
-            const total = s.wins + s.losses + s.ties;
-            const pct = total > 0 ? Math.round((s.wins / total) * 100) : 0;
-            return (
-              <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 28, fontSize: 9, color: "var(--muted)", flexShrink: 0, fontFamily: "'Bebas Neue', sans-serif" }}>{s.label}</div>
-                <div style={{ flex: 1, background: "var(--bg)", borderRadius: 3, height: 24, overflow: "hidden" }}>
-                  <div style={{ width: `${(s.wins / maxW) * 100}%`, height: "100%",
-                    background: "linear-gradient(90deg,#16a34a,#22c55e)", borderRadius: "0 3px 3px 0", minWidth: 4 }} />
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {seasons.map((s) => {
+              const total = s.wins + s.losses + s.ties;
+              const pct = total > 0 ? Math.round((s.wins / total) * 100) : 0;
+              return (
+                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 28, fontSize: 9, color: "var(--muted)", flexShrink: 0, fontFamily: "'Bebas Neue', sans-serif" }}>{s.label}</div>
+                  <div style={{ flex: 1, background: "var(--bg)", borderRadius: 3, height: 24, overflow: "hidden" }}>
+                    <div style={{ width: `${(s.wins / maxW) * 100}%`, height: "100%",
+                      background: "linear-gradient(90deg,#16a34a,#22c55e)", borderRadius: "0 3px 3px 0", minWidth: 4 }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, fontSize: 10, flexShrink: 0 }}>
+                    <span style={{ color: "#22c55e" }}>{s.wins}V</span>
+                    <span style={{ color: "#eab308" }}>{s.ties}N</span>
+                    <span style={{ color: "var(--red)" }}>{s.losses}D</span>
+                    <span style={{ color: "var(--muted)" }}>{pct}%</span>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 8, fontSize: 10, flexShrink: 0 }}>
-                  <span style={{ color: "#22c55e" }}>{s.wins}V</span>
-                  <span style={{ color: "#eab308" }}>{s.ties}N</span>
-                  <span style={{ color: "var(--red)" }}>{s.losses}D</span>
-                  <span style={{ color: "var(--muted)" }}>{pct}%</span>
+              );
+            })}
+          </div>
+
+          {/* Season comparison: current vs previous */}
+          {seasons.length >= 2 && (() => {
+            const cur  = seasons[seasons.length - 1];
+            const prev = seasons[seasons.length - 2];
+            const curT  = cur.wins  + cur.losses  + cur.ties;
+            const prevT = prev.wins + prev.losses + prev.ties;
+            const curWr  = curT  > 0 ? Math.round(cur.wins  / curT  * 100) : 0;
+            const prevWr = prevT > 0 ? Math.round(prev.wins / prevT * 100) : 0;
+            const rows: { label: string; c: number; p: number; color: string; fmt?: (v: number) => string }[] = [
+              { label: t("main.wins"),   c: cur.wins,   p: prev.wins,   color: "#22c55e" },
+              { label: t("main.draws"),  c: cur.ties,   p: prev.ties,   color: "#eab308" },
+              { label: t("main.losses"), c: cur.losses, p: prev.losses, color: "var(--red)" },
+              { label: t("main.goals"),  c: cur.goals,  p: prev.goals,  color: "var(--accent)" },
+              { label: t("main.winRate"), c: curWr, p: prevWr, color: "var(--text)", fmt: (v) => `${v}%` },
+            ];
+            return (
+              <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--bg)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em", fontFamily: "'Bebas Neue', sans-serif", marginBottom: 8 }}>
+                  {t("charts.seasonCompare")}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 1fr", gap: "3px 8px" }}>
+                  <div style={{ textAlign: "right", fontSize: 10, color: "var(--accent)", fontFamily: "'Bebas Neue', sans-serif" }}>{cur.label}</div>
+                  <div />
+                  <div style={{ fontSize: 10, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif" }}>{prev.label}</div>
+                  {rows.map(({ label, c, p, color, fmt }) => {
+                    const f = fmt ?? String;
+                    return (
+                      <Fragment key={label}>
+                        <div style={{ textAlign: "right", fontSize: 14, fontFamily: "'Bebas Neue', sans-serif", color: c >= p ? color : "var(--muted)" }}>{f(c)}</div>
+                        <div style={{ textAlign: "center", fontSize: 9, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em", alignSelf: "center" }}>{label}</div>
+                        <div style={{ fontSize: 14, fontFamily: "'Bebas Neue', sans-serif", color: p > c ? color : "var(--muted)" }}>{f(p)}</div>
+                      </Fragment>
+                    );
+                  })}
                 </div>
               </div>
             );
-          })}
-        </div>
+          })()}
+        </>
       )}
     </div>
   );

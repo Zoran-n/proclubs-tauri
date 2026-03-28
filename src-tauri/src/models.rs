@@ -115,6 +115,7 @@ pub struct Settings {
     #[serde(default)] pub custom_accent: Option<String>,
     #[serde(default = "default_language")] pub language: String,
     #[serde(default)] pub onboarded: bool,
+    #[serde(default)] pub match_cache: HashMap<String, Vec<Match>>,
 }
 
 fn default_theme() -> String { "cyan".to_string() }
@@ -135,6 +136,7 @@ impl Default for Settings {
             custom_accent: None,
             language: "fr".to_string(),
             onboarded: false,
+            match_cache: HashMap::new(),
         }
     }
 }

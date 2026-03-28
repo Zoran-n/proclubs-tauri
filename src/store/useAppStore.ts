@@ -60,6 +60,7 @@ interface AppState {
   searchResults: Club[];
   showSearchModal: boolean;
   toasts: ToastMessage[];
+  matchCache: Record<string, Match[]>;
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -99,6 +100,7 @@ interface AppState {
   closeSearchModal: () => void;
   addToast: (message: string, type?: ToastMessage["type"]) => void;
   removeToast: (id: string) => void;
+  setMatchCache: (key: string, matches: Match[]) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
@@ -125,6 +127,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   searchResults: [],
   showSearchModal: false,
   toasts: [],
+  matchCache: {},
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
@@ -223,6 +226,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     toasts: [...s.toasts, { id: `${Date.now()}-${Math.random()}`, message, type }],
   })),
   removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  setMatchCache: (key, matches) => set((s) => ({ matchCache: { ...s.matchCache, [key]: matches } })),
 
   applyProxy: async (url: string) => {
     await apiSetProxy(url.trim() || null);
@@ -268,6 +272,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         language: (s.language as Lang) ?? "fr",
         onboarded: s.onboarded ?? false,
         proxyUrl: s.proxyUrl ?? "",
+        matchCache: s.matchCache ?? {},
         settingsLoaded: true,
       });
     } catch { /* first launch */ } finally {
@@ -277,7 +282,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   persistSettings: async () => {
     const { history, favs, tactics, sessions, compareHistory, eaProfile, theme, darkMode, proxyUrl,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, language, onboarded } = get();
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, language, onboarded, matchCache } = get();
     await apiSave({
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -289,6 +294,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       customAccent: customAccent || undefined,
       language,
       onboarded,
+      matchCache,
     });
   },
 }));
