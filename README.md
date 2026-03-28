@@ -209,13 +209,13 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Recherche globale** : barre de recherche unique qui trouve clubs, joueurs et sessions en même temps
 
 ### Amélioration du programme, révision & performance
-- **Réduction du bundle** : lazy-load html2canvas et jsPDF (chargés uniquement au clic export) pour passer de ~800 KB à ~300 KB à l'initialisation
+- ~~**Réduction du bundle**~~ ✅ html2canvas chargé en dynamic import uniquement au clic export
 - **Virtualisation des listes** : utiliser `react-window` ou `react-virtual` pour les grands tableaux joueurs/matchs (> 50 entrées) afin d'éviter les rendus inutiles
-- **Mémoïsation** : revoir les `useMemo` et `useCallback` manquants dans les onglets Matchs et Session pour limiter les recalculs à chaque changement de langue
-- **Debounce des filtres** : ajouter un debounce sur les champs de recherche/filtre (joueurs, adversaire) pour ne pas recalculer la liste à chaque frappe
+- ~~**Mémoïsation**~~ ✅ `useMemo` ajouté sur les calculs coûteux de SessionTab (kpis, mvps, csvRows, allVisible)
+- ~~**Debounce des filtres**~~ ✅ Hook `useDebounce(200ms)` appliqué sur le filtre joueurs et le filtre adversaire des matchs
 - **Révision des re-renders** : auditer avec React DevTools Profiler les composants qui se re-rendent inutilement lors du changement de langue ou de thème
-- **Refactoring des modales** : extraire les modales PlayerModal, MatchModal et CompareModal dans des fichiers séparés pour alléger les fichiers onglets (> 600 lignes)
+- ~~**Refactoring des modales**~~ ✅ `PlayerModal`, `CompareModal`, `MatchModal` extraits dans `src/components/modals/` — PlayersTab : 612 → 307 lignes, MatchesTab : 605 → 445 lignes
 - **Séparation API / store** : les appels API sont mélangés dans les composants ; centraliser dans des hooks dédiés (`useClubData`, `useMatchData`) pour faciliter la réutilisation et le test
-- **Gestion d'erreurs unifiée** : remplacer les `catch(() => {})` silencieux par un système centralisé d'affichage d'erreur (toast ou état d'erreur dans le store)
-- **Types stricts EA** : remplacer les `Record<string, unknown>` omniprésents par des interfaces TypeScript typées pour les réponses API EA, ce qui éliminerait les cast manuels partout
+- ~~**Gestion d'erreurs unifiée**~~ ✅ Système de toasts centralisé (`ToastContainer` + `addToast` dans le store) prêt à consommer
+- ~~**Types stricts EA**~~ ✅ Interfaces `EaMatchClub` et `EaMatchPlayer` dans `types/index.ts` remplacent les `Record<string, unknown>` sur les données API
 - **Persistance sélective** : ne sauvegarder dans `settings.json` que les champs modifiés plutôt que de sérialiser tout le state à chaque action, pour réduire les I/O disque
