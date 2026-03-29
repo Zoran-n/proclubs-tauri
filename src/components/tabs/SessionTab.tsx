@@ -18,17 +18,17 @@ function sessionWLD(matches: Match[], clubId: string) {
   return { w, l, d };
 }
 
-function sessionKpis(matches: Match[]) {
+function sessionKpis(matches: Match[], clubId: string) {
   let goals = 0, assists = 0, passes = 0, tackles = 0, motm = 0;
   for (const m of matches) {
-    for (const clubPlayers of Object.values(m.players)) {
-      for (const p of Object.values(clubPlayers as Record<string, Record<string, unknown>>)) {
-        goals   += Number(p["goals"]      ?? 0);
-        assists += Number(p["assists"]    ?? 0);
-        passes  += Number(p["passesMade"] ?? p["passesmade"] ?? 0);
-        tackles += Number(p["tacklesMade"] ?? p["tacklesmade"] ?? 0);
-        if (p["mom"] === "1" || p["manofthematch"] === "1") motm++;
-      }
+    const clubPlayers = m.players[clubId] as Record<string, Record<string, unknown>> | undefined;
+    if (!clubPlayers) continue;
+    for (const p of Object.values(clubPlayers)) {
+      goals   += Number(p["goals"]      ?? 0);
+      assists += Number(p["assists"]    ?? 0);
+      passes  += Number(p["passesMade"] ?? p["passesmade"] ?? 0);
+      tackles += Number(p["tacklesMade"] ?? p["tacklesmade"] ?? 0);
+      if (p["mom"] === "1" || p["manofthematch"] === "1") motm++;
     }
   }
   return { goals, assists, passes, tackles, motm };
@@ -102,7 +102,7 @@ export function SessionTab() {
     if (!discordWebhook) { addToast(t("discord.noWebhook"), "error"); return; }
     setSharingId(s.id);
     try {
-      const kpis = sessionKpis(s.matches);
+      const kpis = sessionKpis(s.matches, s.clubId);
       const wld = sessionWLD(s.matches, s.clubId);
       const mvps = sessionMvpStats(s.matches, s.clubId);
       const color = wld.w > wld.l ? 0x23a559 : wld.l > wld.w ? 0xda373c : 0xfaa81a;
@@ -152,7 +152,7 @@ export function SessionTab() {
     [allVisible, safePage],
   );
   const kpis = useMemo(
-    () => activeSession ? sessionKpis(activeSession.matches) : null,
+    () => activeSession ? sessionKpis(activeSession.matches, activeSession.clubId) : null,
     [activeSession],
   );
   const mvps = useMemo(
@@ -163,7 +163,7 @@ export function SessionTab() {
 
   const csvHeaders = ["Date", "Club", t("players.gp"), t("players.goals"), t("players.assists"), t("players.passes"), t("players.tackles"), t("session.motm")];
   const csvRows = useMemo(() => allVisible.map((s) => {
-    const k = sessionKpis(s.matches);
+    const k = sessionKpis(s.matches, s.clubId);
     return [new Date(s.date).toLocaleDateString(), s.clubName,
       s.matches.length, k.goals, k.assists, k.passes, k.tackles, k.motm];
   }), [allVisible]);
@@ -279,7 +279,7 @@ export function SessionTab() {
           )}
 
           {visible.map((s) => {
-            const k = sessionKpis(s.matches);
+            const k = sessionKpis(s.matches, s.clubId);
             return (
               <div key={s.id} style={{ background: "var(--card)", border: "1px solid var(--border)",
                 borderRadius: 8, padding: 14 }}>
