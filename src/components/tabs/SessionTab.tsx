@@ -9,11 +9,18 @@ import { generateSessionPdf } from "../../utils/pdfExport";
 import { sendDiscordWebhook } from "../../api/discord";
 import { useT } from "../../i18n";
 
+function matchResult(m: Match, clubId: string): "W" | "L" | "D" {
+  const c = m.clubs[clubId] as Record<string, unknown> | undefined;
+  if (c?.["wins"] === "1" || c?.["wins"] === 1) return "W";
+  if (c?.["losses"] === "1" || c?.["losses"] === 1) return "L";
+  return "D";
+}
+
 function sessionWLD(matches: Match[], clubId: string) {
   let w = 0, l = 0, d = 0;
   for (const m of matches) {
-    const r = (m.clubs[clubId] as Record<string, unknown> | undefined)?.["matchResult"] as string ?? "";
-    if (r === "win") w++; else if (r === "loss") l++; else d++;
+    const r = matchResult(m, clubId);
+    if (r === "W") w++; else if (r === "L") l++; else d++;
   }
   return { w, l, d };
 }
@@ -115,16 +122,36 @@ export function SessionTab() {
       const wld = sessionWLD(s.matches, s.clubId);
       const mvps = sessionMvpStats(s.matches, s.clubId);
       const color = wld.w > wld.l ? 0x23a559 : wld.l > wld.w ? 0xda373c : 0xfaa81a;
+
+      // Match list field
+      const matchLines = [...s.matches].reverse().map((m) => {
+        const r = matchResult(m, s.clubId);
+        const { ourGoals, oppGoals } = getMatchScore(m, s.clubId);
+        const icon = r === "W" ? "🟢" : r === "L" ? "🔴" : "🟡";
+        return `${icon} **${ourGoals} – ${oppGoals}**`;
+      });
+      const matchField = matchLines.join("  ·  ");
+
+      // Player stats field (top 5 by goals)
+      const playerLines = [...mvps.all]
+        .sort((a, b) => b.goals - a.goals || b.assists - a.assists)
+        .slice(0, 5)
+        .map((p) => {
+          const avg = p.games > 0 ? (p.rating / p.games).toFixed(1) : "–";
+          return `**${p.name}** — ${p.goals}⚽ ${p.assists}🅰️${p.motm > 0 ? ` ${p.motm}★` : ""} · ${avg}`;
+        });
+
       const fields: { name: string; value: string; inline?: boolean }[] = [
-        { name: "Bilan", value: `${wld.w}V · ${wld.d}N · ${wld.l}D`, inline: false },
+        { name: "📊 Bilan", value: `🟢 **${wld.w}V** · 🟡 **${wld.d}N** · 🔴 **${wld.l}D**`, inline: false },
         { name: "⚽ Buts", value: String(kpis.goals), inline: true },
         { name: "🅰️ Passes D.", value: String(kpis.assists), inline: true },
         { name: "★ MOTM", value: String(kpis.motm), inline: true },
       ];
-      if (mvps.topScorer && mvps.topScorer.goals > 0)
-        fields.push({ name: "🎯 Top buteur", value: `${mvps.topScorer.name} (${mvps.topScorer.goals} buts)`, inline: true });
-      if (mvps.topAssister && mvps.topAssister.assists > 0)
-        fields.push({ name: "🅰️ Top passeur", value: `${mvps.topAssister.name} (${mvps.topAssister.assists} passes)`, inline: true });
+      if (matchLines.length > 0)
+        fields.push({ name: "🎮 Matchs", value: matchField.slice(0, 1024), inline: false });
+      if (playerLines.length > 0)
+        fields.push({ name: "👥 Stats joueurs", value: playerLines.join("\n").slice(0, 1024), inline: false });
+
       await sendDiscordWebhook(discordWebhook, [{
         title: `🏆 Session — ${s.clubName}`,
         color,
@@ -229,8 +256,7 @@ export function SessionTab() {
               {[...activeSession.matches].reverse().map((m) => {
                 const clubData = currentClub ? (m.clubs[currentClub.id] as Record<string, unknown>) : null;
                 const goals    = clubData?.["goals"] ?? "?";
-                const result   = (clubData?.["matchResult"] as string) ?? "";
-                const r        = result === "win" ? "W" : result === "loss" ? "L" : "D";
+                const r        = currentClub ? matchResult(m, currentClub.id) : "D";
                 return (
                   <div key={m.matchId} style={{ display: "flex", alignItems: "center", gap: 8,
                     padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
@@ -443,8 +469,7 @@ export function SessionTab() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {[...s.matches].reverse().map((m, i) => {
                       const { ourGoals, oppGoals } = getMatchScore(m, s.clubId);
-                      const result = (m.clubs[s.clubId] as Record<string, unknown>)?.["matchResult"] as string ?? "";
-                      const r = result === "win" ? "W" : result === "loss" ? "L" : "D";
+                      const r = matchResult(m, s.clubId);
                       const ts = Number(m.timestamp) * 1000;
                       return (
                         <div key={m.matchId ?? i} style={{ display: "flex", alignItems: "center", gap: 8,
