@@ -262,6 +262,11 @@ export const translations: Translations = {
   "session.noThanks":        { fr: "Non merci",                   en: "No thanks",             es: "No gracias",                      de: "Nein danke",                         pt: "Nao obrigado" },
   "session.archive":         { fr: "Archiver",                    en: "Archive",               es: "Archivar",                        de: "Archivieren",                        pt: "Arquivar" },
   "session.unarchive":       { fr: "Desarchiver",                 en: "Unarchive",             es: "Desarchivar",                     de: "Dearchivieren",                      pt: "Desarquivar" },
+  "session.details":         { fr: "Détails",                     en: "Details",               es: "Detalles",                        de: "Details",                            pt: "Detalhes" },
+  "session.matchDetail":     { fr: "Détail des matchs",           en: "Match details",         es: "Detalles de partidos",            de: "Spieldetails",                       pt: "Detalhes de partidas" },
+  "session.playerStats":     { fr: "Stats joueurs",               en: "Player stats",          es: "Stats jugadores",                 de: "Spieler-Stats",                      pt: "Stats jogadores" },
+  "session.bilan":           { fr: "Bilan",                       en: "Record",                es: "Balance",                         de: "Bilanz",                             pt: "Balanco" },
+  "session.avgRating":       { fr: "Note moy.",                   en: "Avg rating",            es: "Media",                           de: "Ø Note",                             pt: "Media" },
 
   // ── Tactics tab ──
   "tactics.formation":       { fr: "FORMATION",                   en: "FORMATION",             es: "FORMACION",                       de: "FORMATION",                          pt: "FORMACAO" },

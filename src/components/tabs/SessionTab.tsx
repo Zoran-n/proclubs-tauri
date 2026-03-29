@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo } from "react";
-import { Play, Square, Trophy, Trash2, Archive, Download, Crown, Target, Handshake, Send } from "lucide-react";
+import { Play, Square, Trophy, Trash2, Archive, Download, Crown, Target, Handshake, Send, Info, X } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useSession } from "../../hooks/useSession";
 import { Badge } from "../ui/Badge";
@@ -61,6 +61,14 @@ function sessionMvpStats(matches: Match[], clubId?: string) {
   return { topScorer, topAssister, topMotm, all };
 }
 
+function getMatchScore(m: Match, clubId: string) {
+  const ourClub = m.clubs[clubId] as Record<string, unknown> | undefined;
+  const ourGoals = Number(ourClub?.["goals"] ?? 0);
+  const oppEntry = Object.entries(m.clubs).find(([id]) => id !== clubId);
+  const oppGoals = Number((oppEntry?.[1] as Record<string, unknown>)?.["goals"] ?? 0);
+  return { ourGoals, oppGoals };
+}
+
 const BTN: React.CSSProperties = {
   padding: "5px 9px", background: "var(--card)", border: "1px solid var(--border)",
   borderRadius: 5, cursor: "pointer", color: "var(--muted)", fontSize: 11,
@@ -97,6 +105,7 @@ export function SessionTab() {
   const [showArchived, setShowArchived] = useState(false);
   const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
   const [sharingId, setSharingId] = useState<string | null>(null);
+  const [detailSession, setDetailSession] = useState<SessionType | null>(null);
 
   const shareToDiscord = async (s: SessionType) => {
     if (!discordWebhook) { addToast(t("discord.noWebhook"), "error"); return; }
@@ -280,6 +289,7 @@ export function SessionTab() {
 
           {visible.map((s) => {
             const k = sessionKpis(s.matches, s.clubId);
+            const wld = sessionWLD(s.matches, s.clubId);
             return (
               <div key={s.id} style={{ background: "var(--card)", border: "1px solid var(--border)",
                 borderRadius: 8, padding: 14 }}>
@@ -287,11 +297,18 @@ export function SessionTab() {
                   <div>
                     <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "var(--text)",
                       letterSpacing: "0.06em" }}>{s.clubName}</div>
-                    <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                      {new Date(s.date).toLocaleDateString()} · {s.matches.length} match{s.matches.length !== 1 ? "s" : ""}
+                    <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                      <span>{new Date(s.date).toLocaleDateString()} · {s.matches.length} match{s.matches.length !== 1 ? "s" : ""}</span>
+                      <span style={{ color: "#23a559", fontWeight: 600 }}>{wld.w}V</span>
+                      <span style={{ color: "var(--muted)" }}>{wld.d}N</span>
+                      <span style={{ color: "#da373c", fontWeight: 600 }}>{wld.l}D</span>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 5 }}>
+                    <button onClick={() => setDetailSession(s)} title={t("session.details")}
+                      style={{ ...BTN, color: "var(--accent)" }}>
+                      <Info size={11} />
+                    </button>
                     {discordWebhook && (
                       <button onClick={() => shareToDiscord(s)} title={t("discord.share")}
                         disabled={sharingId === s.id}
@@ -357,6 +374,160 @@ export function SessionTab() {
         <ExportModal type="csv" csvHeaders={csvHeaders} csvRows={csvRows}
           defaultFilename={`sessions-${dateStr}`} onClose={() => setExportModal(null)} />
       )}
+
+      {/* Session detail modal */}
+      {detailSession && (() => {
+        const s = detailSession;
+        const kpis = sessionKpis(s.matches, s.clubId);
+        const wld = sessionWLD(s.matches, s.clubId);
+        const mvps = sessionMvpStats(s.matches, s.clubId);
+        const bilColor = wld.w > wld.l ? "#23a559" : wld.l > wld.w ? "#da373c" : "#faa81a";
+        return (
+          <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center",
+            justifyContent: "center", background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+            onClick={() => setDetailSession(null)}>
+            <div onClick={(e) => e.stopPropagation()} style={{
+              background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
+              width: 540, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden",
+            }}>
+              {/* Modal header */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
+                <div>
+                  <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--accent)",
+                    letterSpacing: "0.1em" }}>{s.clubName}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>
+                    {new Date(s.date).toLocaleDateString()} · {s.matches.length} match{s.matches.length !== 1 ? "s" : ""}
+                  </div>
+                </div>
+                <button onClick={() => setDetailSession(null)} style={{ background: "none", border: "none",
+                  cursor: "pointer", color: "var(--muted)", padding: 4 }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Bilan + KPIs */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div style={{ background: "var(--bg)", borderRadius: 8, padding: "10px 14px",
+                    border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em",
+                      fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>{t("session.bilan")}</div>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                      <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "#23a559" }}>{wld.w}V</span>
+                      <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--muted)" }}>{wld.d}N</span>
+                      <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "#da373c" }}>{wld.l}D</span>
+                      <span style={{ marginLeft: "auto", width: 8, height: 8, borderRadius: "50%",
+                        background: bilColor, display: "inline-block" }} />
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                    {[
+                      { label: "⚽", value: kpis.goals },
+                      { label: "🅰️", value: kpis.assists },
+                      { label: "★", value: kpis.motm },
+                    ].map(({ label, value }) => (
+                      <div key={label} style={{ background: "var(--bg)", borderRadius: 8, padding: "8px 4px",
+                        border: "1px solid var(--border)", textAlign: "center" }}>
+                        <div style={{ fontSize: 16 }}>{label}</div>
+                        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--accent)" }}>{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Match list */}
+                <div>
+                  <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+                    fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>{t("session.matchDetail")}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {[...s.matches].reverse().map((m, i) => {
+                      const { ourGoals, oppGoals } = getMatchScore(m, s.clubId);
+                      const result = (m.clubs[s.clubId] as Record<string, unknown>)?.["matchResult"] as string ?? "";
+                      const r = result === "win" ? "W" : result === "loss" ? "L" : "D";
+                      const ts = Number(m.timestamp) * 1000;
+                      return (
+                        <div key={m.matchId ?? i} style={{ display: "flex", alignItems: "center", gap: 8,
+                          padding: "7px 10px", background: "var(--bg)", borderRadius: 6,
+                          border: "1px solid var(--border)" }}>
+                          <Badge result={r} />
+                          <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17,
+                            color: "var(--text)", letterSpacing: "0.05em" }}>
+                            {ourGoals} – {oppGoals}
+                          </span>
+                          <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: "auto" }}>
+                            {m.matchType}
+                          </span>
+                          <span style={{ fontSize: 10, color: "var(--muted)" }}>
+                            {ts ? new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Player stats */}
+                {mvps.all.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+                      fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>{t("session.playerStats")}</div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ color: "var(--muted)", fontSize: 10 }}>
+                          <th style={{ textAlign: "left", padding: "4px 6px", fontWeight: 500 }}>Joueur</th>
+                          <th style={{ textAlign: "center", padding: "4px 6px", fontWeight: 500 }}>MJ</th>
+                          <th style={{ textAlign: "center", padding: "4px 6px", fontWeight: 500 }}>⚽</th>
+                          <th style={{ textAlign: "center", padding: "4px 6px", fontWeight: 500 }}>🅰️</th>
+                          <th style={{ textAlign: "center", padding: "4px 6px", fontWeight: 500 }}>★</th>
+                          <th style={{ textAlign: "center", padding: "4px 6px", fontWeight: 500 }}>{t("session.avgRating")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...mvps.all]
+                          .sort((a, b) => b.goals - a.goals || b.assists - a.assists)
+                          .map((p) => (
+                            <tr key={p.name} style={{ borderTop: "1px solid var(--border)" }}>
+                              <td style={{ padding: "5px 6px", color: "var(--text)", fontWeight: 500 }}>{p.name}</td>
+                              <td style={{ padding: "5px 6px", textAlign: "center", color: "var(--muted)" }}>{p.games}</td>
+                              <td style={{ padding: "5px 6px", textAlign: "center", color: p.goals > 0 ? "var(--accent)" : "var(--muted)" }}>{p.goals}</td>
+                              <td style={{ padding: "5px 6px", textAlign: "center", color: p.assists > 0 ? "var(--accent)" : "var(--muted)" }}>{p.assists}</td>
+                              <td style={{ padding: "5px 6px", textAlign: "center", color: p.motm > 0 ? "var(--gold)" : "var(--muted)" }}>{p.motm || "–"}</td>
+                              <td style={{ padding: "5px 6px", textAlign: "center", color: "var(--muted)" }}>
+                                {p.games > 0 ? (p.rating / p.games).toFixed(1) : "–"}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Action footer */}
+              <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderTop: "1px solid var(--border)",
+                justifyContent: "flex-end" }}>
+                {discordWebhook && (
+                  <button onClick={() => { shareToDiscord(s); }}
+                    disabled={sharingId === s.id}
+                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
+                      background: "rgba(88,101,242,0.15)", border: "1px solid rgba(88,101,242,0.35)",
+                      borderRadius: 7, color: "#8b9cf4", fontSize: 12, cursor: "pointer",
+                      opacity: sharingId === s.id ? 0.5 : 1 }}>
+                    <Send size={13} /> Discord
+                  </button>
+                )}
+                <button onClick={() => { generateSessionPdf(s); }}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
+                    background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.3)",
+                    borderRadius: 7, color: "var(--accent)", fontSize: 12, cursor: "pointer" }}>
+                  <Download size={13} /> PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* PDF export prompt after session stop */}
       {pdfPrompt && (
