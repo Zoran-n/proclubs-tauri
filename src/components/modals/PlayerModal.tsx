@@ -3,8 +3,10 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { Send } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useT } from "../../i18n";
+import { sendDiscordWebhook } from "../../api/discord";
 import type { Player } from "../../types";
 
 export const POS_LABELS: Record<string, string> = {
@@ -62,8 +64,9 @@ function StatCell({ label, value, color }: { label: string; value: string | numb
 
 export function PlayerModal({ player, onClose }: { player: Player; onClose: () => void }) {
   const t = useT();
-  const { matches, currentClub } = useAppStore();
+  const { matches, currentClub, discordWebhook, addToast } = useAppStore();
   const [evoStat, setEvoStat] = useState<"rating" | "goals" | "assists">("rating");
+  const [sharing, setSharing] = useState(false);
   const posLabel = POS_LABELS[player.position] ?? player.position ?? "—";
 
   // Build per-match evolution data
@@ -89,6 +92,77 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
     }
     return points;
   }, [matches, currentClub, player.name, evoStat]);
+
+  // Compute evolution for all 3 stats at once (for Discord)
+  const allEvoData = useMemo(() => {
+    if (!currentClub) return { rating: [], goals: [], assists: [] };
+    const sorted = [...matches].sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
+    const rating: number[] = [], goals: number[] = [], assists: number[] = [];
+    for (const m of sorted) {
+      const clubPlayers = m.players[currentClub.id] as Record<string, Record<string, unknown>> | undefined;
+      if (!clubPlayers) continue;
+      for (const p of Object.values(clubPlayers)) {
+        const name = String(p["name"] ?? p["playername"] ?? p["playerName"] ?? "");
+        if (name.toLowerCase() !== player.name.toLowerCase()) continue;
+        rating.push(Math.round(Number(p["rating"] ?? p["ratingAve"] ?? 0) * 10) / 10);
+        goals.push(Number(p["goals"] ?? 0));
+        assists.push(Number(p["assists"] ?? 0));
+      }
+    }
+    return { rating, goals, assists };
+  }, [matches, currentClub, player.name]);
+
+  const handleShareDiscord = async () => {
+    if (!discordWebhook) { addToast(t("discord.noWebhook"), "error"); return; }
+    setSharing(true);
+    try {
+      const colorHex = avatarColor(player.name);
+      const color = parseInt(colorHex.replace("#", ""), 16);
+
+      const fields: { name: string; value: string; inline?: boolean }[] = [
+        { name: "🎮 MJ",           value: String(player.gamesPlayed), inline: true },
+        { name: "⚽ Buts",         value: String(player.goals),       inline: true },
+        { name: "🅰️ Passes D.",   value: String(player.assists),     inline: true },
+        { name: "🎯 Passes",       value: String(player.passesMade),  inline: true },
+        { name: "🛡️ Tacles",      value: String(player.tacklesMade), inline: true },
+        { name: "★ MOTM",          value: `${player.motm}x`,          inline: true },
+      ];
+
+      // Advanced stats
+      if (player.shotsOnTarget)  fields.push({ name: "🎯 Tirs cadrés",   value: String(player.shotsOnTarget),  inline: true });
+      if (player.interceptions)  fields.push({ name: "🔵 Interceptions", value: String(player.interceptions),  inline: true });
+      if (player.yellowCards)    fields.push({ name: "🟨 Cartons J.",    value: String(player.yellowCards),    inline: true });
+      if (player.redCards)       fields.push({ name: "🟥 Cartons R.",    value: String(player.redCards),       inline: true });
+      if (player.cleanSheets)    fields.push({ name: "🧤 Clean sheets",  value: String(player.cleanSheets),    inline: true });
+      if (player.saveAttempts)   fields.push({ name: "🧤 Arrêts",        value: String(player.saveAttempts),   inline: true });
+
+      // Evolution sparklines
+      const fmt = (arr: number[], stat: "rating" | "goals" | "assists") =>
+        arr.map((v, i) => `M${i + 1}:${stat === "rating" ? v.toFixed(1) : v}`).join(" · ");
+
+      if (allEvoData.rating.length > 1)
+        fields.push({ name: "📈 Évolution Note",   value: fmt(allEvoData.rating, "rating").slice(0, 1024),  inline: false });
+      if (allEvoData.goals.length > 1 && allEvoData.goals.some((v) => v > 0))
+        fields.push({ name: "⚽ Évolution Buts",   value: fmt(allEvoData.goals, "goals").slice(0, 1024),    inline: false });
+      if (allEvoData.assists.length > 1 && allEvoData.assists.some((v) => v > 0))
+        fields.push({ name: "🅰️ Évolution PD",    value: fmt(allEvoData.assists, "assists").slice(0, 1024), inline: false });
+
+      await sendDiscordWebhook(discordWebhook, [{
+        title: `👤 ${player.name} — ${posLabel}`,
+        color,
+        description: player.rating > 0
+          ? `Note moyenne : **${player.rating.toFixed(1)}** ★`
+          : undefined,
+        fields,
+        footer: { text: "ProClubs Stats" },
+      }]);
+      addToast(t("discord.sent"), "success");
+    } catch (e) {
+      addToast(`Discord: ${String(e)}`, "error");
+    } finally {
+      setSharing(false);
+    }
+  };
 
   const baseStats: [string, string | number, string][] = [
     [t("players.gp"),       player.gamesPlayed,          "var(--text)"],
@@ -134,8 +208,20 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
             </span>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)",
-            cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {discordWebhook && (
+              <button onClick={handleShareDiscord} disabled={sharing}
+                title="Envoyer sur Discord"
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
+                  background: "rgba(88,101,242,0.15)", border: "1px solid rgba(88,101,242,0.35)",
+                  borderRadius: 6, color: "#8b9cf4", fontSize: 11, cursor: sharing ? "default" : "pointer",
+                  opacity: sharing ? 0.5 : 1 }}>
+                <Send size={12} /> Discord
+              </button>
+            )}
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)",
+              cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+          </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
