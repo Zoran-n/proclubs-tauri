@@ -1,5 +1,13 @@
 import type { Session, Match, Player } from "../types";
 
+export function getSessionPdfFilename(session: Session): string {
+  return `session-${session.clubName.replace(/\s+/g, "_")}-${new Date(session.date).toISOString().slice(0, 10)}.pdf`;
+}
+
+export function getPlayerPdfFilename(playerName: string): string {
+  return `${playerName.replace(/\s+/g, "_")}_fiche.pdf`;
+}
+
 interface PlayerMvp { name: string; goals: number; assists: number; motm: number; games: number }
 
 function aggregateSession(matches: Match[], clubId: string) {

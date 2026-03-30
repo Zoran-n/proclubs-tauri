@@ -83,6 +83,10 @@ pub struct Session {
     #[serde(default)] pub platform: String,
     #[serde(default)] pub date: String,
     #[serde(default)] pub matches: Vec<Match>,
+    #[serde(default)] pub archived: bool,
+    #[serde(default)] pub notes: String,
+    #[serde(default)] pub tags: Vec<String>,
+    #[serde(default)] pub goal: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

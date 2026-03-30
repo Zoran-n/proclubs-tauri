@@ -1,13 +1,22 @@
 import { useRef, useState, useMemo } from "react";
-import { Play, Square, Trophy, Trash2, Archive, Download, Crown, Target, Handshake, Send, Info, X } from "lucide-react";
+import {
+  Play, Square, Trophy, Trash2, Archive, Download, Crown, Target,
+  Handshake, Send, Info, X, Tag, FileText, Flag, TrendingUp,
+} from "lucide-react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
 import { useAppStore } from "../../store/useAppStore";
 import { useSession } from "../../hooks/useSession";
 import { Badge } from "../ui/Badge";
 import { ExportModal } from "../ui/ExportModal";
+import { PdfSaveModal } from "../ui/PdfSaveModal";
 import type { Match, Session as SessionType } from "../../types";
-import { generateSessionPdf } from "../../utils/pdfExport";
+import { generateSessionPdf, getSessionPdfFilename } from "../../utils/pdfExport";
 import { sendDiscordWebhook } from "../../api/discord";
 import { useT } from "../../i18n";
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 function matchResult(m: Match, clubId: string): "W" | "L" | "D" {
   const c = m.clubs[clubId] as Record<string, unknown> | undefined;
@@ -82,6 +91,10 @@ const BTN: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: 4,
 };
 
+const PRESET_TAGS = ["Tournoi", "Division", "Soirée", "Entraînement", "Friendly", "Ranked"];
+
+// ── Sub-components ─────────────────────────────────────────────────────────
+
 function KpiGrid({ kpis, t }: { kpis: ReturnType<typeof sessionKpis>; t: (key: string) => string }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginTop: 10 }}>
@@ -104,15 +117,33 @@ function KpiGrid({ kpis, t }: { kpis: ReturnType<typeof sessionKpis>; t: (key: s
   );
 }
 
+// ── Main component ──────────────────────────────────────────────────────────
+
 export function SessionTab() {
   const t = useT();
   useSession();
-  const { activeSession, sessions, currentClub, startSession, stopSession, persistSettings,
-    deleteSession, archiveSession, discordWebhook, addToast } = useAppStore();
+  const {
+    activeSession, sessions, currentClub, startSession, stopSession, persistSettings,
+    deleteSession, archiveSession, updateSession, setActiveSessionGoal,
+    discordWebhook, addToast,
+  } = useAppStore();
+
   const [showArchived, setShowArchived] = useState(false);
   const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
   const [sharingId, setSharingId] = useState<string | null>(null);
   const [detailSession, setDetailSession] = useState<SessionType | null>(null);
+  const [pdfPrompt, setPdfPrompt] = useState<SessionType | null>(null);
+  const [pdfModal, setPdfModal] = useState<SessionType | null>(null);
+  const [page, setPage] = useState(0);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteValue, setNoteValue] = useState("");
+  const [editingTagsId, setEditingTagsId] = useState<string | null>(null);
+  const [goalInput, setGoalInput] = useState<string>("");
+  const contentRef = useRef<HTMLDivElement>(null);
+  const PAGE_SIZE = 10;
+
+  // ── Discord share ──────────────────────────────────────────────────────
 
   const shareToDiscord = async (s: SessionType) => {
     if (!discordWebhook) { addToast(t("discord.noWebhook"), "error"); return; }
@@ -123,16 +154,12 @@ export function SessionTab() {
       const mvps = sessionMvpStats(s.matches, s.clubId);
       const color = wld.w > wld.l ? 0x23a559 : wld.l > wld.w ? 0xda373c : 0xfaa81a;
 
-      // Match list field
       const matchLines = [...s.matches].reverse().map((m) => {
         const r = matchResult(m, s.clubId);
         const { ourGoals, oppGoals } = getMatchScore(m, s.clubId);
         const icon = r === "W" ? "🟢" : r === "L" ? "🔴" : "🟡";
         return `${icon} **${ourGoals} – ${oppGoals}**`;
       });
-      const matchField = matchLines.join("  ·  ");
-
-      // Player stats field (top 5 by goals)
       const playerLines = [...mvps.all]
         .sort((a, b) => b.goals - a.goals || b.assists - a.assists)
         .slice(0, 5)
@@ -148,9 +175,13 @@ export function SessionTab() {
         { name: "★ MOTM", value: String(kpis.motm), inline: true },
       ];
       if (matchLines.length > 0)
-        fields.push({ name: "🎮 Matchs", value: matchField.slice(0, 1024), inline: false });
+        fields.push({ name: "🎮 Matchs", value: matchLines.join("  ·  ").slice(0, 1024), inline: false });
       if (playerLines.length > 0)
         fields.push({ name: "👥 Stats joueurs", value: playerLines.join("\n").slice(0, 1024), inline: false });
+      if (s.notes?.trim())
+        fields.push({ name: "📝 Notes", value: s.notes.slice(0, 1024), inline: false });
+      if (s.tags && s.tags.length > 0)
+        fields.push({ name: "🏷️ Tags", value: s.tags.join(" · "), inline: false });
 
       await sendDiscordWebhook(discordWebhook, [{
         title: `🏆 Session — ${s.clubName}`,
@@ -163,10 +194,8 @@ export function SessionTab() {
     } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
     finally { setSharingId(null); }
   };
-  const [pdfPrompt, setPdfPrompt] = useState<SessionType | null>(null);
-  const [page, setPage] = useState(0);
-  const PAGE_SIZE = 10;
-  const contentRef = useRef<HTMLDivElement>(null);
+
+  // ── Stop handler ──────────────────────────────────────────────────────
 
   const handleStop = () => {
     const session = useAppStore.getState().activeSession;
@@ -177,9 +206,15 @@ export function SessionTab() {
     }
   };
 
+  // ── Filtered + paginated sessions ─────────────────────────────────────
+
   const allVisible = useMemo(
-    () => sessions.filter((s) => showArchived ? s.archived : !s.archived),
-    [sessions, showArchived],
+    () => sessions.filter((s) => {
+      if (showArchived ? !s.archived : s.archived) return false;
+      if (tagFilter && !(s.tags ?? []).includes(tagFilter)) return false;
+      return true;
+    }),
+    [sessions, showArchived, tagFilter],
   );
   const totalPages = Math.max(1, Math.ceil(allVisible.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
@@ -187,6 +222,31 @@ export function SessionTab() {
     () => allVisible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE),
     [allVisible, safePage],
   );
+
+  // All tags used across sessions (for filter chips)
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    sessions.forEach((s) => (s.tags ?? []).forEach((tag) => set.add(tag)));
+    return Array.from(set);
+  }, [sessions]);
+
+  // Win rate chart data
+  const winRateData = useMemo(
+    () =>
+      [...sessions]
+        .filter((s) => !s.archived && s.matches.length > 0)
+        .reverse()
+        .slice(-12)
+        .map((s, i) => {
+          const wld = sessionWLD(s.matches, s.clubId);
+          const rate = s.matches.length > 0 ? Math.round((wld.w / s.matches.length) * 100) : 0;
+          return { name: `S${i + 1}`, rate, date: new Date(s.date).toLocaleDateString() };
+        }),
+    [sessions],
+  );
+
+  // ── Live stats ────────────────────────────────────────────────────────
+
   const kpis = useMemo(
     () => activeSession ? sessionKpis(activeSession.matches, activeSession.clubId) : null,
     [activeSession],
@@ -196,12 +256,18 @@ export function SessionTab() {
       ? sessionMvpStats(activeSession.matches, activeSession.clubId) : null,
     [activeSession],
   );
+  const activeWLD = useMemo(
+    () => activeSession ? sessionWLD(activeSession.matches, activeSession.clubId) : null,
+    [activeSession],
+  );
 
-  const csvHeaders = ["Date", "Club", t("players.gp"), t("players.goals"), t("players.assists"), t("players.passes"), t("players.tackles"), t("session.motm")];
+  // CSV export
+  const csvHeaders = ["Date", "Club", t("players.gp"), t("players.goals"), t("players.assists"), t("players.passes"), t("players.tackles"), t("session.motm"), "Tags", "Notes"];
   const csvRows = useMemo(() => allVisible.map((s) => {
     const k = sessionKpis(s.matches, s.clubId);
     return [new Date(s.date).toLocaleDateString(), s.clubName,
-      s.matches.length, k.goals, k.assists, k.passes, k.tackles, k.motm];
+      s.matches.length, k.goals, k.assists, k.passes, k.tackles, k.motm,
+      (s.tags ?? []).join("|"), s.notes ?? ""];
   }), [allVisible]);
   const dateStr = new Date().toISOString().slice(0, 10);
 
@@ -209,7 +275,7 @@ export function SessionTab() {
     <div ref={contentRef} style={{ display: "flex", flexDirection: "column", height: "100%",
       overflowY: "auto", padding: 16, gap: 12 }}>
 
-      {/* Active session */}
+      {/* ── Active session ─────────────────────────────────────────────── */}
       {activeSession ? (
         <div style={{ background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.2)",
           borderRadius: 10, padding: 14 }}>
@@ -229,7 +295,54 @@ export function SessionTab() {
               <Square size={12} /> {t("session.end")}
             </button>
           </div>
+
+          {/* Goal / objective */}
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
+            <Flag size={13} style={{ color: "var(--gold)", flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
+              {t("session.goalLabel")} :
+            </span>
+            <input
+              type="number"
+              min={1}
+              value={goalInput !== "" ? goalInput : (activeSession.goal ?? "")}
+              placeholder="—"
+              onChange={(e) => setGoalInput(e.target.value)}
+              onBlur={() => {
+                const v = parseInt(goalInput);
+                setActiveSessionGoal(isNaN(v) ? undefined : v);
+                setGoalInput("");
+              }}
+              style={{
+                width: 48, background: "var(--bg)", border: "1px solid var(--border)",
+                color: "var(--text)", padding: "3px 6px", borderRadius: 4, fontSize: 12,
+                outline: "none", textAlign: "center",
+              }}
+            />
+            {activeSession.goal != null && activeWLD && (
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                  <span style={{ fontSize: 10, color: "var(--muted)" }}>
+                    {activeWLD.w} / {activeSession.goal} {t("session.goalProgress")}
+                  </span>
+                  <span style={{ fontSize: 10, color: activeWLD.w >= activeSession.goal ? "var(--green)" : "var(--accent)" }}>
+                    {Math.min(100, Math.round((activeWLD.w / activeSession.goal) * 100))}%
+                  </span>
+                </div>
+                <div style={{ height: 5, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%", borderRadius: 3,
+                    width: `${Math.min(100, (activeWLD.w / activeSession.goal) * 100)}%`,
+                    background: activeWLD.w >= activeSession.goal ? "var(--green)" : "var(--accent)",
+                    transition: "width 0.4s ease",
+                  }} />
+                </div>
+              </div>
+            )}
+          </div>
+
           {kpis && <KpiGrid kpis={kpis} t={t} />}
+
           {mvps && (mvps.topScorer || mvps.topAssister || mvps.topMotm) && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginTop: 8 }}>
               {[
@@ -249,6 +362,7 @@ export function SessionTab() {
               ) : null)}
             </div>
           )}
+
           {activeSession.matches.length > 0 && (
             <div style={{ marginTop: 10 }}>
               <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
@@ -288,9 +402,37 @@ export function SessionTab() {
         </div>
       )}
 
-      {/* Past sessions header */}
+      {/* ── Win rate chart ──────────────────────────────────────────────── */}
+      {winRateData.length >= 2 && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }}>
+          <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+            fontFamily: "'Bebas Neue', sans-serif", marginBottom: 10, display: "flex", alignItems: "center", gap: 5 }}>
+            <TrendingUp size={11} /> {t("session.winRateChart")}
+          </div>
+          <ResponsiveContainer width="100%" height={100}>
+            <LineChart data={winRateData} margin={{ top: 4, right: 8, left: -28, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="name" tick={{ fontSize: 9, fill: "var(--muted)" }} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: "var(--muted)" }} unit="%" />
+              <Tooltip
+                contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11 }}
+                formatter={(v: unknown) => [`${v}%`, t("session.goal")]}
+                labelFormatter={(_l: unknown, payload: unknown) => {
+                  const p = payload as Array<{ payload?: { date?: string } }>;
+                  return p?.[0]?.payload?.date ?? "";
+                }}
+              />
+              <Line type="monotone" dataKey="rate" stroke="var(--accent)" strokeWidth={2}
+                dot={{ r: 3, fill: "var(--accent)" }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* ── Past sessions ───────────────────────────────────────────────── */}
       {sessions.length > 0 && (
         <>
+          {/* Header row */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
               fontFamily: "'Bebas Neue', sans-serif", flex: 1 }}>
@@ -307,6 +449,34 @@ export function SessionTab() {
             </button>
           </div>
 
+          {/* Tag filter chips */}
+          {allTags.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              <button
+                onClick={() => { setTagFilter(null); setPage(0); }}
+                style={{
+                  padding: "3px 10px", borderRadius: 12, fontSize: 10, cursor: "pointer",
+                  border: `1px solid ${tagFilter === null ? "var(--accent)" : "var(--border)"}`,
+                  background: tagFilter === null ? "rgba(0,212,255,0.15)" : "var(--card)",
+                  color: tagFilter === null ? "var(--accent)" : "var(--muted)",
+                }}>
+                Tous
+              </button>
+              {allTags.map((tag) => (
+                <button key={tag}
+                  onClick={() => { setTagFilter(tagFilter === tag ? null : tag); setPage(0); }}
+                  style={{
+                    padding: "3px 10px", borderRadius: 12, fontSize: 10, cursor: "pointer",
+                    border: `1px solid ${tagFilter === tag ? "var(--accent)" : "var(--border)"}`,
+                    background: tagFilter === tag ? "rgba(0,212,255,0.15)" : "var(--card)",
+                    color: tagFilter === tag ? "var(--accent)" : "var(--muted)",
+                  }}>
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+
           {allVisible.length === 0 && (
             <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 12, padding: 16 }}>
               {showArchived ? t("session.noArchived") : t("session.noSessions")}
@@ -316,9 +486,13 @@ export function SessionTab() {
           {visible.map((s) => {
             const k = sessionKpis(s.matches, s.clubId);
             const wld = sessionWLD(s.matches, s.clubId);
+            const isEditingNote = editingNoteId === s.id;
+            const isEditingTags = editingTagsId === s.id;
+
             return (
               <div key={s.id} style={{ background: "var(--card)", border: "1px solid var(--border)",
                 borderRadius: 8, padding: 14 }}>
+                {/* Card header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div>
                     <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "var(--text)",
@@ -334,6 +508,25 @@ export function SessionTab() {
                     <button onClick={() => setDetailSession(s)} title={t("session.details")}
                       style={{ ...BTN, color: "var(--accent)" }}>
                       <Info size={11} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (isEditingNote) {
+                          setEditingNoteId(null);
+                        } else {
+                          setNoteValue(s.notes ?? "");
+                          setEditingNoteId(s.id);
+                        }
+                      }}
+                      title={t("session.notes")}
+                      style={{ ...BTN, color: isEditingNote ? "var(--accent)" : "var(--muted)" }}>
+                      <FileText size={11} />
+                    </button>
+                    <button
+                      onClick={() => setEditingTagsId(isEditingTags ? null : s.id)}
+                      title={t("session.tags")}
+                      style={{ ...BTN, color: isEditingTags ? "var(--accent)" : "var(--muted)" }}>
+                      <Tag size={11} />
                     </button>
                     {discordWebhook && (
                       <button onClick={() => shareToDiscord(s)} title={t("discord.share")}
@@ -355,7 +548,9 @@ export function SessionTab() {
                     </button>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4, textAlign: "center" }}>
+
+                {/* KPI row */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4, textAlign: "center", marginBottom: 8 }}>
                   {[
                     { l: t("players.gp"),      v: s.matches.length },
                     { l: t("players.goals"),   v: k.goals          },
@@ -369,6 +564,97 @@ export function SessionTab() {
                     </div>
                   ))}
                 </div>
+
+                {/* Tags display */}
+                {(s.tags ?? []).length > 0 && !isEditingTags && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+                    {(s.tags ?? []).map((tag) => (
+                      <span key={tag} style={{
+                        padding: "2px 8px", borderRadius: 10, fontSize: 10,
+                        border: "1px solid var(--border)", color: "var(--muted)",
+                        background: "var(--bg)",
+                      }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Notes display */}
+                {s.notes?.trim() && !isEditingNote && (
+                  <div style={{
+                    fontSize: 11, color: "var(--muted)", padding: "6px 8px",
+                    background: "var(--bg)", borderRadius: 5, borderLeft: "2px solid var(--accent)",
+                    marginBottom: 6,
+                  }}>
+                    {s.notes}
+                  </div>
+                )}
+
+                {/* Tags editor */}
+                {isEditingTags && (
+                  <div style={{ marginTop: 8, padding: "10px 0 4px" }}>
+                    <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 6, letterSpacing: "0.06em" }}>
+                      {t("session.tags")}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                      {PRESET_TAGS.map((tag) => {
+                        const active = (s.tags ?? []).includes(tag);
+                        return (
+                          <button key={tag}
+                            onClick={() => {
+                              const cur = s.tags ?? [];
+                              const next = active ? cur.filter((t2) => t2 !== tag) : [...cur, tag];
+                              updateSession(s.id, { tags: next });
+                              persistSettings();
+                            }}
+                            style={{
+                              padding: "3px 10px", borderRadius: 10, fontSize: 10, cursor: "pointer",
+                              border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                              background: active ? "rgba(0,212,255,0.15)" : "var(--card)",
+                              color: active ? "var(--accent)" : "var(--muted)",
+                            }}>
+                            {tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes editor */}
+                {isEditingNote && (
+                  <div style={{ marginTop: 8 }}>
+                    <textarea
+                      value={noteValue}
+                      onChange={(e) => setNoteValue(e.target.value)}
+                      placeholder={t("session.notesPlaceholder")}
+                      rows={3}
+                      style={{
+                        width: "100%", background: "var(--bg)", border: "1px solid var(--border)",
+                        color: "var(--text)", padding: "6px 8px", borderRadius: 5, fontSize: 11,
+                        outline: "none", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box",
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 4 }}>
+                      <button onClick={() => setEditingNoteId(null)} style={{ ...BTN }}>
+                        {t("session.noThanks")}
+                      </button>
+                      <button
+                        onClick={() => {
+                          updateSession(s.id, { notes: noteValue });
+                          persistSettings();
+                          setEditingNoteId(null);
+                        }}
+                        style={{
+                          ...BTN, color: "var(--accent)",
+                          border: "1px solid var(--accent)", background: "rgba(0,212,255,0.1)",
+                        }}>
+                        ✓ Sauvegarder
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -392,6 +678,7 @@ export function SessionTab() {
         </>
       )}
 
+      {/* ── Export modals ──────────────────────────────────────────────── */}
       {exportModal === "png" && (
         <ExportModal type="png" pngSourceEl={contentRef.current}
           defaultFilename={`session-${dateStr}`} onClose={() => setExportModal(null)} />
@@ -401,7 +688,7 @@ export function SessionTab() {
           defaultFilename={`sessions-${dateStr}`} onClose={() => setExportModal(null)} />
       )}
 
-      {/* Session detail modal */}
+      {/* ── Session detail modal ───────────────────────────────────────── */}
       {detailSession && (() => {
         const s = detailSession;
         const kpis = sessionKpis(s.matches, s.clubId);
@@ -424,6 +711,16 @@ export function SessionTab() {
                     letterSpacing: "0.1em" }}>{s.clubName}</div>
                   <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>
                     {new Date(s.date).toLocaleDateString()} · {s.matches.length} match{s.matches.length !== 1 ? "s" : ""}
+                    {(s.tags ?? []).length > 0 && (
+                      <span style={{ marginLeft: 8 }}>
+                        {(s.tags ?? []).map((tag) => (
+                          <span key={tag} style={{ marginRight: 4, padding: "1px 6px", borderRadius: 8,
+                            border: "1px solid var(--border)", fontSize: 9 }}>
+                            {tag}
+                          </span>
+                        ))}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button onClick={() => setDetailSession(null)} style={{ background: "none", border: "none",
@@ -461,6 +758,16 @@ export function SessionTab() {
                     ))}
                   </div>
                 </div>
+
+                {/* Notes in detail modal */}
+                {s.notes?.trim() && (
+                  <div style={{ background: "var(--bg)", borderRadius: 8, padding: "10px 12px",
+                    border: "1px solid var(--border)", borderLeft: "3px solid var(--accent)" }}>
+                    <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em",
+                      fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>📝 {t("session.notes")}</div>
+                    <div style={{ fontSize: 12, color: "var(--text)", whiteSpace: "pre-wrap" }}>{s.notes}</div>
+                  </div>
+                )}
 
                 {/* Match list */}
                 <div>
@@ -533,7 +840,7 @@ export function SessionTab() {
               <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderTop: "1px solid var(--border)",
                 justifyContent: "flex-end" }}>
                 {discordWebhook && (
-                  <button onClick={() => { shareToDiscord(s); }}
+                  <button onClick={() => shareToDiscord(s)}
                     disabled={sharingId === s.id}
                     style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
                       background: "rgba(88,101,242,0.15)", border: "1px solid rgba(88,101,242,0.35)",
@@ -542,7 +849,7 @@ export function SessionTab() {
                     <Send size={13} /> Discord
                   </button>
                 )}
-                <button onClick={() => { generateSessionPdf(s); }}
+                <button onClick={() => { setDetailSession(null); setPdfModal(s); }}
                   style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
                     background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.3)",
                     borderRadius: 7, color: "var(--accent)", fontSize: 12, cursor: "pointer" }}>
@@ -554,7 +861,16 @@ export function SessionTab() {
         );
       })()}
 
-      {/* PDF export prompt after session stop */}
+      {/* ── PDF save modal (detail) ────────────────────────────────────── */}
+      {pdfModal && (
+        <PdfSaveModal
+          filename={getSessionPdfFilename(pdfModal)}
+          onConfirm={() => { generateSessionPdf(pdfModal); setPdfModal(null); }}
+          onCancel={() => setPdfModal(null)}
+        />
+      )}
+
+      {/* ── PDF prompt after session stop ─────────────────────────────── */}
       {pdfPrompt && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 100,
@@ -574,7 +890,7 @@ export function SessionTab() {
               {pdfPrompt.matches.length} match{pdfPrompt.matches.length !== 1 ? "s" : ""} — {t("session.pdfQuestion")}
             </div>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-              <button onClick={() => { generateSessionPdf(pdfPrompt); setPdfPrompt(null); }}
+              <button onClick={() => { setPdfModal(pdfPrompt); setPdfPrompt(null); }}
                 style={{
                   padding: "8px 18px", background: "rgba(0,212,255,0.15)",
                   border: "1px solid rgba(0,212,255,0.3)", borderRadius: 8,

@@ -7,7 +7,8 @@ import { Send, FileText } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useT } from "../../i18n";
 import { sendDiscordWebhook } from "../../api/discord";
-import { generatePlayerPdf } from "../../utils/pdfExport";
+import { generatePlayerPdf, getPlayerPdfFilename } from "../../utils/pdfExport";
+import { PdfSaveModal } from "../ui/PdfSaveModal";
 import type { Player } from "../../types";
 
 export const POS_LABELS: Record<string, string> = {
@@ -69,6 +70,7 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
   const [evoStat, setEvoStat] = useState<"rating" | "goals" | "assists">("rating");
   const [sharing, setSharing] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
   const posLabel = POS_LABELS[player.position] ?? player.position ?? "—";
 
   // Build per-match evolution data
@@ -201,6 +203,7 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
   ];
 
   return (
+    <>
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50,
       display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
       <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, width: 500,
@@ -224,11 +227,7 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button onClick={async () => {
-              setExporting(true);
-              try { await generatePlayerPdf(player, posLabel, allEvoData.rating); }
-              finally { setExporting(false); }
-            }} disabled={exporting} title="Exporter en PDF"
+            <button onClick={() => setShowPdfModal(true)} disabled={exporting} title="Exporter en PDF"
               style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
                 background: "rgba(255,107,53,0.12)", border: "1px solid rgba(255,107,53,0.3)",
                 borderRadius: 6, color: "#ff6b35", fontSize: 11,
@@ -307,5 +306,18 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
         )}
       </div>
     </div>
+    {showPdfModal && (
+      <PdfSaveModal
+        filename={getPlayerPdfFilename(player.name)}
+        onConfirm={async () => {
+          setShowPdfModal(false);
+          setExporting(true);
+          try { await generatePlayerPdf(player, posLabel, allEvoData.rating); }
+          finally { setExporting(false); }
+        }}
+        onCancel={() => setShowPdfModal(false)}
+      />
+    )}
+    </>
   );
 }

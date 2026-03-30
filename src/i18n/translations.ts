@@ -272,6 +272,17 @@ export const translations: Translations = {
   "session.playerStats":     { fr: "Stats joueurs",               en: "Player stats",          es: "Stats jugadores",                 de: "Spieler-Stats",                      pt: "Stats jogadores" },
   "session.bilan":           { fr: "Bilan",                       en: "Record",                es: "Balance",                         de: "Bilanz",                             pt: "Balanco" },
   "session.avgRating":       { fr: "Note moy.",                   en: "Avg rating",            es: "Media",                           de: "Ø Note",                             pt: "Media" },
+  "session.notes":           { fr: "Notes tactiques",             en: "Tactical notes",        es: "Notas tacticas",                  de: "Taktische Notizen",                  pt: "Notas taticas" },
+  "session.notesPlaceholder":{ fr: "Remarques, tactiques, points à améliorer…", en: "Notes, tactics, points to improve…", es: "Notas, tacticas, puntos a mejorar…", de: "Notizen, Taktiken, Verbesserungen…", pt: "Notas, taticas, pontos a melhorar…" },
+  "session.tags":            { fr: "Tags",                        en: "Tags",                  es: "Etiquetas",                       de: "Tags",                               pt: "Tags" },
+  "session.filterByTag":     { fr: "Filtrer par tag",             en: "Filter by tag",         es: "Filtrar por etiqueta",            de: "Nach Tag filtern",                   pt: "Filtrar por tag" },
+  "session.goal":            { fr: "Objectif",                    en: "Goal",                  es: "Objetivo",                        de: "Ziel",                               pt: "Objetivo" },
+  "session.goalLabel":       { fr: "Objectif victoires",          en: "Win target",            es: "Objetivo victorias",              de: "Siegziel",                           pt: "Meta de vitorias" },
+  "session.goalProgress":    { fr: "victoires",                   en: "wins",                  es: "victorias",                       de: "Siege",                              pt: "vitorias" },
+  "session.winRateChart":    { fr: "TAUX DE VICTOIRE PAR SESSION","en": "WIN RATE PER SESSION", es: "TASA DE VICTORIA POR SESION",    de: "SIEGQUOTE PRO SITZUNG",              pt: "TAXA DE VITORIA POR SESSAO" },
+  "session.pdfFilename":     { fr: "Fichier",                     en: "File",                  es: "Archivo",                        de: "Datei",                              pt: "Arquivo" },
+  "session.pdfSaveInfo":     { fr: "Sera enregistré dans Téléchargements", en: "Will be saved to Downloads", es: "Se guardará en Descargas", de: "Wird in Downloads gespeichert",    pt: "Será salvo em Downloads" },
+  "session.pdfConfirm":      { fr: "Enregistrer",                 en: "Save",                  es: "Guardar",                        de: "Speichern",                          pt: "Salvar" },
 
   // ── Tactics tab ──
   "tactics.formation":       { fr: "FORMATION",                   en: "FORMATION",             es: "FORMACION",                       de: "FORMATION",                          pt: "FORMACAO" },

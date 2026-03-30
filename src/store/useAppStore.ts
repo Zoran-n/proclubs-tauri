@@ -84,6 +84,8 @@ interface AppState {
   setViewingSession: (s: Session | null) => void;
   deleteSession: (id: string) => void;
   archiveSession: (id: string) => void;
+  updateSession: (id: string, patch: Partial<Session>) => void;
+  setActiveSessionGoal: (goal: number | undefined) => void;
   setTheme: (t: string) => void;
   setDarkMode: (v: boolean) => void;
   setShowGrid: (v: boolean) => void;
@@ -187,6 +189,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteSession: (id) => set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) })),
   archiveSession: (id) => set((s) => ({
     sessions: s.sessions.map((x) => x.id === id ? { ...x, archived: !x.archived } : x),
+  })),
+  updateSession: (id, patch) => set((s) => ({
+    sessions: s.sessions.map((x) => x.id === id ? { ...x, ...patch } : x),
+  })),
+  setActiveSessionGoal: (goal) => set((s) => ({
+    activeSession: s.activeSession ? { ...s.activeSession, goal } : null,
   })),
   setTheme: (theme) => {
     document.documentElement.setAttribute("data-theme", theme);

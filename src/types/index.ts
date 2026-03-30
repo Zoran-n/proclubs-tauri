@@ -123,6 +123,9 @@ export interface Session {
   date: string;
   matches: Match[];
   archived?: boolean;
+  notes?: string;
+  tags?: string[];
+  goal?: number;
 }
 
 export interface CompareEntry {
