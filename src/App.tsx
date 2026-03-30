@@ -9,6 +9,7 @@ import { DevPanel } from "./components/DevPanel/DevPanel";
 import { SearchModal } from "./components/ui/SearchModal";
 import { Onboarding } from "./components/ui/Onboarding";
 import { ToastContainer } from "./components/ui/Toast";
+import { UpdateModal } from "./components/ui/UpdateModal";
 import { useAppStore } from "./store/useAppStore";
 import { checkProxy } from "./api/tauri";
 
@@ -100,6 +101,7 @@ function App() {
       {showDevPanel && <DevPanel />}
       <SearchModal />
       {settingsLoaded && !onboarded && <Onboarding />}
+      <UpdateModal />
       <ToastContainer />
     </div>
   );

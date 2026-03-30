@@ -64,6 +64,8 @@ interface AppState {
   discordWebhook: string;
   autoUpdate: boolean;
   updateAvailable: boolean;
+  updateVersion: string | null;
+  updateNotes: string | null;
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -107,6 +109,7 @@ interface AppState {
   setDiscordWebhook: (v: string) => void;
   setAutoUpdate: (v: boolean) => void;
   setUpdateAvailable: (v: boolean) => void;
+  setUpdateInfo: (version: string | null, notes: string | null) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
@@ -137,6 +140,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   discordWebhook: "",
   autoUpdate: false,
   updateAvailable: false,
+  updateVersion: null,
+  updateNotes: null,
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
@@ -239,6 +244,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setDiscordWebhook: (discordWebhook) => set({ discordWebhook }),
   setAutoUpdate: (autoUpdate) => set({ autoUpdate }),
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
+  setUpdateInfo: (updateVersion, updateNotes) => set({ updateVersion, updateNotes }),
 
   applyProxy: async (url: string) => {
     await apiSetProxy(url.trim() || null);

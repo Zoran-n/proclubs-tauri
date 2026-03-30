@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import { RefreshCw, Download, ExternalLink, Palette, Check } from "lucide-react";
+import { RefreshCw, Download, Palette, Check } from "lucide-react";
 import { check as checkUpdate } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAppStore } from "../../store/useAppStore";
+import { setPendingUpdate, setPendingManualUrl } from "../../utils/pendingUpdate";
 import { THEMES } from "../../types";
 import { useT, LANGUAGES } from "../../i18n";
 import type { Lang } from "../../i18n";
@@ -14,7 +13,7 @@ export function SettingsTab() {
   const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent,
     language, setTheme, setDarkMode, setShowAnimations, setShowLogs,
     setShowIdSearch, setFontSize, setFontFamily, setCustomAccent, setLanguage,
-    autoUpdate, setAutoUpdate, setUpdateAvailable,
+    autoUpdate, setAutoUpdate, setUpdateAvailable, setUpdateInfo,
     persistSettings } = useAppStore();
   const t = useT();
 
@@ -22,7 +21,6 @@ export function SettingsTab() {
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState("…");
-  const [updateUrl, setUpdateUrl] = useState<string | null>(null);
 
   useEffect(() => { getVersion().then(setAppVersion).catch(() => {}); }, []);
 
@@ -38,18 +36,17 @@ export function SettingsTab() {
     setUpdateStatus("checking");
     setUpdateVersion(null);
     setUpdateError(null);
-    setUpdateUrl(null);
     try {
       const update = await checkUpdate();
       if (update?.available) {
-        setUpdateVersion(update.version);
+        setPendingUpdate(update);
+        setUpdateInfo(update.version ?? null, update.body ?? null);
         setUpdateAvailable(true);
-        setUpdateStatus("downloading");
-        await update.downloadAndInstall();
-        setUpdateAvailable(false);
-        await relaunch();
+        setUpdateVersion(update.version ?? null);
+        setUpdateStatus("idle");
       } else {
         setUpdateAvailable(false);
+        setPendingUpdate(null);
         setUpdateStatus("up-to-date");
         setTimeout(() => setUpdateStatus("idle"), 3000);
       }
@@ -60,12 +57,15 @@ export function SettingsTab() {
           "check_for_update", { currentVersion: appVersion }
         );
         if (result.available) {
-          setUpdateVersion(result.version);
-          setUpdateUrl(`https://github.com/Zoran-n/proclubs-tauri/releases/latest`);
+          const url = `https://github.com/Zoran-n/proclubs-tauri/releases/latest`;
+          setPendingManualUrl(url);
+          setUpdateInfo(result.version ?? null, result.notes ?? null);
           setUpdateAvailable(true);
-          setUpdateStatus("downloading");
+          setUpdateVersion(result.version ?? null);
+          setUpdateStatus("idle");
         } else {
           setUpdateAvailable(false);
+          setPendingUpdate(null);
           setUpdateStatus("up-to-date");
           setTimeout(() => setUpdateStatus("idle"), 3000);
         }
@@ -280,24 +280,12 @@ export function SettingsTab() {
           opacity: updateStatus === "checking" || updateStatus === "downloading" ? 0.7 : 1,
           transition: "all 0.15s",
         }}>
-        {updateStatus === "checking" && <><RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> {t("settings.checking")}</>}
-        {updateStatus === "downloading" && !updateUrl && <><Download size={14} /> {t("settings.installing")} v{updateVersion}…</>}
-        {updateStatus === "downloading" && updateUrl && <><ExternalLink size={14} /> v{updateVersion} {t("settings.available")}</>}
+        {updateStatus === "checking"  && <><RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> {t("settings.checking")}</>}
         {updateStatus === "up-to-date" && <><Check size={14} /> {t("settings.upToDate")}</>}
-        {updateStatus === "error" && <><RefreshCw size={14} /> {t("settings.retry")}</>}
-        {updateStatus === "idle" && <><RefreshCw size={14} /> {t("settings.checkUpdates")}</>}
+        {updateStatus === "error"      && <><RefreshCw size={14} /> {t("settings.retry")}</>}
+        {updateStatus === "idle" && !updateVersion && <><RefreshCw size={14} /> {t("settings.checkUpdates")}</>}
+        {updateStatus === "idle" && updateVersion  && <><Download size={14} /> v{updateVersion} {t("settings.available")}</>}
       </button>
-      {updateStatus === "downloading" && updateUrl && (
-        <button onClick={() => openUrl(updateUrl)} style={{
-          width: "100%", marginTop: 6, padding: "8px 10px",
-          background: "var(--accent)", color: "#fff", border: "none",
-          borderRadius: 4, cursor: "pointer", display: "flex",
-          alignItems: "center", justifyContent: "center", gap: 6,
-          fontSize: 13, fontWeight: 600,
-        }}>
-          <Download size={14} /> {t("settings.download")} v{updateVersion}
-        </button>
-      )}
       {updateStatus === "error" && updateError && (
         <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(218,55,60,0.1)", borderRadius: 4 }}>
           <p style={{ fontSize: 10, color: "var(--red)", fontFamily: "monospace", wordBreak: "break-all",
