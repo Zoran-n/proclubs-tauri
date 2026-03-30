@@ -138,16 +138,29 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
       if (player.cleanSheets)    fields.push({ name: "🧤 Clean sheets",  value: String(player.cleanSheets),    inline: true });
       if (player.saveAttempts)   fields.push({ name: "🧤 Arrêts",        value: String(player.saveAttempts),   inline: true });
 
-      // Evolution sparklines
-      const fmt = (arr: number[], stat: "rating" | "goals" | "assists") =>
-        arr.map((v, i) => `M${i + 1}:${stat === "rating" ? v.toFixed(1) : v}`).join(" · ");
+      // Evolution — sparklines visuelles
+      const BLOCKS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+      const ratingSparkline = (arr: number[]) => {
+        const min = Math.min(...arr), max = Math.max(...arr);
+        const range = max - min || 1;
+        const bar = arr.map(v => BLOCKS[Math.round(((v - min) / range) * (BLOCKS.length - 1))]).join("");
+        const avg = (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1);
+        const trend = arr[arr.length - 1] >= arr[0] ? "↑" : "↓";
+        const last = arr.length;
+        return `\`${bar}\`\nMoy. **${avg}** ★  |  Min ${min.toFixed(1)}  |  Max ${max.toFixed(1)}  |  ${last} matchs  ${trend}`;
+      };
+      const countSparkline = (arr: number[], emoji: string) => {
+        const squares = arr.map(v => v === 0 ? "⬜" : v === 1 ? "🟩" : v === 2 ? "🟨" : "🟥").join("");
+        const total = arr.reduce((a, b) => a + b, 0);
+        return `${squares}\nTotal : **${total}** ${emoji} sur ${arr.length} matchs`;
+      };
 
       if (allEvoData.rating.length > 1)
-        fields.push({ name: "📈 Évolution Note",   value: fmt(allEvoData.rating, "rating").slice(0, 1024),  inline: false });
+        fields.push({ name: "📈 Évolution Note", value: ratingSparkline(allEvoData.rating).slice(0, 1024), inline: false });
       if (allEvoData.goals.length > 1 && allEvoData.goals.some((v) => v > 0))
-        fields.push({ name: "⚽ Évolution Buts",   value: fmt(allEvoData.goals, "goals").slice(0, 1024),    inline: false });
+        fields.push({ name: "⚽ Évolution Buts", value: countSparkline(allEvoData.goals, "⚽").slice(0, 1024), inline: false });
       if (allEvoData.assists.length > 1 && allEvoData.assists.some((v) => v > 0))
-        fields.push({ name: "🅰️ Évolution PD",    value: fmt(allEvoData.assists, "assists").slice(0, 1024), inline: false });
+        fields.push({ name: "🅰️ Évolution PD", value: countSparkline(allEvoData.assists, "🅰️").slice(0, 1024), inline: false });
 
       await sendDiscordWebhook(discordWebhook, [{
         title: `👤 ${player.name} — ${posLabel}`,
