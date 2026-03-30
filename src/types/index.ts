@@ -162,6 +162,7 @@ export interface Settings {
   discordWebhook?: string;
   autoUpdate?: boolean;
   matchAnnotations?: Record<string, string>;
+  visibleKpis?: string[];
 }
 
 export interface ClubData {

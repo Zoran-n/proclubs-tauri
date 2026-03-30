@@ -1,5 +1,19 @@
 # Changelog — ProClubs Stats
 
+## v0.4.1 — 2026-03-30
+
+### Nouvelles fonctionnalités — KPIs personnalisables
+
+#### Bouton ÉDITER sur la barre KPI
+- Nouveau bouton **ÉDITER** (icône crayon) à droite de la barre de KPIs — s'allume en couleur d'accent quand actif
+- Ouvre un **panel dropdown** listant les 8 KPIs disponibles avec checkbox visuelle, nom coloré et description
+- KPIs disponibles : **Matchs**, **Victoires**, **Nuls**, **Défaites**, **% Victoires**, **Buts** (originaux), + **Buts/Match** (moyenne calculée) et **Points** (V×3 + N×1, format ligue)
+- Impossible de désactiver le dernier KPI visible (minimum 1 toujours affiché)
+- La sélection est **persistée** immédiatement dans les settings locaux (survit au redémarrage)
+- Traduit en 5 langues (FR / EN / ES / DE / PT)
+
+---
+
 ## v0.4.0 — 2026-03-30
 
 ### Nouvelles fonctionnalités — Onglet Matchs

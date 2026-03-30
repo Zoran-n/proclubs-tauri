@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BarChart2, Hash, Settings, Send } from "lucide-react";
+import { BarChart2, Hash, Settings, Send, Pencil, X } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { PlayersTab } from "../tabs/PlayersTab";
 import { MatchesTab } from "../tabs/MatchesTab";
@@ -16,10 +16,11 @@ import { useT } from "../../i18n";
 
 export function MainPanel() {
   const { currentClub, players, matches, activeTab, isLoading, error, activeSession,
-    sidebarTab, setSidebarTab, discordWebhook, addToast } = useAppStore();
+    sidebarTab, setSidebarTab, discordWebhook, addToast, visibleKpis, setVisibleKpis, persistSettings } = useAppStore();
   const t = useT();
   const [logo, setLogo] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [editingKpis, setEditingKpis] = useState(false);
 
   const shareTab = async () => {
     if (!discordWebhook || !currentClub) return;
@@ -52,15 +53,21 @@ export function MainPanel() {
 
   const total  = (currentClub?.wins ?? 0) + (currentClub?.losses ?? 0) + (currentClub?.ties ?? 0);
   const winPct = total > 0 ? Math.round(((currentClub?.wins ?? 0) / total) * 100) : 0;
+  const goalsPerMatch = total > 0 ? ((currentClub?.goals ?? 0) / total).toFixed(1) : "0.0";
+  const points = (currentClub?.wins ?? 0) * 3 + (currentClub?.ties ?? 0);
 
-  const KPIS = currentClub ? [
-    { label: t("main.matches"),  value: total,                     color: "var(--accent)" },
-    { label: t("main.wins"),     value: currentClub.wins,          color: "var(--green)" },
-    { label: t("main.draws"),    value: currentClub.ties,          color: "var(--gold)" },
-    { label: t("main.losses"),   value: currentClub.losses,        color: "var(--red)" },
-    { label: t("main.winRate"),  value: `${winPct}%`,              color: "var(--accent)" },
-    { label: t("main.goals"),    value: currentClub.goals,         color: "var(--gold)" },
+  const ALL_KPIS_CATALOG = currentClub ? [
+    { key: "matches",      label: t("main.matches"),      value: total,                color: "var(--accent)", desc: "Victoires + Nuls + Défaites" },
+    { key: "wins",         label: t("main.wins"),         value: currentClub.wins,     color: "var(--green)",  desc: "Nombre de victoires" },
+    { key: "draws",        label: t("main.draws"),        value: currentClub.ties,     color: "var(--gold)",   desc: "Nombre de matchs nuls" },
+    { key: "losses",       label: t("main.losses"),       value: currentClub.losses,   color: "var(--red)",    desc: "Nombre de défaites" },
+    { key: "winRate",      label: t("main.winRate"),      value: `${winPct}%`,          color: "var(--accent)", desc: "Victoires / Total matchs" },
+    { key: "goals",        label: t("main.goals"),        value: currentClub.goals,    color: "var(--gold)",   desc: "Buts marqués au total" },
+    { key: "goalsPerMatch",label: t("main.goalsPerMatch"),value: goalsPerMatch,         color: "var(--gold)",   desc: "Moyenne de buts par match" },
+    { key: "points",       label: t("main.points"),       value: points,               color: "var(--green)",  desc: "V×3 + N×1 (points ligue)" },
   ] : [];
+
+  const KPIS = ALL_KPIS_CATALOG.filter(k => visibleKpis.includes(k.key));
 
   // ── Profile page ───────────────────────────────────────────────────
   if (sidebarTab === "profile") {
@@ -226,24 +233,126 @@ export function MainPanel() {
 
       {/* ── KPI cards ─────────────────────────────────────────────── */}
       {currentClub && (
-        <div style={{
-          display: "flex", gap: 8, padding: "12px 16px",
-          borderBottom: "1px solid rgba(0,0,0,0.12)", flexShrink: 0,
-        }} role="group" aria-label="KPIs">
-          {KPIS.map(({ label, value, color }) => (
-            <div key={label} style={{
-              flex: 1, background: "var(--hover)", borderRadius: 8,
-              padding: "10px 12px", textAlign: "center",
-            }}>
-              <div style={{
-                fontFamily: "'Bebas Neue', sans-serif", fontSize: 24,
-                color, lineHeight: 1,
-              }}>{value}</div>
-              <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em", marginTop: 4, fontWeight: 600 }}>
-                {label}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <div style={{
+            display: "flex", alignItems: "stretch", gap: 8, padding: "12px 16px",
+            borderBottom: "1px solid rgba(0,0,0,0.12)",
+          }} role="group" aria-label="KPIs">
+            {KPIS.map(({ key, label, value, color }) => (
+              <div key={key} style={{
+                flex: 1, background: "var(--hover)", borderRadius: 8,
+                padding: "10px 12px", textAlign: "center",
+              }}>
+                <div style={{
+                  fontFamily: "'Bebas Neue', sans-serif", fontSize: 24,
+                  color, lineHeight: 1,
+                }}>{value}</div>
+                <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em", marginTop: 4, fontWeight: 600 }}>
+                  {label}
+                </div>
+              </div>
+            ))}
+            {/* Bouton Éditer */}
+            <button
+              onClick={() => setEditingKpis(v => !v)}
+              title={t("main.editKpis")}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: 4, padding: "8px 10px", background: editingKpis ? "var(--accent)" : "var(--hover)",
+                border: `1px solid ${editingKpis ? "var(--accent)" : "var(--border)"}`,
+                borderRadius: 8, cursor: "pointer", color: editingKpis ? "#fff" : "var(--muted)",
+                transition: "all 0.15s", flexShrink: 0, minWidth: 40,
+              }}
+              onMouseEnter={(e) => { if (!editingKpis) { e.currentTarget.style.color = "var(--text)"; e.currentTarget.style.borderColor = "var(--accent)"; } }}
+              onMouseLeave={(e) => { if (!editingKpis) { e.currentTarget.style.color = "var(--muted)"; e.currentTarget.style.borderColor = "var(--border)"; } }}
+            >
+              <Pencil size={13} />
+              <span style={{ fontSize: 8, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em" }}>
+                {t("main.editKpis")}
+              </span>
+            </button>
+          </div>
+
+          {/* ── Panel éditeur KPI ─────────────────────────────────── */}
+          {editingKpis && (
+            <div
+              style={{
+                position: "absolute", top: "calc(100% - 1px)", right: 0, zIndex: 200,
+                background: "var(--surface)", border: "1px solid var(--border)",
+                borderRadius: "0 0 10px 10px", padding: "14px 16px", width: 260,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.08em", color: "var(--accent)" }}>
+                  {t("main.kpiPanelTitle")}
+                </span>
+                <button
+                  onClick={() => setEditingKpis(false)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "flex", padding: 2 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted)"; }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Liste des KPIs */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {ALL_KPIS_CATALOG.map(kpi => {
+                  const active = visibleKpis.includes(kpi.key);
+                  return (
+                    <label
+                      key={kpi.key}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                        padding: "7px 10px", borderRadius: 6, transition: "background 0.1s",
+                        background: active ? "rgba(var(--accent-rgb, 0,212,255), 0.08)" : "transparent",
+                        border: `1px solid ${active ? "rgba(var(--accent-rgb, 0,212,255), 0.2)" : "transparent"}`,
+                      }}
+                    >
+                      {/* Checkbox custom */}
+                      <div
+                        style={{
+                          width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                          border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                          background: active ? "var(--accent)" : "transparent",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          transition: "all 0.15s",
+                        }}
+                        onClick={() => {
+                          let next: string[];
+                          if (active) {
+                            if (visibleKpis.length <= 1) return;
+                            next = visibleKpis.filter(k => k !== kpi.key);
+                          } else {
+                            next = [...visibleKpis, kpi.key];
+                          }
+                          setVisibleKpis(next);
+                          persistSettings();
+                        }}
+                      >
+                        {active && (
+                          <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                            <path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <div style={{ flex: 1, pointerEvents: "none" }}>
+                        <div style={{ fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", color: kpi.color, letterSpacing: "0.05em" }}>
+                          {kpi.label}
+                        </div>
+                        <div style={{ fontSize: 9, color: "var(--muted)", marginTop: 1 }}>
+                          {kpi.desc}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             </div>
-          ))}
+          )}
         </div>
       )}
 

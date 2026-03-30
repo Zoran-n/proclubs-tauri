@@ -75,6 +75,10 @@ export const translations: Translations = {
   "main.losses":          { fr: "DEFAITES",     en: "LOSSES",      es: "DERROTAS",   de: "NIEDERLAGEN", pt: "DERROTAS" },
   "main.winRate":         { fr: "% VICTOIRES",  en: "% WINS",      es: "% VICTORIAS",de: "% SIEGE",     pt: "% VITORIAS" },
   "main.goals":           { fr: "BUTS",         en: "GOALS",       es: "GOLES",      de: "TORE",        pt: "GOLS" },
+  "main.goalsPerMatch":   { fr: "BUTS/MATCH",   en: "GOALS/MATCH", es: "GOLES/PART.", de: "TORE/SPIEL",  pt: "GOLS/PART." },
+  "main.points":          { fr: "POINTS",        en: "POINTS",      es: "PUNTOS",      de: "PUNKTE",       pt: "PONTOS" },
+  "main.editKpis":        { fr: "EDITER",        en: "EDIT",        es: "EDITAR",      de: "BEARBEITEN",   pt: "EDITAR" },
+  "main.kpiPanelTitle":   { fr: "KPIs DISPONIBLES", en: "AVAILABLE KPIs", es: "KPIs DISPONIBLES", de: "VERFÜGBARE KPIs", pt: "KPIs DISPONÍVEIS" },
 
   // ── Match results ──
   "match.win":            { fr: "VICTOIRE",     en: "WIN",         es: "VICTORIA",   de: "SIEG",        pt: "VITORIA" },

@@ -130,6 +130,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Internationalisation** : FR / EN / ES / DE / PT (~250 clés de traduction, toute l'interface)
 - **Onboarding** : assistant de bienvenue 3 étapes (langue, fonctionnalités, raccourcis) au premier lancement
 - **Accessibilité** : focus-visible, skip-link, reduced-motion, forced-colors, attributs ARIA
+- **KPIs personnalisables** : bouton ÉDITER sur la barre KPI — choisir quels indicateurs afficher parmi 8 disponibles (Matchs, Victoires, Nuls, Défaites, % Victoires, Buts, Buts/Match, Points) — sélection persistée
 
 ### Proxy & réseau
 - Support proxy configurable (HTTP/HTTPS)
@@ -195,7 +196,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ### UX / Interface
 - **Mode compact** : densifier les tableaux et cartes pour les petits écrans
 - **Drag & drop** : réordonner les favoris dans la sidebar ou les colonnes du tableau joueurs
-- **Tableau de bord personnalisable** : choisir quels KPIs et graphiques afficher sur la page principale
 - **Recherche globale** : barre de recherche unique qui trouve clubs, joueurs et sessions en même temps
 
 ### Performance & architecture

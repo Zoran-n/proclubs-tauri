@@ -67,6 +67,7 @@ interface AppState {
   updateVersion: string | null;
   updateNotes: string | null;
   matchAnnotations: Record<string, string>;
+  visibleKpis: string[];
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -112,6 +113,7 @@ interface AppState {
   setUpdateAvailable: (v: boolean) => void;
   setUpdateInfo: (version: string | null, notes: string | null) => void;
   setMatchAnnotation: (matchId: string, note: string) => void;
+  setVisibleKpis: (keys: string[]) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
@@ -145,6 +147,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateVersion: null,
   updateNotes: null,
   matchAnnotations: {},
+  visibleKpis: ["matches", "wins", "draws", "losses", "winRate", "goals"],
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
@@ -253,6 +256,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ? { ...s.matchAnnotations, [matchId]: note }
       : Object.fromEntries(Object.entries(s.matchAnnotations).filter(([k]) => k !== matchId)),
   })),
+  setVisibleKpis: (visibleKpis) => set({ visibleKpis }),
 
   applyProxy: async (url: string) => {
     await apiSetProxy(url.trim() || null);
@@ -302,6 +306,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         discordWebhook: s.discordWebhook ?? "",
         autoUpdate: s.autoUpdate ?? false,
         matchAnnotations: s.matchAnnotations ?? {},
+        visibleKpis: s.visibleKpis ?? ["matches", "wins", "draws", "losses", "winRate", "goals"],
         settingsLoaded: true,
       });
     } catch { /* first launch */ } finally {
@@ -311,7 +316,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   persistSettings: async () => {
     const { history, favs, tactics, sessions, compareHistory, eaProfile, theme, darkMode, proxyUrl,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations } = get();
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations, visibleKpis } = get();
     await apiSave({
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -327,6 +332,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       discordWebhook: discordWebhook.trim() || undefined,
       autoUpdate,
       matchAnnotations,
+      visibleKpis,
     });
   },
 }));
