@@ -202,25 +202,11 @@ export function Sidebar() {
 /* ── Launch sidebar (no club loaded) ─────────────────────────────── */
 
 function LaunchSidebar() {
-  const { history, favs, toggleFav, persistSettings, setActiveTab, activeTab, addLog, setSearchResults,
-    discordWebhook, players, matches, addToast } = useAppStore();
+  const { history, favs, toggleFav, persistSettings, setActiveTab, activeTab, addLog, setSearchResults } = useAppStore();
   const { load } = useClub();
   const t = useT();
   const NAV_ITEMS = useNavItems();
   const [query, setQuery] = useState("");
-  const [sharing, setSharing] = useState(false);
-
-  const shareOverview = async () => {
-    if (!discordWebhook) { addToast("Configure le webhook Discord dans Mon Profil", "error"); return; }
-    const club = history[0] || favs[0];
-    if (!club) { addToast("Charge un club d'abord", "error"); return; }
-    setSharing(true);
-    try {
-      await sendDiscordWebhook(discordWebhook, [buildClubOverviewEmbed(club, players, matches)]);
-      addToast("Envoyé sur Discord !", "success");
-    } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
-    finally { setSharing(false); }
-  };
 
   const lastClub = history[0] || favs[0];
 
@@ -376,8 +362,6 @@ function LaunchSidebar() {
           <span>{t("sidebar.refreshBtn")}</span>
         </div>
         <AutoRefreshItem clubId={lastClub?.id} platform={lastClub?.platform} load={load} />
-
-        <DiscordSection onShare={shareOverview} sharing={sharing} />
       </div>
     </>
   );
