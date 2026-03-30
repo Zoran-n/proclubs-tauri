@@ -1,6 +1,6 @@
 # Changelog — ProClubs Stats
 
-## v0.3.0 — 2026-03-30
+## v0.3.22 — 2026-03-30
 
 ### Nouvelles fonctionnalités
 
