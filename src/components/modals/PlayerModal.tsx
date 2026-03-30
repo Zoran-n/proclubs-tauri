@@ -3,10 +3,11 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Send } from "lucide-react";
+import { Send, FileText } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useT } from "../../i18n";
 import { sendDiscordWebhook } from "../../api/discord";
+import { generatePlayerPdf } from "../../utils/pdfExport";
 import type { Player } from "../../types";
 
 export const POS_LABELS: Record<string, string> = {
@@ -67,6 +68,7 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
   const { matches, currentClub, discordWebhook, addToast } = useAppStore();
   const [evoStat, setEvoStat] = useState<"rating" | "goals" | "assists">("rating");
   const [sharing, setSharing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const posLabel = POS_LABELS[player.position] ?? player.position ?? "—";
 
   // Build per-match evolution data
@@ -209,6 +211,17 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={async () => {
+              setExporting(true);
+              try { await generatePlayerPdf(player, posLabel, allEvoData.rating); }
+              finally { setExporting(false); }
+            }} disabled={exporting} title="Exporter en PDF"
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
+                background: "rgba(255,107,53,0.12)", border: "1px solid rgba(255,107,53,0.3)",
+                borderRadius: 6, color: "#ff6b35", fontSize: 11,
+                cursor: exporting ? "default" : "pointer", opacity: exporting ? 0.5 : 1 }}>
+              <FileText size={12} /> PDF
+            </button>
             {discordWebhook && (
               <button onClick={handleShareDiscord} disabled={sharing}
                 title="Envoyer sur Discord"

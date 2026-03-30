@@ -2,7 +2,7 @@
 
 ## v0.4.1 — 2026-03-30
 
-### Nouvelles fonctionnalités — KPIs personnalisables
+### KPIs personnalisables
 
 #### Bouton ÉDITER sur la barre KPI
 - Nouveau bouton **ÉDITER** (icône crayon) à droite de la barre de KPIs — s'allume en couleur d'accent quand actif
@@ -11,6 +11,32 @@
 - Impossible de désactiver le dernier KPI visible (minimum 1 toujours affiché)
 - La sélection est **persistée** immédiatement dans les settings locaux (survit au redémarrage)
 - Traduit en 5 langues (FR / EN / ES / DE / PT)
+
+### Joueurs — nouvelles fonctionnalités
+
+#### Classement score composite
+- Nouvelle option de tri **🏆 Score** dans le sélecteur : classe les joueurs par score pondéré (buts×3 + PD×2 + MOTM×5 + note×10)
+- Le score s'affiche sur chaque carte quand ce tri est actif
+
+#### Sparkline inline
+- **Mini courbe des dernières notes** visible directement sur chaque carte joueur (sans ouvrir la modale)
+- Calculée depuis le cache de matchs (10 derniers matchs de championnat)
+- Point final coloré selon la dernière note (vert ≥ 7.5, jaune ≥ 6.5, rouge < 6.5)
+
+#### Alerte de performance
+- Icône ⚠️ sur les joueurs dont la **moyenne des 5 derniers matchs < 6.5**
+- Bordure rouge légère sur leur carte
+- Filtre "Alertes seulement" dans le panneau de filtres pour n'afficher que ces joueurs
+
+#### Export PDF fiche joueur
+- Bouton **PDF** (orange) dans la modale joueur
+- Génère un PDF avec : en-tête coloré, tableau stats complet (+ stats avancées si disponibles), historique de la note par match
+
+#### Comparaison étendue (2 à 4 joueurs)
+- Mode COMPARER : sélection de **2 à 4 joueurs** avec chips colorées dans la bannière
+- Bouton **Comparer (N)** pour ouvrir la modale manuellement quand la sélection est prête
+- Radar chart + tableau stats supporte maintenant 3 et 4 joueurs simultanément
+- **Bouton Discord** dans la modale de comparaison : envoie un embed avec scores et highlight du meilleur par stat
 
 ---
 

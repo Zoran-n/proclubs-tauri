@@ -1,4 +1,4 @@
-import type { Session, Match } from "../types";
+import type { Session, Match, Player } from "../types";
 
 interface PlayerMvp { name: string; goals: number; assists: number; motm: number; games: number }
 
@@ -140,4 +140,79 @@ export async function generateSessionPdf(session: Session) {
   doc.text("ProClubs Stats — Généré automatiquement", 105, pageH - 8, { align: "center" });
 
   doc.save(`session-${session.clubName.replace(/\s+/g, "_")}-${new Date(session.date).toISOString().slice(0, 10)}.pdf`);
+}
+
+export async function generatePlayerPdf(player: Player, posLabel: string, ratingHistory: number[]) {
+  const { default: jsPDF } = await import("jspdf");
+  await import("jspdf-autotable");
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const accent: [number, number, number] = [0, 180, 220];
+  const dark: [number, number, number] = [30, 35, 45];
+
+  // Header
+  doc.setFillColor(...dark);
+  doc.rect(0, 0, 210, 36, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.text(player.name, 14, 18);
+  doc.setFontSize(11);
+  doc.setTextColor(...accent);
+  doc.text(posLabel, 14, 28);
+
+  // Stats table
+  const rows: [string, string][] = [
+    ["Matchs joués", String(player.gamesPlayed)],
+    ["Buts", String(player.goals)],
+    ["Passes décisives", String(player.assists)],
+    ["Passes réussies", String(player.passesMade)],
+    ["Tacles", String(player.tacklesMade)],
+    ["MOTM", String(player.motm)],
+    ["Note moyenne", player.rating > 0 ? player.rating.toFixed(1) : "—"],
+  ];
+  if (player.shotsOnTarget)  rows.push(["Tirs cadrés",   String(player.shotsOnTarget)]);
+  if (player.interceptions)  rows.push(["Interceptions",  String(player.interceptions)]);
+  if (player.foulsCommitted) rows.push(["Fautes",         String(player.foulsCommitted)]);
+  if (player.yellowCards)    rows.push(["Cartons jaunes", String(player.yellowCards)]);
+  if (player.redCards)       rows.push(["Cartons rouges", String(player.redCards)]);
+  if (player.cleanSheets)    rows.push(["Clean sheets",   String(player.cleanSheets)]);
+  if (player.saveAttempts)   rows.push(["Arrêts GK",      String(player.saveAttempts)]);
+
+  (doc as unknown as { autoTable: (opts: unknown) => void }).autoTable({
+    startY: 44,
+    margin: { left: 14, right: 14 },
+    head: [["Statistique", "Valeur"]],
+    body: rows,
+    styles: { fontSize: 11, cellPadding: 3 },
+    headStyles: { fillColor: accent, textColor: [255, 255, 255], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    columnStyles: { 1: { halign: "center" as const, fontStyle: "bold" as const } },
+  });
+
+  // Rating evolution
+  if (ratingHistory.length > 1) {
+    const afterY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 100;
+    const evoY = afterY + 10;
+    doc.setFontSize(13);
+    doc.setTextColor(...dark);
+    doc.text("Évolution de la note par match", 14, evoY);
+
+    (doc as unknown as { autoTable: (opts: unknown) => void }).autoTable({
+      startY: evoY + 4,
+      margin: { left: 14, right: 100 },
+      head: [["Match", "Note"]],
+      body: ratingHistory.map((r, i) => [`M${i + 1}`, r.toFixed(1)]),
+      styles: { fontSize: 9, cellPadding: 2 },
+      headStyles: { fillColor: accent, textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+    });
+  }
+
+  // Footer
+  const pageH = doc.internal.pageSize.getHeight();
+  doc.setFontSize(8);
+  doc.setTextColor(160, 160, 160);
+  doc.text("ProClubs Stats — Généré automatiquement", 105, pageH - 8, { align: "center" });
+
+  doc.save(`${player.name.replace(/\s+/g, "_")}_fiche.pdf`);
 }

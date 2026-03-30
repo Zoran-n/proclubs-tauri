@@ -21,15 +21,20 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 ### Joueurs
 - Liste des membres du club avec leurs statistiques saison
 - Tri par n'importe quelle colonne : matchs joués, buts, passes décisives, passes, tacles, MOTM, note
+- **Tri score composite** : classement pondéré (buts×3 + PD×2 + MOTM×5 + note×10) via l'option "🏆 Score"
 - Filtrage par nom en temps réel + **filtrage multi-critères** (par poste, note min, matchs min)
+- **Filtre alertes** : afficher uniquement les joueurs dont la note moyenne récente est < 6.5
+- **Sparkline inline** : mini courbe des dernières notes par match visible directement sur chaque carte
+- **Alerte de performance** : indicateur ⚠️ sur les joueurs en baisse (avg note < 6.5 sur les 5 derniers matchs)
 - **Avatar initiales colorées** (style Discord) pour chaque joueur
 - Podium visuel (or / argent / bronze) pour le top 3
 - Badge de position (GK, ST, CM…)
 - Badge de note coloré (or, vert, jaune, rouge)
 - Modale détail joueur : stats de base + **statistiques avancées** (tirs cadrés, interceptions, fautes, cartons jaunes/rouges, clean sheets, arrêts GK) — affichées uniquement si disponibles via l'API EA
 - **Graphique d'évolution** par joueur : line chart note/buts/PD par match avec toggle
+- **Export PDF fiche joueur** : PDF individuel avec stats + évolution de la note match par match
 - Export **PNG** (capture avec prévisualisation) et **CSV** (tableau complet)
-- **Comparaison de joueurs** : mode COMPARER, sélection de 2 joueurs, radar chart normalisé + tableau face-à-face avec highlight du meilleur
+- **Comparaison de joueurs** : mode COMPARER, sélection de **2 à 4 joueurs**, radar chart normalisé + tableau face-à-face + **partage Discord**
 
 ### Matchs
 - Trois types de matchs : Championnat, Playoff, Amical
@@ -175,12 +180,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ---
 
 ## Axes d'amélioration possibles
-
-### Joueurs
-- **Classement interne du club** : podium général avec score composite (buts + PD + note + MOTM pondérés)
-- **Sparkline dans le tableau** : historique des notes match par match visible directement sans ouvrir la modale
-- **Export fiche joueur** : PDF individuel avec toutes ses stats et son graphique d'évolution
-- **Alerte de performance** : signaler les joueurs en dessous d'un seuil de note sur les N derniers matchs
 
 ### Comparaison de clubs
 - **Comparaison multi-clubs** : aligner 3 clubs ou plus dans un seul tableau
