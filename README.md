@@ -57,6 +57,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Démarrage / arrêt de session de suivi
 - Polling automatique toutes les 30 secondes (3 types de matchs en parallèle)
 - KPIs live : matchs joués, victoires, nuls, défaites, buts marqués/encaissés
+- **Bilan V/N/D** affiché sur chaque carte de session passée (vert / gris / rouge)
 - Liste des matchs joués pendant la session
 - Sauvegarde des sessions terminées (historique illimité avec pagination)
 - **Notification système** à chaque nouveau match détecté (Tauri notification plugin)
@@ -65,6 +66,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Archivage / désarchivage des sessions passées
 - Suppression de sessions
 - Export **PNG**, **CSV** et **PDF** des données de session
+- **Modal Détails session** : liste complète des matchs (score, adversaire, résultat, heure) + tableau stats joueurs (MJ, buts, PD, MOTM, note moyenne) + boutons Discord & PDF
 
 ### Comparaison de clubs
 - Recherche et sélection de deux clubs indépendants
@@ -86,9 +88,11 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Badge violet sur l'icône profil quand le webhook est actif
 - **Partage par onglet** : bouton Discord dans le header de chaque onglet (Joueurs / Matchs / Graphiques) — embed formaté avec les données de la vue courante
 - **Partage de match** : bouton dans chaque modale match — embed avec score, buteurs, passeurs, MOTM
-- **Partage de session** : bouton sur chaque session passée — embed avec bilan V/N/D, buts, top buteur/passeur, couleur dynamique (vert/jaune/rouge selon le ratio)
-- **Stats générales** : section Discord dédiée dans la sidebar — envoie un overview du club (bilan, win rate, SR, top joueurs)
-- Embeds Discord colorés dynamiquement : vert (victoire dominante), jaune (équilibré), rouge (défaites dominantes)
+- **Partage de session** : bouton dans le modal Détails — embed enrichi avec bilan V/N/D, liste des matchs (🟢/🟡/🔴 + score), stats joueurs top 5, couleur dynamique
+- **Partage profil joueur** : bouton Discord dans la modale joueur — embed avec toutes ses stats + évolution note/buts/PD match par match
+- **Stats générales club** : embed format OurProClub — Games Played, Skill Rating, Record W/D/L, Goals F/A/D, Win Rate, top joueurs (Most Appearances, MOTM, Buteur, Passeur, Passes, Tacles), résultats récents par type (🟢🔴🟡)
+- Embeds colorés dynamiquement : vert (victoire dominante), jaune (équilibré), rouge (défaites dominantes)
+- Section Discord masquée si aucun club sélectionné
 
 ### Paramètres
 - 6 thèmes de couleur accent : Cyan, Violet, Orange, Vert, Rouge, Discord
@@ -100,6 +104,9 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Affichage des logs API (debug)
 - Recherche par ID activable/désactivable
 - **Sélecteur de langue** : FR / EN / ES / DE / PT
+- **Mise à jour automatique** : toggle ON/OFF — vérifie au démarrage et propose un modal d'installation
+- **Pastille de mise à jour** : badge rouge 🔴 pulsant sur l'icône ⚙️ quand une nouvelle version est disponible
+- **Modal de mise à jour** : affiche la version disponible, les notes de release, et propose "Installer maintenant" ou "Plus tard"
 
 ### Mon Profil
 - **Liaison gamertag EA** : entre ton pseudo EA + le nom de ton club — l'app vérifie que le gamertag est bien membre du club via `getMembers()`, puis lie le profil
