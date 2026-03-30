@@ -72,11 +72,15 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Sauvegarde des sessions terminées (historique illimité avec pagination)
 - **Notification système** à chaque nouveau match détecté (Tauri notification plugin)
 - **Statistiques enrichies** : meilleur buteur, meilleur passeur, MOTM de la session
-- **Export PDF** : résumé automatique proposé en fin de session (jsPDF)
+- **Export PDF** : résumé automatique proposé en fin de session avec modal de confirmation (affiche le nom du fichier avant enregistrement)
 - Archivage / désarchivage des sessions passées
 - Suppression de sessions
-- Export **PNG**, **CSV** et **PDF** des données de session
+- Export **PNG**, **CSV** et **PDF** des données de session (CSV enrichi avec Tags et Notes)
 - **Modal Détails session** : liste complète des matchs (score, adversaire, résultat, heure) + tableau stats joueurs (MJ, buts, PD, MOTM, note moyenne) + boutons Discord & PDF
+- **Objectif de session** : fixez un nombre cible de victoires, barre de progression live colorée (verte quand atteint)
+- **Notes tactiques** : champ texte libre par session pour consigner remarques et observations (inclus dans le Discord share)
+- **Tags personnalisés** : étiquetez vos sessions (Tournoi, Division, Soirée, Entraînement, Friendly, Ranked) avec filtrage par tag au-dessus de la liste
+- **Graphique de forme** : courbe du taux de victoire session par session (12 dernières sessions, recharts)
 
 ### Comparaison de clubs
 - Recherche et sélection de deux clubs indépendants
@@ -185,12 +189,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Comparaison multi-clubs** : aligner 3 clubs ou plus dans un seul tableau
 - **Historique H2H** : afficher tous les matchs directs entre les deux clubs si disponibles via l'API
 - **Graphique radar global** : radar des 6 stats clés (V%, buts, passes, tacles, note, MOTM) des deux clubs
-
-### Session live
-- **Notes de session** : champ texte libre par session pour consigner les remarques tactiques
-- **Tags personnalisés** : étiqueter les sessions (tournoi, division, soirée, entraînement…) avec filtrage par tag
-- **Graphique de forme sur les sessions** : courbe du taux de victoire session par session
-- **Objectifs de session** : fixer un objectif (ex. 5 victoires) et afficher une barre de progression live
 
 ### UX / Interface
 - **Mode compact** : densifier les tableaux et cartes pour les petits écrans
