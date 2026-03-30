@@ -118,6 +118,7 @@ pub struct Settings {
     #[serde(default)] pub match_cache: HashMap<String, Vec<Match>>,
     #[serde(default)] pub discord_webhook: Option<String>,
     #[serde(default)] pub auto_update: bool,
+    #[serde(default)] pub match_annotations: HashMap<String, String>,
 }
 
 fn default_theme() -> String { "cyan".to_string() }
@@ -141,6 +142,7 @@ impl Default for Settings {
             match_cache: HashMap::new(),
             discord_webhook: None,
             auto_update: false,
+            match_annotations: HashMap::new(),
         }
     }
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Download, ChevronDown, Search, Calendar, List, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, ChevronDown, Search, Calendar, List, ChevronLeft, ChevronRight, PenLine } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
 import { getMatches } from "../../api/tauri";
 import { ExportModal } from "../ui/ExportModal";
@@ -26,7 +27,10 @@ const BTN: React.CSSProperties = {
 };
 
 export function MatchesTab() {
-  const { currentClub, matches: leagueCache, matchCache, setMatchCache, persistSettings } = useAppStore();
+  const {
+    currentClub, eaProfile, matches: leagueCache, matchCache, setMatchCache, persistSettings,
+    matchAnnotations, setMatchAnnotation,
+  } = useAppStore();
   const lang = useAppStore((s) => s.language);
   const t = useT();
   const locale = lang === "fr" ? "fr-FR" : lang === "es" ? "es-ES" : lang === "de" ? "de-DE" : lang === "pt" ? "pt-BR" : "en-US";
@@ -51,8 +55,11 @@ export function MatchesTab() {
   const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
   const [oppFilter, setOppFilter] = useState("");
   const debouncedOppFilter = useDebounce(oppFilter, 200);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
+  const [openAnnotation, setOpenAnnotation] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,17 +98,28 @@ export function MatchesTab() {
     const key = `${currentClub.id}_${currentClub.platform}_${type}`;
     getMatches(currentClub.id, currentClub.platform, type, cursor)
       .then((data) => {
-        const prev = pages[type] ?? [];
-        const existing = new Set(prev.map((m) => m.matchId));
-        const fresh = data.filter((m) => !existing.has(m.matchId));
-        const combined = [...prev, ...fresh];
-        setPages((p) => ({ ...p, [type]: combined }));
-        setMatchCache(key, combined);
+        setPages((p) => {
+          const prev = p[type] ?? [];
+          const existing = new Set(prev.map((m) => m.matchId));
+          const fresh = data.filter((m) => !existing.has(m.matchId));
+          const combined = [...prev, ...fresh];
+          setMatchCache(key, combined);
+          return { ...p, [type]: combined };
+        });
         persistSettings();
         setCursors((c) => ({ ...c, [type]: data.length >= 10 ? oldestTimestamp(data) : null }));
       })
       .finally(() => setLoading(false));
   };
+
+  // Background auto-loader: when eaProfile is linked, silently load all pages
+  useEffect(() => {
+    if (!currentClub || !eaProfile || loading) return;
+    const cursor = cursors[type];
+    if (cursor === undefined || cursor === null) return;
+    const timer = setTimeout(() => loadMore(), 800);
+    return () => clearTimeout(timer);
+  }, [cursors[type], type, currentClub?.id, eaProfile?.gamertag, loading]);
 
   const allList = pages[type] ?? [];
   const hasMore = (cursors[type] ?? null) !== null && !loading;
@@ -127,12 +145,65 @@ export function MatchesTab() {
     return String(det?.["name"] ?? opp?.["name"] ?? (fallback || t("matches.opponent")));
   };
 
-  // Filter by opponent name
-  const list = useMemo(() => {
-    if (!debouncedOppFilter.trim()) return allList;
+  // Bilan vs adversaire (computed from full allList, not date-filtered)
+  const oppBilan = useMemo(() => {
+    if (!debouncedOppFilter.trim()) return null;
     const q = debouncedOppFilter.toLowerCase();
-    return allList.filter((m) => getOppName(m).toLowerCase().includes(q));
-  }, [allList, debouncedOppFilter]);
+    const filtered = allList.filter((m) => getOppName(m).toLowerCase().includes(q));
+    if (filtered.length === 0) return null;
+    let w = 0, d = 0, l = 0, goalsFor = 0, goalsAgainst = 0;
+    for (const m of filtered) {
+      const res = getResult(m);
+      if (res === "W") w++;
+      else if (res === "L") l++;
+      else d++;
+      const myId = currentClub?.id ?? "";
+      const my = m.clubs[myId] as Record<string, unknown> | undefined;
+      const opp = Object.entries(m.clubs).find(([k]) => k !== myId)?.[1] as Record<string, unknown> | undefined;
+      goalsFor += Number(my?.["goals"] ?? 0);
+      goalsAgainst += Number(opp?.["goals"] ?? 0);
+    }
+    return {
+      w, d, l, total: filtered.length,
+      avgFor: (goalsFor / filtered.length).toFixed(1),
+      avgAgainst: (goalsAgainst / filtered.length).toFixed(1),
+    };
+  }, [allList, debouncedOppFilter, currentClub?.id]);
+
+  // Form chart: last 10 from allList sorted by time ascending
+  const formData = useMemo(() => {
+    return [...allList]
+      .sort((a, b) => Number(a.timestamp) - Number(b.timestamp))
+      .slice(-10)
+      .map((m, i) => {
+        const res = getResult(m);
+        return { n: i + 1, v: res === "W" ? 3 : res === "D" ? 1 : 0, r: res };
+      });
+  }, [allList, currentClub?.id]);
+
+  // Filtered list (opponent + date range)
+  const list = useMemo(() => {
+    let base = allList;
+    if (debouncedOppFilter.trim()) {
+      const q = debouncedOppFilter.toLowerCase();
+      base = base.filter((m) => getOppName(m).toLowerCase().includes(q));
+    }
+    if (fromDate) {
+      const from = new Date(fromDate).getTime();
+      base = base.filter((m) => {
+        const n = Number(m.timestamp);
+        return (n > 1e12 ? n : n * 1000) >= from;
+      });
+    }
+    if (toDate) {
+      const to = new Date(toDate).getTime() + 86400000; // inclusive day
+      base = base.filter((m) => {
+        const n = Number(m.timestamp);
+        return (n > 1e12 ? n : n * 1000) <= to;
+      });
+    }
+    return base;
+  }, [allList, debouncedOppFilter, fromDate, toDate]);
 
   const csvHeaders = [t("matches.date"), t("matches.opponent"), t("matches.score"), t("matches.result"), t("matches.type")];
   const csvRows = list.map((m) => [
@@ -141,12 +212,11 @@ export function MatchesTab() {
   ]);
   const dateStr = new Date().toISOString().slice(0, 10);
 
-  // Calendar data
   const calendarDays = useMemo(() => {
     const { year, month } = calMonth;
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const offset = firstDay === 0 ? 6 : firstDay - 1; // Monday start
+    const offset = firstDay === 0 ? 6 : firstDay - 1;
     const days: { day: number; matches: Match[] }[] = [];
     for (let i = 0; i < offset; i++) days.push({ day: 0, matches: [] });
     for (let d = 1; d <= daysInMonth; d++) {
@@ -158,6 +228,8 @@ export function MatchesTab() {
     }
     return days;
   }, [calMonth, list]);
+
+  const dotColor = (v: number) => v === 3 ? "var(--green)" : v === 1 ? "#eab308" : "var(--red)";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg)" }}>
@@ -182,9 +254,9 @@ export function MatchesTab() {
             );
           })}
           {loading && <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>{t("misc.loading")}</span>}
-          {!loading && list.length > 0 && (
+          {!loading && allList.length > 0 && (
             <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>
-              {list.length} match{list.length > 1 ? "s" : ""}
+              {list.length !== allList.length ? `${list.length} / ${allList.length}` : allList.length} match{allList.length > 1 ? "s" : ""}
             </span>
           )}
         </div>
@@ -202,6 +274,24 @@ export function MatchesTab() {
             onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
           />
         </div>
+
+        {/* Date range filter */}
+        <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+          title="Du"
+          style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
+            padding: "5px 8px", borderRadius: 5, fontSize: 11, outline: "none", cursor: "pointer",
+            colorScheme: "dark" }}
+        />
+        <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+          title="Au"
+          style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
+            padding: "5px 8px", borderRadius: 5, fontSize: 11, outline: "none", cursor: "pointer",
+            colorScheme: "dark" }}
+        />
+        {(fromDate || toDate) && (
+          <button onClick={() => { setFromDate(""); setToDate(""); }}
+            style={{ ...BTN, padding: "5px 8px", color: "var(--red)" }}>✕</button>
+        )}
 
         {/* View toggle */}
         <button onClick={() => setViewMode(viewMode === "list" ? "calendar" : "list")}
@@ -222,6 +312,68 @@ export function MatchesTab() {
       <div ref={contentRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column",
         gap: 6, padding: "10px 16px 16px" }}>
 
+        {/* Bilan vs adversaire */}
+        {oppBilan && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px",
+            background: "var(--card)", border: "1px solid var(--accent)", borderRadius: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: "var(--accent)", fontFamily: "'Bebas Neue', sans-serif",
+              letterSpacing: 1, flexShrink: 0 }}>
+              Bilan vs "{debouncedOppFilter}" — {oppBilan.total} match{oppBilan.total > 1 ? "s" : ""}
+            </span>
+            <div style={{ display: "flex", gap: 6 }}>
+              <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(0,255,136,0.12)",
+                color: "var(--green)", fontSize: 11, fontWeight: 700 }}>{oppBilan.w}V</span>
+              <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(234,179,8,0.12)",
+                color: "#eab308", fontSize: 11, fontWeight: 700 }}>{oppBilan.d}N</span>
+              <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(255,51,85,0.12)",
+                color: "var(--red)", fontSize: 11, fontWeight: 700 }}>{oppBilan.l}D</span>
+            </div>
+            <span style={{ fontSize: 11, color: "var(--muted)" }}>
+              Moy. {oppBilan.avgFor} — {oppBilan.avgAgainst}
+            </span>
+          </div>
+        )}
+
+        {/* Graphique de forme (last 10, list view only) */}
+        {formData.length >= 3 && viewMode === "list" && (
+          <div style={{ padding: "12px 16px 8px", background: "var(--card)", border: "1px solid var(--border)",
+            borderRadius: 8 }}>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6,
+              fontFamily: "'Bebas Neue', sans-serif", letterSpacing: 1 }}>
+              Forme — {formData.length} derniers matchs
+            </div>
+            <ResponsiveContainer width="100%" height={60}>
+              <LineChart data={formData} margin={{ top: 4, right: 8, left: -36, bottom: 0 }}>
+                <XAxis dataKey="n" tick={{ fontSize: 9, fill: "var(--muted)" }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 3]} ticks={[0, 1, 3]} tick={{ fontSize: 9, fill: "var(--muted)" }}
+                  axisLine={false} tickLine={false} />
+                <ReferenceLine y={1} stroke="var(--border)" strokeDasharray="3 3" />
+                <Tooltip
+                  content={({ payload }) => {
+                    if (!payload?.length) return null;
+                    const p = payload[0].payload as { r: string; v: number };
+                    const label = p.r === "W" ? t("match.win") : p.r === "D" ? t("match.draw") : t("match.loss");
+                    return (
+                      <div style={{ background: "var(--card)", border: "1px solid var(--border)",
+                        borderRadius: 4, padding: "3px 8px", fontSize: 10, color: dotColor(p.v) }}>
+                        {label}
+                      </div>
+                    );
+                  }}
+                />
+                <Line type="monotone" dataKey="v" stroke="var(--accent)" strokeWidth={2}
+                  dot={(props) => {
+                    const { cx, cy, payload } = props as { cx: number; cy: number; payload: { v: number; n: number } };
+                    return <circle key={`dot-${payload.n}`} cx={cx} cy={cy} r={4}
+                      fill={dotColor(payload.v)} stroke="var(--bg)" strokeWidth={1} />;
+                  }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
         {viewMode === "list" ? (
           <>
             {!loading && list.length === 0 && (
@@ -229,47 +381,84 @@ export function MatchesTab() {
             )}
             {list.map((m) => {
               const res = getResult(m);
-              const rl  = RESULT_LABEL[res];
+              const rl = RESULT_LABEL[res];
+              const annotation = matchAnnotations[m.matchId] ?? "";
+              const isOpen = openAnnotation === m.matchId;
               return (
                 <div key={m.matchId} style={{
-                  display: "flex", alignItems: "center", gap: 16, padding: "14px 18px",
-                  background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
-                  transition: "border-color 0.15s",
+                  display: "flex", flexDirection: "column",
+                  background: "var(--card)", border: `1px solid ${isOpen ? "var(--accent)" : "var(--border)"}`,
+                  borderRadius: 8, transition: "border-color 0.15s",
                 }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = isOpen ? "var(--accent)" : "var(--border)")}
                 >
-                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26,
-                    color: "#eab308", minWidth: 56, flexShrink: 0, letterSpacing: 1 }}>
-                    {getScore(m)}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 600,
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      vs {getOppName(m)}
+                  <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 18px" }}>
+                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26,
+                      color: "#eab308", minWidth: 56, flexShrink: 0, letterSpacing: 1 }}>
+                      {getScore(m)}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 600,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        vs {getOppName(m)}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                        {formatDate(m.timestamp, locale)}
+                        {annotation && !isOpen && (
+                          <span style={{ marginLeft: 8, color: "var(--accent)", fontStyle: "italic" }}>
+                            "{annotation.length > 40 ? annotation.slice(0, 40) + "…" : annotation}"
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                      {formatDate(m.timestamp, locale)}
-                    </div>
+                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14,
+                      color: rl.color, letterSpacing: 1, minWidth: 72, textAlign: "center" }}>
+                      {rl.text}
+                    </span>
+                    <button
+                      onClick={() => setOpenAnnotation(isOpen ? null : m.matchId)}
+                      title="Annotation"
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: "4px",
+                        borderRadius: 4, display: "flex", alignItems: "center",
+                        color: annotation ? "var(--accent)" : "var(--muted)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = annotation ? "var(--accent)" : "var(--muted)")}
+                    >
+                      <PenLine size={13} />
+                    </button>
+                    <button onClick={() => setSelected(m)} style={{
+                      background: "none", border: "none", color: "var(--muted)",
+                      fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", padding: "4px 8px", borderRadius: 4,
+                    }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
+                    >
+                      {"▶ " + t("matches.details")}
+                    </button>
                   </div>
-                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14,
-                    color: rl.color, letterSpacing: 1, minWidth: 72, textAlign: "center" }}>
-                    {rl.text}
-                  </span>
-                  <button onClick={() => setSelected(m)} style={{
-                    background: "none", border: "none", color: "var(--muted)",
-                    fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", padding: "4px 8px", borderRadius: 4,
-                  }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
-                  >
-                    {"▶ " + t("matches.details")}
-                  </button>
+                  {isOpen && (
+                    <div style={{ padding: "0 18px 12px" }}>
+                      <textarea
+                        value={annotation}
+                        onChange={(e) => setMatchAnnotation(m.matchId, e.target.value)}
+                        placeholder="Ajouter une note sur ce match…"
+                        rows={2}
+                        style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--border)",
+                          borderRadius: 6, color: "var(--text)", fontSize: 12, padding: "8px 10px",
+                          resize: "vertical", outline: "none", fontFamily: "inherit",
+                          boxSizing: "border-box", transition: "border-color 0.15s" }}
+                        onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+                        onBlur={(e) => { e.target.style.borderColor = "var(--border)"; persistSettings(); }}
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}
 
-            {hasMore && (
+            {/* Load more button: shown only when eaProfile is NOT set (manual mode) */}
+            {hasMore && !eaProfile && (
               <button onClick={loadMore}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--muted)"; }}
@@ -281,6 +470,14 @@ export function MatchesTab() {
                 }}>
                 <ChevronDown size={14} /> {t("matches.loadMore")}
               </button>
+            )}
+            {hasMore && eaProfile && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                padding: "10px", color: "var(--muted)", fontSize: 11 }}>
+                <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%",
+                  background: "var(--accent)", animation: "pulse 1.5s ease-in-out infinite" }} />
+                Chargement automatique en cours…
+              </div>
             )}
             {!hasMore && !loading && list.length > 0 && cursors[type] === null && (
               <div style={{ textAlign: "center", fontSize: 11, color: "var(--muted)", padding: "8px 0" }}>
@@ -306,7 +503,6 @@ export function MatchesTab() {
               })} style={{ ...BTN }}><ChevronRight size={13} /></button>
             </div>
 
-            {/* Day headers */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
               {[t("days.mon"), t("days.tue"), t("days.wed"), t("days.thu"), t("days.fri"), t("days.sat"), t("days.sun")].map((d) => (
                 <div key={d} style={{ textAlign: "center", fontSize: 9, color: "var(--muted)",
@@ -316,7 +512,6 @@ export function MatchesTab() {
               ))}
             </div>
 
-            {/* Days grid */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
               {calendarDays.map((cell, i) => (
                 <div key={i} style={{
@@ -364,4 +559,3 @@ export function MatchesTab() {
     </div>
   );
 }
-

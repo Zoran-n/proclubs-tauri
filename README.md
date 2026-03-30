@@ -41,6 +41,11 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Résumé d'événements** : buteurs, passeurs, cartons et MOTM affichés en badges dans la modale match
 - **Stats d'équipe** : possession, tirs, tirs cadrés, corners, passes, fautes, hors-jeu (affichées si disponibles via l'API EA)
 - **Filtrage par adversaire** : champ de recherche pour retrouver les matchs contre un club spécifique
+- **Bilan vs adversaire** : quand un adversaire est filtré, affiche W/N/D + buts moyens pour/contre sur tous les matchs chargés
+- **Graphique de forme** : courbe des 10 derniers résultats (V=3, N=1, D=0) avec points colorés
+- **Filtre par période** : sélectionner une plage de dates (Du / Au) pour n'afficher que les matchs de cette période
+- **Annotations de match** : ajouter une note libre sur chaque match (stockée localement, persistée)
+- **Chargement automatique en arrière-plan** : quand le profil EA est lié, tous les matchs sont chargés silencieusement pour un historique complet et un calendrier rempli
 - **Vue calendrier** : vue mensuelle des matchs avec navigation mois par mois, résultats colorés par jour
 - Export **PNG** et **CSV** avec prévisualisation
 

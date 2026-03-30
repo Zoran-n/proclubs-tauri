@@ -161,6 +161,7 @@ export interface Settings {
   matchCache?: Record<string, Match[]>;
   discordWebhook?: string;
   autoUpdate?: boolean;
+  matchAnnotations?: Record<string, string>;
 }
 
 export interface ClubData {

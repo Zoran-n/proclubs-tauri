@@ -66,6 +66,7 @@ interface AppState {
   updateAvailable: boolean;
   updateVersion: string | null;
   updateNotes: string | null;
+  matchAnnotations: Record<string, string>;
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -110,6 +111,7 @@ interface AppState {
   setAutoUpdate: (v: boolean) => void;
   setUpdateAvailable: (v: boolean) => void;
   setUpdateInfo: (version: string | null, notes: string | null) => void;
+  setMatchAnnotation: (matchId: string, note: string) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
@@ -142,6 +144,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateAvailable: false,
   updateVersion: null,
   updateNotes: null,
+  matchAnnotations: {},
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
@@ -245,6 +248,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setAutoUpdate: (autoUpdate) => set({ autoUpdate }),
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
   setUpdateInfo: (updateVersion, updateNotes) => set({ updateVersion, updateNotes }),
+  setMatchAnnotation: (matchId, note) => set((s) => ({
+    matchAnnotations: note.trim()
+      ? { ...s.matchAnnotations, [matchId]: note }
+      : Object.fromEntries(Object.entries(s.matchAnnotations).filter(([k]) => k !== matchId)),
+  })),
 
   applyProxy: async (url: string) => {
     await apiSetProxy(url.trim() || null);
@@ -293,6 +301,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         matchCache: s.matchCache ?? {},
         discordWebhook: s.discordWebhook ?? "",
         autoUpdate: s.autoUpdate ?? false,
+        matchAnnotations: s.matchAnnotations ?? {},
         settingsLoaded: true,
       });
     } catch { /* first launch */ } finally {
@@ -302,7 +311,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   persistSettings: async () => {
     const { history, favs, tactics, sessions, compareHistory, eaProfile, theme, darkMode, proxyUrl,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, language, onboarded, matchCache, discordWebhook, autoUpdate } = get();
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations } = get();
     await apiSave({
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -317,6 +326,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       matchCache,
       discordWebhook: discordWebhook.trim() || undefined,
       autoUpdate,
+      matchAnnotations,
     });
   },
 }));

@@ -1,5 +1,30 @@
 # Changelog — ProClubs Stats
 
+## v0.4.0 — 2026-03-30
+
+### Nouvelles fonctionnalités — Onglet Matchs
+
+#### Chargement automatique
+- **Persistance auto de tous les matchs** : quand le profil EA est lié, les pages suivantes sont chargées silencieusement en arrière-plan (800 ms entre chaque batch) jusqu'à épuisement de l'historique — le calendrier se remplit entièrement sans action manuelle
+- Le bouton "Charger plus" reste visible uniquement sans profil EA lié ; avec profil, un indicateur pulsé remplace le bouton
+
+#### Bilan vs adversaire
+- Quand un nom d'adversaire est saisi dans le filtre, un bandeau s'affiche au-dessus de la liste avec **W/N/D** + **buts moyens marqués/encaissés** calculés sur tous les matchs chargés contre ce club
+
+#### Graphique de forme
+- **Mini line chart** (recharts) affichant les 10 derniers résultats (V=3, N=1, D=0) avec points colorés (vert/jaune/rouge) — visible dès 3 matchs chargés en mode liste
+
+#### Filtre par période
+- Deux champs date **Du / Au** dans la barre d'outils pour filtrer la liste et le calendrier sur une plage de dates précise
+- Bouton ✕ pour effacer les dates rapidement
+
+#### Annotations de match
+- Bouton ✏️ (PenLine) sur chaque carte de match pour ouvrir une zone de texte libre
+- La note est affichée en italique dans le sous-titre quand elle est remplie et le panneau fermé
+- Persistée localement via les settings Tauri (`matchAnnotations` dans `Settings`)
+
+---
+
 ## v0.3.22 — 2026-03-30
 
 ### Nouvelles fonctionnalités
