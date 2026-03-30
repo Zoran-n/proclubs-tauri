@@ -28,7 +28,7 @@ function ClubLogo({ club, size = 32 }: { club: Club; size?: number }) {
 
 export function SearchTab({ compact }: { compact?: boolean } = {}) {
   const { history, favs, toggleFav, showIdSearch, showLogs, logs, addLog, persistSettings,
-    setSearchResults, eaProfile, discordWebhook, addToast, players } = useAppStore();
+    setSearchResults, eaProfile, discordWebhook, addToast, players, matches } = useAppStore();
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [directId, setDirectId] = useState("");
@@ -44,7 +44,7 @@ export function SearchTab({ compact }: { compact?: boolean } = {}) {
     if (!discordWebhook || !currentClub) return;
     setSharing(true);
     try {
-      await sendDiscordWebhook(discordWebhook, [buildClubOverviewEmbed(currentClub, players)]);
+      await sendDiscordWebhook(discordWebhook, [buildClubOverviewEmbed(currentClub, players, matches)]);
       addToast("Envoyé sur Discord !", "success");
     } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
     finally { setSharing(false); }

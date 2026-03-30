@@ -13,25 +13,73 @@ function oppInfo(match: Match, clubId: string) {
   return { oppName, myGoals, oppGoals, res };
 }
 
-export function buildClubOverviewEmbed(club: Club, players: Player[]): DiscordEmbed {
-  const total   = club.wins + club.losses + club.ties;
-  const winRate = total > 0 ? Math.round((club.wins / total) * 100) : 0;
-  const color   = winRate >= 60 ? 0x23a559 : winRate >= 45 ? 0xfaa81a : 0xda373c;
-  const topScorer   = players.length > 0 ? [...players].sort((a, b) => b.goals   - a.goals)[0]   : null;
-  const topAssister = players.length > 0 ? [...players].sort((a, b) => b.assists - a.assists)[0] : null;
+function matchTypeDots(matches: Match[], clubId: string, type: string): string {
+  const filtered = matches
+    .filter((m) => m.matchType === type)
+    .sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
+    .slice(0, 12);
+  if (filtered.length === 0) return "No recent matches found.";
+  return filtered
+    .reverse()
+    .map((m) => {
+      const c = m.clubs[clubId] as Record<string, unknown> | undefined;
+      return c?.["wins"] === "1" ? "🟢" : c?.["losses"] === "1" ? "🔴" : "🟡";
+    })
+    .join("");
+}
+
+export function buildClubOverviewEmbed(club: Club, players: Player[], matches: Match[] = []): DiscordEmbed {
+  const total    = club.wins + club.losses + club.ties;
+  const winRate  = total > 0 ? Math.round((club.wins / total) * 100) : 0;
+  const color    = winRate >= 60 ? 0x23a559 : winRate >= 45 ? 0xfaa81a : 0xda373c;
+
+  // Goals against from match data
+  const goalsAgainst = matches.reduce((sum, m) => {
+    const opp = Object.entries(m.clubs).find(([k]) => k !== club.id);
+    return sum + Number((opp?.[1] as Record<string, unknown>)?.["goals"] ?? 0);
+  }, 0);
+  const goalDiff = club.goals - goalsAgainst;
+  const goalDiffStr = goalDiff > 0 ? `+${goalDiff}` : String(goalDiff);
+
+  // Top players
+  const sorted   = (fn: (p: Player) => number) => players.length > 0 ? [...players].sort((a, b) => fn(b) - fn(a))[0] : null;
+  const topAppearances = sorted((p) => p.gamesPlayed);
+  const topMotm        = sorted((p) => p.motm);
+  const topScorer      = sorted((p) => p.goals);
+  const topAssister    = sorted((p) => p.assists);
+  const topPasser      = sorted((p) => p.passesMade);
+  const topTackler     = sorted((p) => p.tacklesMade);
 
   const fields: DiscordEmbed["fields"] = [
-    { name: "Bilan", value: `${club.wins}V · ${club.ties}N · ${club.losses}D`, inline: false },
-    { name: "⚽ Buts", value: String(club.goals), inline: true },
-    { name: "📈 Win Rate", value: `${winRate}%`, inline: true },
-    ...(club.skillRating ? [{ name: "⭐ SR", value: club.skillRating, inline: true }] : []),
-    ...(topScorer    && topScorer.goals   > 0 ? [{ name: "🎯 Top Buteur",   value: `${topScorer.name} (${topScorer.goals} buts)`,         inline: true }] : []),
-    ...(topAssister  && topAssister.assists > 0 ? [{ name: "🅰️ Top Passeur", value: `${topAssister.name} (${topAssister.assists} passes)`, inline: true }] : []),
+    { name: "Games Played",    value: String(total),                                                          inline: true },
+    ...(club.skillRating ? [{ name: "Skill Rating", value: club.skillRating,                                  inline: true as const }] : []),
+    { name: "Record (W/D/L)", value: `${club.wins} / ${club.ties} / ${club.losses}`,                          inline: true },
+    { name: "Goals (F/A/D)",  value: `${club.goals} / ${goalsAgainst > 0 ? goalsAgainst : "?"} / ${goalsAgainst > 0 ? goalDiffStr : "?"}`, inline: true },
+    { name: "Win Rate",       value: `${winRate}%`,                                                           inline: true },
   ];
+
+  if (topAppearances && topAppearances.gamesPlayed > 0)
+    fields.push({ name: "👕 Most Appearances", value: `${topAppearances.name}\n${topAppearances.gamesPlayed} matches played`, inline: true });
+  if (topMotm && topMotm.motm > 0)
+    fields.push({ name: "🏆 Most MOTM",        value: `${topMotm.name}\n${topMotm.motm} times MOTM`,                          inline: true });
+  if (topScorer && topScorer.goals > 0)
+    fields.push({ name: "🎯 Top Goal Scorer",  value: `${topScorer.name}\n${topScorer.goals} goals`,                          inline: true });
+  if (topAssister && topAssister.assists > 0)
+    fields.push({ name: "🤝 Top Assister",     value: `${topAssister.name}\n${topAssister.assists} assists`,                  inline: true });
+  if (topPasser && topPasser.passesMade > 0)
+    fields.push({ name: "🎯 Top Passer",       value: `${topPasser.name}\n${topPasser.passesMade} passes`,                   inline: true });
+  if (topTackler && topTackler.tacklesMade > 0)
+    fields.push({ name: "🛡️ Top Tackler",     value: `${topTackler.name}\n${topTackler.tacklesMade} tackles`,                inline: true });
+
+  if (matches.length > 0) {
+    fields.push({ name: "⚽ League Match Results",   value: matchTypeDots(matches, club.id, "leagueMatch"),   inline: false });
+    fields.push({ name: "🏆 Playoff Match Results",  value: matchTypeDots(matches, club.id, "playoffMatch"),  inline: false });
+    fields.push({ name: "🤝 Friendly Match Results", value: matchTypeDots(matches, club.id, "friendlyMatch"), inline: false });
+  }
+
   return {
-    title: `🏟️ ${club.name}`,
+    title: `Statistics for ${club.name}`,
     color,
-    description: `${club.platform.toUpperCase()} · ${total} match${total !== 1 ? "s" : ""} joués`,
     fields,
     footer: { text: "ProClubs Stats" },
   };

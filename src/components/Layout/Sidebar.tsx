@@ -42,7 +42,7 @@ function useNavItems(): { id: ActiveTab; icon: ReactNode; label: string }[] {
 
 export function Sidebar() {
   const { currentClub, activeTab, setActiveTab, setSidebarTab, favs, activeSession, history,
-    toggleFav, persistSettings, discordWebhook, players, addToast } = useAppStore();
+    toggleFav, persistSettings, discordWebhook, players, matches, addToast } = useAppStore();
   const { load } = useClub();
   const t = useT();
   const NAV_ITEMS = useNavItems();
@@ -53,7 +53,7 @@ export function Sidebar() {
     if (!currentClub) { addToast("Charge un club d'abord", "error"); return; }
     setSharing(true);
     try {
-      await sendDiscordWebhook(discordWebhook, [buildClubOverviewEmbed(currentClub, players)]);
+      await sendDiscordWebhook(discordWebhook, [buildClubOverviewEmbed(currentClub, players, matches)]);
       addToast("Envoyé sur Discord !", "success");
     } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
     finally { setSharing(false); }
@@ -203,7 +203,7 @@ export function Sidebar() {
 
 function LaunchSidebar() {
   const { history, favs, toggleFav, persistSettings, setActiveTab, activeTab, addLog, setSearchResults,
-    discordWebhook, players, addToast } = useAppStore();
+    discordWebhook, players, matches, addToast } = useAppStore();
   const { load } = useClub();
   const t = useT();
   const NAV_ITEMS = useNavItems();
@@ -216,7 +216,7 @@ function LaunchSidebar() {
     if (!club) { addToast("Charge un club d'abord", "error"); return; }
     setSharing(true);
     try {
-      await sendDiscordWebhook(discordWebhook, [buildClubOverviewEmbed(club, players)]);
+      await sendDiscordWebhook(discordWebhook, [buildClubOverviewEmbed(club, players, matches)]);
       addToast("Envoyé sur Discord !", "success");
     } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
     finally { setSharing(false); }
