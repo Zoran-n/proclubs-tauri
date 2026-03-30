@@ -160,6 +160,7 @@ export interface Settings {
   onboarded?: boolean;
   matchCache?: Record<string, Match[]>;
   discordWebhook?: string;
+  autoUpdate?: boolean;
 }
 
 export interface ClubData {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Settings, User } from "lucide-react";
+import { Search, Plus, Settings, User, Download } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useClub } from "../../hooks/useClub";
 import { getLogo } from "../../api/tauri";
@@ -52,7 +52,7 @@ function GuildIcon({ club, active, onClick }: { club: Club; active: boolean; onC
 }
 
 export function GuildBar() {
-  const { favs, history, currentClub, setSidebarTab, sidebarTab, eaProfile, discordWebhook } = useAppStore();
+  const { favs, history, currentClub, setSidebarTab, sidebarTab, eaProfile, discordWebhook, updateAvailable } = useAppStore();
   const { load } = useClub();
   const [searchHover, setSearchHover] = useState(false);
   const [profileHover, setProfileHover] = useState(false);
@@ -167,15 +167,28 @@ export function GuildBar() {
           height: sidebarTab === "settings" ? 40 : settingsHover ? 20 : 0,
           transition: "height 0.15s",
         }} />
-        <div onClick={() => setSidebarTab("settings")} style={{
-          width: 48, height: 48, borderRadius: sidebarTab === "settings" ? 16 : 24,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer", transition: "border-radius 0.15s, background-color 0.15s",
-          background: sidebarTab === "settings" ? "var(--accent)" : "var(--surface)",
-        }}>
-          <Settings size={22} color={sidebarTab === "settings" ? "#fff" : "var(--muted)"} />
+        <div style={{ position: "relative" }}>
+          <div onClick={() => setSidebarTab("settings")} style={{
+            width: 48, height: 48, borderRadius: sidebarTab === "settings" ? 16 : 24,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", transition: "border-radius 0.15s, background-color 0.15s",
+            background: sidebarTab === "settings" ? "var(--accent)" : "var(--surface)",
+          }}>
+            <Settings size={22} color={sidebarTab === "settings" ? "#fff" : "var(--muted)"} />
+          </div>
+          {updateAvailable && (
+            <div style={{
+              position: "absolute", top: 0, right: 0,
+              width: 16, height: 16, borderRadius: "50%",
+              background: "#da373c", border: "2px solid var(--guild-bar)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              animation: "pulse 2s ease-in-out infinite",
+            }} title="Mise à jour disponible">
+              <Download size={8} color="#fff" />
+            </div>
+          )}
         </div>
-        {settingsHover && <div className="discord-tooltip">Paramètres</div>}
+        {settingsHover && <div className="discord-tooltip">Paramètres{updateAvailable ? " · Mise à jour dispo !" : ""}</div>}
       </div>
     </div>
   );

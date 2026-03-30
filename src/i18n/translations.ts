@@ -64,6 +64,7 @@ export const translations: Translations = {
   "settings.upToDate":    { fr: "A jour",              en: "Up to date",      es: "Actualizado",     de: "Aktuell",         pt: "Atualizado" },
   "settings.retry":       { fr: "Reessayer",           en: "Retry",           es: "Reintentar",      de: "Erneut versuchen",pt: "Tentar novamente" },
   "settings.checkUpdates":{ fr: "Verifier les mises a jour", en: "Check for updates", es: "Buscar actualizaciones", de: "Nach Updates suchen", pt: "Verificar atualizacoes" },
+  "settings.autoUpdate":  { fr: "Mise a jour automatique", en: "Auto-update",     es: "Actualizar auto.",        de: "Automatisch aktualisieren", pt: "Atualizar automaticamente" },
   "settings.download":    { fr: "Telecharger",         en: "Download",        es: "Descargar",       de: "Herunterladen",   pt: "Baixar" },
 
   // ── MainPanel ──

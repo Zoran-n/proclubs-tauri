@@ -14,6 +14,7 @@ export function SettingsTab() {
   const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent,
     language, setTheme, setDarkMode, setShowAnimations, setShowLogs,
     setShowIdSearch, setFontSize, setFontFamily, setCustomAccent, setLanguage,
+    autoUpdate, setAutoUpdate, setUpdateAvailable,
     persistSettings } = useAppStore();
   const t = useT();
 
@@ -24,6 +25,12 @@ export function SettingsTab() {
   const [updateUrl, setUpdateUrl] = useState<string | null>(null);
 
   useEffect(() => { getVersion().then(setAppVersion).catch(() => {}); }, []);
+
+  // Auto-check on mount if enabled
+  useEffect(() => {
+    if (autoUpdate) handleCheckUpdate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const apply = (fn: () => void) => { fn(); persistSettings(); };
 
@@ -36,10 +43,13 @@ export function SettingsTab() {
       const update = await checkUpdate();
       if (update?.available) {
         setUpdateVersion(update.version);
+        setUpdateAvailable(true);
         setUpdateStatus("downloading");
         await update.downloadAndInstall();
+        setUpdateAvailable(false);
         await relaunch();
       } else {
+        setUpdateAvailable(false);
         setUpdateStatus("up-to-date");
         setTimeout(() => setUpdateStatus("idle"), 3000);
       }
@@ -52,8 +62,10 @@ export function SettingsTab() {
         if (result.available) {
           setUpdateVersion(result.version);
           setUpdateUrl(`https://github.com/Zoran-n/proclubs-tauri/releases/latest`);
+          setUpdateAvailable(true);
           setUpdateStatus("downloading");
         } else {
+          setUpdateAvailable(false);
           setUpdateStatus("up-to-date");
           setTimeout(() => setUpdateStatus("idle"), 3000);
         }
@@ -246,6 +258,11 @@ export function SettingsTab() {
 
       {/* ── MISES A JOUR ── */}
       <Section label={t("settings.updates")} />
+      <Toggle
+        label={t("settings.autoUpdate")}
+        value={autoUpdate}
+        onChange={(v) => { setAutoUpdate(v); persistSettings(); }}
+      />
       <button onClick={handleCheckUpdate}
         disabled={updateStatus === "checking" || updateStatus === "downloading"}
         style={{
