@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Star, GripVertical } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useClub } from "../../hooks/useClub";
@@ -8,29 +8,37 @@ export function FavsTab() {
   const { favs, toggleFav, reorderFavs, persistSettings } = useAppStore();
   const { load } = useClub();
 
-  const dragIdx = useRef<number | null>(null);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
 
-  const handleDragStart = (i: number) => { dragIdx.current = i; };
+  const handleDragStart = (e: React.DragEvent, i: number) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(i));
+    setDragIdx(i);
+  };
 
   const handleDragOver = (e: React.DragEvent, i: number) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
     setDragOver(i);
   };
 
-  const handleDrop = (targetIdx: number) => {
-    const from = dragIdx.current;
-    if (from === null || from === targetIdx) { setDragOver(null); return; }
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const fromStr = e.dataTransfer.getData("text/plain");
+    const from = fromStr !== "" ? parseInt(fromStr, 10) : dragIdx;
+    if (from === null || from === targetIdx) { setDragIdx(null); setDragOver(null); return; }
     const next = [...favs];
     const [moved] = next.splice(from, 1);
     next.splice(targetIdx, 0, moved);
     reorderFavs(next);
     persistSettings();
-    dragIdx.current = null;
+    setDragIdx(null);
     setDragOver(null);
   };
 
-  const handleDragEnd = () => { dragIdx.current = null; setDragOver(null); };
+  const handleDragEnd = () => { setDragIdx(null); setDragOver(null); };
 
   if (favs.length === 0) return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--muted)", gap: 8 }}>
@@ -51,15 +59,15 @@ export function FavsTab() {
         <div
           key={`${club.id}_${club.platform}`}
           draggable
-          onDragStart={() => handleDragStart(i)}
+          onDragStart={(e) => handleDragStart(e, i)}
           onDragOver={(e) => handleDragOver(e, i)}
-          onDrop={() => handleDrop(i)}
+          onDrop={(e) => handleDrop(e, i)}
           onDragEnd={handleDragEnd}
           style={{
             display: "flex", alignItems: "center", padding: "8px 0",
             borderBottom: dragOver === i ? "2px solid var(--accent)" : "1px solid var(--border)",
             cursor: "pointer",
-            opacity: dragIdx.current === i ? 0.45 : 1,
+            opacity: dragIdx === i ? 0.45 : 1,
             transition: "opacity 0.1s",
           }}
           onClick={() => load(club.id, club.platform)}
