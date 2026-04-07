@@ -68,6 +68,8 @@ interface AppState {
   updateNotes: string | null;
   matchAnnotations: Record<string, string>;
   visibleKpis: string[];
+  compactMode: boolean;
+  showGlobalSearch: boolean;
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -116,6 +118,9 @@ interface AppState {
   setUpdateInfo: (version: string | null, notes: string | null) => void;
   setMatchAnnotation: (matchId: string, note: string) => void;
   setVisibleKpis: (keys: string[]) => void;
+  setCompactMode: (v: boolean) => void;
+  toggleGlobalSearch: () => void;
+  reorderFavs: (favs: Club[]) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
@@ -150,6 +155,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateNotes: null,
   matchAnnotations: {},
   visibleKpis: ["matches", "wins", "draws", "losses", "winRate", "goals"],
+  compactMode: false,
+  showGlobalSearch: false,
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
@@ -265,6 +272,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       : Object.fromEntries(Object.entries(s.matchAnnotations).filter(([k]) => k !== matchId)),
   })),
   setVisibleKpis: (visibleKpis) => set({ visibleKpis }),
+  setCompactMode: (compactMode) => {
+    document.documentElement.toggleAttribute("data-compact", compactMode);
+    set({ compactMode });
+  },
+  toggleGlobalSearch: () => set((s) => ({ showGlobalSearch: !s.showGlobalSearch })),
+  reorderFavs: (favs) => set({ favs }),
 
   applyProxy: async (url: string) => {
     await apiSetProxy(url.trim() || null);

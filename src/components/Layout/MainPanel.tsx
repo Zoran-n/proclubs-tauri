@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BarChart2, Hash, Settings, Send, Pencil, X } from "lucide-react";
+import { BarChart2, Hash, Settings, Send, Pencil, X, Minimize2, Search } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { PlayersTab } from "../tabs/PlayersTab";
 import { MatchesTab } from "../tabs/MatchesTab";
@@ -16,7 +16,8 @@ import { useT } from "../../i18n";
 
 export function MainPanel() {
   const { currentClub, players, matches, activeTab, isLoading, error, activeSession,
-    sidebarTab, setSidebarTab, discordWebhook, addToast, visibleKpis, setVisibleKpis, persistSettings } = useAppStore();
+    sidebarTab, setSidebarTab, discordWebhook, addToast, visibleKpis, setVisibleKpis,
+    persistSettings, compactMode, setCompactMode, toggleGlobalSearch } = useAppStore();
   const t = useT();
   const [logo, setLogo] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
@@ -145,10 +146,30 @@ export function MainPanel() {
                 </span>
               )}
             </div>
+            <button onClick={toggleGlobalSearch} title="Recherche globale (Ctrl+K)"
+              style={{
+                marginLeft: "auto", display: "flex", alignItems: "center", gap: 4,
+                padding: "4px 8px", background: "var(--hover)", border: "1px solid var(--border)",
+                borderRadius: 5, color: "var(--muted)", fontSize: 11, cursor: "pointer",
+              }}>
+              <Search size={12} />
+              <kbd style={{ fontSize: 9, opacity: 0.7 }}>Ctrl+K</kbd>
+            </button>
+            <button onClick={() => setCompactMode(!compactMode)} title={compactMode ? "Mode normal" : "Mode compact"}
+              style={{
+                marginLeft: 6, display: "flex", alignItems: "center", gap: 4,
+                padding: "4px 8px",
+                background: compactMode ? "rgba(0,212,255,0.12)" : "var(--hover)",
+                border: `1px solid ${compactMode ? "var(--accent)" : "var(--border)"}`,
+                borderRadius: 5, color: compactMode ? "var(--accent)" : "var(--muted)",
+                fontSize: 11, cursor: "pointer",
+              }}>
+              <Minimize2 size={12} />
+            </button>
             {discordWebhook && ["players", "matches", "charts"].includes(activeTab) && (
               <button onClick={shareTab} disabled={sharing} title="Partager sur Discord"
                 style={{
-                  marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
+                  marginLeft: 6, display: "flex", alignItems: "center", gap: 5,
                   padding: "4px 10px", background: "rgba(88,101,242,0.12)",
                   border: "1px solid rgba(88,101,242,0.25)", borderRadius: 5,
                   color: sharing ? "var(--muted)" : "#5865f2", fontSize: 11, cursor: sharing ? "default" : "pointer",
@@ -160,7 +181,7 @@ export function MainPanel() {
             )}
             {activeSession && (
               <span style={{
-                marginLeft: discordWebhook && ["players","matches","charts"].includes(activeTab) ? 8 : "auto",
+                marginLeft: 8,
                 fontSize: 10, color: "#fff",
                 background: "var(--red)", padding: "2px 8px", borderRadius: 3, fontWeight: 700,
                 display: "flex", alignItems: "center", gap: 4,

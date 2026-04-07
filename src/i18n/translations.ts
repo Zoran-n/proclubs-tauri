@@ -309,4 +309,12 @@ export const translations: Translations = {
   "tactics.fetchError":      { fr: "Erreur lors de la recuperation", en: "Error fetching data", es: "Error al recuperar datos",       de: "Fehler beim Abrufen",                pt: "Erro ao buscar dados" },
   "tactics.genCode":         { fr: "Generer un code aleatoire",   en: "Generate random code",  es: "Generar codigo aleatorio",        de: "Zufallscode generieren",             pt: "Gerar codigo aleatorio" },
   "tactics.notes":           { fr: "Notes…",                      en: "Notes…",                es: "Notas…",                          de: "Notizen…",                           pt: "Notas…" },
+
+  // ── Global search ──
+  "global.searchPlaceholder":{ fr: "Chercher un club, joueur, session…", en: "Search clubs, players, sessions…", es: "Buscar clubs, jugadores, sesiones…", de: "Clubs, Spieler, Sitzungen suchen…", pt: "Buscar clubes, jogadores, sessoes…" },
+  "global.clubs":            { fr: "CLUBS",                       en: "CLUBS",                 es: "CLUBS",                           de: "CLUBS",                              pt: "CLUBES" },
+  "global.players":          { fr: "JOUEURS",                     en: "PLAYERS",               es: "JUGADORES",                       de: "SPIELER",                            pt: "JOGADORES" },
+  "global.sessions":         { fr: "SESSIONS",                    en: "SESSIONS",              es: "SESIONES",                        de: "SITZUNGEN",                          pt: "SESSOES" },
+  "global.noResults":        { fr: "Aucun résultat",              en: "No results",            es: "Sin resultados",                  de: "Keine Ergebnisse",                   pt: "Sem resultados" },
+  "global.typeToSearch":     { fr: "Tapez pour chercher…",        en: "Type to search…",       es: "Escribe para buscar…",            de: "Tippen um zu suchen…",               pt: "Digite para pesquisar…" },
 };

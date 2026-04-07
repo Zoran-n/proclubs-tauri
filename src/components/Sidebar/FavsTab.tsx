@@ -1,10 +1,36 @@
-import { Star } from "lucide-react";
+import { useRef, useState } from "react";
+import { Star, GripVertical } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useClub } from "../../hooks/useClub";
+import type { Club } from "../../types";
 
 export function FavsTab() {
-  const { favs, toggleFav, persistSettings } = useAppStore();
+  const { favs, toggleFav, reorderFavs, persistSettings } = useAppStore();
   const { load } = useClub();
+
+  const dragIdx = useRef<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+
+  const handleDragStart = (i: number) => { dragIdx.current = i; };
+
+  const handleDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    setDragOver(i);
+  };
+
+  const handleDrop = (targetIdx: number) => {
+    const from = dragIdx.current;
+    if (from === null || from === targetIdx) { setDragOver(null); return; }
+    const next = [...favs];
+    const [moved] = next.splice(from, 1);
+    next.splice(targetIdx, 0, moved);
+    reorderFavs(next);
+    persistSettings();
+    dragIdx.current = null;
+    setDragOver(null);
+  };
+
+  const handleDragEnd = () => { dragIdx.current = null; setDragOver(null); };
 
   if (favs.length === 0) return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--muted)", gap: 8 }}>
@@ -21,10 +47,29 @@ export function FavsTab() {
       <label style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.08em", fontFamily: "'Bebas Neue', sans-serif", display: "block", marginBottom: 8 }}>
         FAVORIS ({favs.length})
       </label>
-      {favs.map((club) => (
-        <div key={`${club.id}_${club.platform}`}
-          style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--border)", cursor: "pointer" }}
-          onClick={() => load(club.id, club.platform)}>
+      {favs.map((club: Club, i: number) => (
+        <div
+          key={`${club.id}_${club.platform}`}
+          draggable
+          onDragStart={() => handleDragStart(i)}
+          onDragOver={(e) => handleDragOver(e, i)}
+          onDrop={() => handleDrop(i)}
+          onDragEnd={handleDragEnd}
+          style={{
+            display: "flex", alignItems: "center", padding: "8px 0",
+            borderBottom: dragOver === i ? "2px solid var(--accent)" : "1px solid var(--border)",
+            cursor: "pointer",
+            opacity: dragIdx.current === i ? 0.45 : 1,
+            transition: "opacity 0.1s",
+          }}
+          onClick={() => load(club.id, club.platform)}
+        >
+          <span
+            style={{ color: "var(--border)", marginRight: 6, cursor: "grab", flexShrink: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical size={13} />
+          </span>
           <div style={{ width: 32, height: 32, borderRadius: 6, background: "var(--card)", display: "flex", alignItems: "center", justifyContent: "center", marginRight: 10, fontSize: 12, fontWeight: "bold", color: "var(--accent)", flexShrink: 0 }}>
             {club.name.slice(0, 2).toUpperCase()}
           </div>
@@ -38,6 +83,11 @@ export function FavsTab() {
           </button>
         </div>
       ))}
+      {favs.length > 1 && (
+        <p style={{ fontSize: 9, color: "var(--border)", textAlign: "center", marginTop: 8, letterSpacing: "0.06em" }}>
+          ⠿ GLISSER POUR RÉORDONNER
+        </p>
+      )}
     </div>
   );
 }

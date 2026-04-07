@@ -7,6 +7,7 @@ import { Sidebar } from "./components/Layout/Sidebar";
 import { MainPanel } from "./components/Layout/MainPanel";
 import { DevPanel } from "./components/DevPanel/DevPanel";
 import { SearchModal } from "./components/ui/SearchModal";
+import { GlobalSearchModal } from "./components/ui/GlobalSearchModal";
 import { Onboarding } from "./components/ui/Onboarding";
 import { ToastContainer } from "./components/ui/Toast";
 import { UpdateModal } from "./components/ui/UpdateModal";
@@ -19,7 +20,7 @@ function App() {
   const {
     loadSettings, theme, showGrid, showAnimations, darkMode, fontSize,
     addRawLog, toggleDevPanel, showDevPanel, setProxyInfo,
-    setSidebarTab, setActiveTab, onboarded, settingsLoaded,
+    setSidebarTab, setActiveTab, onboarded, settingsLoaded, toggleGlobalSearch,
   } = useAppStore();
 
   useEffect(() => {
@@ -75,6 +76,12 @@ function App() {
         window.dispatchEvent(new CustomEvent("shortcut:export"));
         return;
       }
+      // Ctrl+K → Global search
+      if (e.ctrlKey && e.key === "k") {
+        e.preventDefault();
+        toggleGlobalSearch();
+        return;
+      }
       // Ctrl+1..5 → Switch tabs
       if (e.ctrlKey && e.key >= "1" && e.key <= "5") {
         e.preventDefault();
@@ -86,7 +93,7 @@ function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [toggleDevPanel, setSidebarTab, setActiveTab]);
+  }, [toggleDevPanel, setSidebarTab, setActiveTab, toggleGlobalSearch]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh", overflow: "hidden", background: "var(--bg)", position: "relative" }}>
@@ -100,6 +107,7 @@ function App() {
       </div>
       {showDevPanel && <DevPanel />}
       <SearchModal />
+      <GlobalSearchModal />
       {settingsLoaded && !onboarded && <Onboarding />}
       <UpdateModal />
       <ToastContainer />

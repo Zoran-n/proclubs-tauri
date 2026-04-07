@@ -64,6 +64,7 @@ export function PlayersTab() {
   const players = useAppStore((s) => s.players);
   const matchCache = useAppStore((s) => s.matchCache);
   const currentClub = useAppStore((s) => s.currentClub);
+  const compactMode = useAppStore((s) => s.compactMode);
 
   const [sortKey, setSortKey] = useState<SortKey>("goals");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -327,9 +328,10 @@ export function PlayersTab() {
           const score = compositeScore(p);
           return (
             <div key={`${p.name}-${i}`} onClick={() => handleCardClick(p)}
+              className="compact-row"
               style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "12px 16px",
+                display: "flex", alignItems: "center", gap: compactMode ? 8 : 12,
+                padding: compactMode ? "6px 10px" : "12px 16px",
                 background: sel ? `${COMPARE_COLORS[cIdx]}08` : "var(--card)",
                 border: `1px solid ${sel ? COMPARE_COLORS[cIdx] : alert ? "rgba(218,55,60,0.35)" : "var(--border)"}`,
                 borderRadius: 8, cursor: "pointer", transition: "border-color 0.15s",
