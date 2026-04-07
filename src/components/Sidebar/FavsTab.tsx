@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Star, GripVertical } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useClub } from "../../hooks/useClub";
@@ -8,37 +8,27 @@ export function FavsTab() {
   const { favs, toggleFav, reorderFavs, persistSettings } = useAppStore();
   const { load } = useClub();
 
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  // Pointer-based drag state (works in Tauri/WebView2 unlike HTML5 drag API)
+  const [dragging, setDragging] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
+  const didDrag = useRef(false); // prevent onClick after a drag
 
-  const handleDragStart = (e: React.DragEvent, i: number) => {
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", String(i));
-    setDragIdx(i);
-  };
-
-  const handleDragOver = (e: React.DragEvent, i: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOver(i);
-  };
-
-  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const fromStr = e.dataTransfer.getData("text/plain");
-    const from = fromStr !== "" ? parseInt(fromStr, 10) : dragIdx;
-    if (from === null || from === targetIdx) { setDragIdx(null); setDragOver(null); return; }
-    const next = [...favs];
-    const [moved] = next.splice(from, 1);
-    next.splice(targetIdx, 0, moved);
-    reorderFavs(next);
-    persistSettings();
-    setDragIdx(null);
-    setDragOver(null);
-  };
-
-  const handleDragEnd = () => { setDragIdx(null); setDragOver(null); };
+  useEffect(() => {
+    if (dragging === null) return;
+    const onUp = () => {
+      if (dragging !== null && dragOver !== null && dragging !== dragOver) {
+        const next = [...favs];
+        const [moved] = next.splice(dragging, 1);
+        next.splice(dragOver, 0, moved);
+        reorderFavs(next);
+        persistSettings();
+      }
+      setDragging(null);
+      setDragOver(null);
+    };
+    window.addEventListener("pointerup", onUp);
+    return () => window.removeEventListener("pointerup", onUp);
+  }, [dragging, dragOver, favs, reorderFavs, persistSettings]);
 
   if (favs.length === 0) return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--muted)", gap: 8 }}>
@@ -58,22 +48,30 @@ export function FavsTab() {
       {favs.map((club: Club, i: number) => (
         <div
           key={`${club.id}_${club.platform}`}
-          draggable
-          onDragStart={(e) => handleDragStart(e, i)}
-          onDragOver={(e) => handleDragOver(e, i)}
-          onDrop={(e) => handleDrop(e, i)}
-          onDragEnd={handleDragEnd}
+          onPointerEnter={() => { if (dragging !== null) setDragOver(i); }}
           style={{
             display: "flex", alignItems: "center", padding: "8px 0",
-            borderBottom: dragOver === i ? "2px solid var(--accent)" : "1px solid var(--border)",
-            cursor: "pointer",
-            opacity: dragIdx === i ? 0.45 : 1,
+            borderBottom: dragOver === i && dragging !== null ? "2px solid var(--accent)" : "1px solid var(--border)",
+            cursor: dragging !== null ? "grabbing" : "pointer",
+            opacity: dragging === i ? 0.45 : 1,
             transition: "opacity 0.1s",
+            userSelect: "none",
           }}
-          onClick={() => load(club.id, club.platform)}
+          onClick={() => {
+            if (didDrag.current) { didDrag.current = false; return; }
+            load(club.id, club.platform);
+          }}
         >
+          {/* Grip handle — pointerdown here starts the drag */}
           <span
-            style={{ color: "var(--border)", marginRight: 6, cursor: "grab", flexShrink: 0 }}
+            style={{ color: "var(--border)", marginRight: 6, cursor: "grab", flexShrink: 0, touchAction: "none" }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              didDrag.current = true;
+              setDragging(i);
+              setDragOver(i);
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <GripVertical size={13} />
