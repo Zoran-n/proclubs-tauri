@@ -135,7 +135,10 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Overlay de grille activable/désactivable
 - Spinner de chargement
 - Gestion des erreurs réseau avec message utilisateur
-- **Raccourcis clavier globaux** : F11 plein écran, Ctrl+F recherche, Ctrl+E export, Ctrl+1–5 navigation, Ctrl+Shift+D panel dev
+- **Raccourcis clavier globaux** : F11 plein écran, Ctrl+F recherche sidebar, Ctrl+K recherche globale, Ctrl+E export, Ctrl+1–5 navigation, Ctrl+Shift+D panel dev
+- **Recherche globale (Ctrl+K)** : modal searchable avec navigation clavier (↑↓ Entrée ESC), résultats groupés Clubs / Joueurs / Sessions, badge favori et indicateur club actif
+- **Mode compact** : bouton toggle dans le header — densifie l'affichage des cartes joueurs
+- **Drag & drop favoris** : icône grip dans la sidebar Favoris pour réordonner les clubs par glisser-déposer (ordre persisté)
 - **Internationalisation** : FR / EN / ES / DE / PT (~250 clés de traduction, toute l'interface)
 - **Onboarding** : assistant de bienvenue 3 étapes (langue, fonctionnalités, raccourcis) au premier lancement
 - **Accessibilité** : focus-visible, skip-link, reduced-motion, forced-colors, attributs ARIA
@@ -189,11 +192,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Comparaison multi-clubs** : aligner 3 clubs ou plus dans un seul tableau
 - **Historique H2H** : afficher tous les matchs directs entre les deux clubs si disponibles via l'API
 - **Graphique radar global** : radar des 6 stats clés (V%, buts, passes, tacles, note, MOTM) des deux clubs
-
-### UX / Interface
-- **Mode compact** : densifier les tableaux et cartes pour les petits écrans
-- **Drag & drop** : réordonner les favoris dans la sidebar ou les colonnes du tableau joueurs
-- **Recherche globale** : barre de recherche unique qui trouve clubs, joueurs et sessions en même temps
 
 ### Performance & architecture
 - **Virtualisation des listes** : `react-window` pour les grands tableaux joueurs/matchs (> 50 entrées)
