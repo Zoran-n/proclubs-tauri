@@ -1,5 +1,38 @@
 # Changelog — ProClubs Stats
 
+## v0.4.1 — 2026-04-08 (post-release)
+
+### Comparaison de clubs — refonte complète
+
+#### Multi-clubs (jusqu'à 4)
+- Slots dynamiques : bouton **+** pour ajouter jusqu'à 4 clubs, **×** pour en retirer un
+- Chaque slot a sa propre couleur (cyan / violet / orange / vert) pour distinguer les clubs visuellement
+
+#### Onglets de section
+- Nouvelle barre d'onglets **Stats | Radar | H2H | Joueurs** pour naviguer entre les vues
+
+#### Tableau Stats N colonnes
+- Colonnes dynamiques : autant de colonnes que de clubs chargés
+- Nouvelle ligne **V%** (taux de victoire) dans le tableau
+- Mise en valeur couleur du meilleur par ligne (et du moins bon pour les Défaites)
+
+#### Radar normalisé
+- Radar **Recharts** avec une courbe par club, normalisé sur 100
+- 6 stats clés : V%, Buts/Match, Passes/J, Tacles/J, Note Moyenne, MOTM total
+- Légende interactive avec nom de chaque club
+
+#### Historique H2H
+- Chargement automatique des matchs de championnat du Club 1 et filtrage des confrontations directes avec le Club 2
+- **Bilan résumé** : 4 compteurs (Victoires / Nuls / Défaites / Total matchs)
+- **Liste triée par date** : score, résultat (V/N/D coloré), date de chaque confrontation
+- Message "Aucune confrontation directe trouvée" si l'API ne retourne pas de matchs communs
+
+#### Joueurs multi-clubs
+- Tableau multi-colonnes : une colonne par club pour chaque groupe de poste (GK, DEF, MIL, ATT)
+- Surlignage couleur du meilleur joueur par poste (seulement si ex-æquo non partagé)
+
+---
+
 ## v0.4.1 — 2026-03-30
 
 ### KPIs personnalisables

@@ -83,11 +83,13 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Graphique de forme** : courbe du taux de victoire session par session (12 dernières sessions, recharts)
 
 ### Comparaison de clubs
-- Recherche et sélection de deux clubs indépendants
+- Recherche et sélection de **2 à 4 clubs** simultanément (bouton + / × par slot)
 - Logo affiché pour chaque club
-- Tableau comparatif côte à côte : SR, Victoires, Nuls, Défaites, Buts, Nombre de joueurs
-- Mise en évidence du meilleur score dans chaque catégorie
-- **Meilleurs joueurs par poste** : GK, DEF, MIL, ATT — comparaison côte à côte avec note, buts, PD
+- **Onglets de section** : Stats | Radar | H2H | Joueurs
+- **Tableau multi-colonnes** : SR, V%, Victoires, Nuls, Défaites, Buts, Nombre de joueurs — meilleur mis en valeur par ligne
+- **Radar normalisé** : radar des 6 stats clés (V%, Buts/Match, Passes/J, Tacles/J, Note Moy, MOTM) normalisées sur 100
+- **Historique H2H** : filtre automatique des matchs directs entre les 2 clubs, bilan V/N/D, liste des confrontations triées par date
+- **Meilleurs joueurs par poste** : GK, DEF, MIL, ATT — tableau N colonnes avec surlignage du meilleur
 - **Historique des comparaisons** : sauvegarde automatique, rechargement en un clic, suppression
 - Export **PNG** et **CSV** du tableau comparatif
 
@@ -187,11 +189,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ---
 
 ## Axes d'amélioration possibles
-
-### Comparaison de clubs
-- **Comparaison multi-clubs** : aligner 3 clubs ou plus dans un seul tableau
-- **Historique H2H** : afficher tous les matchs directs entre les deux clubs si disponibles via l'API
-- **Graphique radar global** : radar des 6 stats clés (V%, buts, passes, tacles, note, MOTM) des deux clubs
 
 ### Performance & architecture
 - **Virtualisation des listes** : `react-window` pour les grands tableaux joueurs/matchs (> 50 entrées)
