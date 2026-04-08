@@ -212,4 +212,5 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Virtualisation MatchesTab** : VariableSizeList pour les très longs historiques (> 200 matchs)
 - **Export Excel (.xlsx)** : alternative au CSV avec mise en forme (couleurs, colonnes auto-taille)
 - **Mode hors-ligne** : afficher les données du cache même sans connexion à l'API EA
+- **Agrandisement Cache** : étre capable de conteniur jusque 2000 match sur le club lier
 
