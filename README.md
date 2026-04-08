@@ -171,6 +171,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 | Police | Bebas Neue + Barlow (Google Fonts) |
 | Persistance | JSON local (`~/.local/share/com.codespace.proclubs-tauri/settings.json`) |
 | Discord | Webhook API (fetch natif, embeds formatés) |
+| Virtualisation | react-window (FixedSizeList joueurs) |
 
 ---
 
@@ -192,7 +193,3 @@ source ~/.cargo/env && npm run tauri build -- --debug
 
 ## Axes d'amélioration possibles
 
-### Performance & architecture
-- **Virtualisation des listes** : `react-window` pour les grands tableaux joueurs/matchs (> 50 entrées)
-- **Séparation API / store** : centraliser les appels API dans des hooks dédiés (`useClubData`, `useMatchData`)
-- **Persistance sélective** : ne sauvegarder que les champs modifiés dans `settings.json` pour réduire les I/O disque

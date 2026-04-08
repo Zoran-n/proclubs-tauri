@@ -1,5 +1,24 @@
 # Changelog — ProClubs Stats
 
+## v0.4.1 — 2026-04-08 (post-release, perf)
+
+### Performance & architecture
+
+#### Virtualisation de la liste joueurs
+- `react-window` (FixedSizeList) dans PlayersTab — seules les cartes visibles sont dans le DOM
+- Performances constantes que le club ait 5 ou 500 joueurs
+
+#### Hook `useMatchData` — séparation API / composant
+- Toute la logique fetch/cache/pagination/auto-loader extraite de MatchesTab dans `src/hooks/useMatchData.ts`
+- MatchesTab ne gère plus que l'affichage — hook réutilisable dans d'autres vues
+
+#### Persistance sélective
+- `persistSettings` compare le JSON sérialisé avec le dernier sauvegardé
+- Si rien n'a changé, apiSave n'est pas appelé → zéro I/O disque inutile
+- Particulièrement utile lors du chargement automatique de matchs en arrière-plan
+
+---
+
 ## v0.4.1 — 2026-04-08 (post-release, suite)
 
 ### Chargement automatique au démarrage
