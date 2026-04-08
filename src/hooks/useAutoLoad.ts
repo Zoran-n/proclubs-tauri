@@ -4,6 +4,7 @@ import { useClub } from "./useClub";
 import { useAppStore } from "../store/useAppStore";
 
 const MATCH_TYPES = ["leagueMatch", "playoffMatch", "friendlyMatch"] as const;
+const CACHE_LIMIT = 2000;
 
 function oldestTimestamp(matches: { timestamp: string }[]): string | null {
   if (matches.length === 0) return null;
@@ -47,6 +48,7 @@ export function useAutoLoad() {
 
       // First page (only if nothing cached yet)
       if (accumulated.length === 0) {
+        if (!navigator.onLine) return; // Offline: keep existing cache
         try {
           const data = await getMatches(club.id, club.platform, matchType);
           if (cancelled) return;
@@ -59,18 +61,19 @@ export function useAutoLoad() {
         await sleep(600);
       }
 
-      // Paginate until exhausted
+      // Paginate until exhausted or CACHE_LIMIT reached
       let cursor = oldestTimestamp(accumulated);
-      while (cursor && !cancelled) {
+      while (cursor && !cancelled && accumulated.length < CACHE_LIMIT) {
+        if (!navigator.onLine) break; // Offline: keep what we have
         try {
           const data = await getMatches(club.id, club.platform, matchType, cursor);
           if (cancelled) return;
           const existingIds = new Set(accumulated.map((m) => m.matchId));
           const fresh = data.filter((m) => !existingIds.has(m.matchId));
           if (fresh.length === 0) break;
-          accumulated = [...accumulated, ...fresh];
+          accumulated = [...accumulated, ...fresh].slice(0, CACHE_LIMIT);
           setMatchCache(key, accumulated);
-          if (data.length < 10) break;
+          if (data.length < 10 || accumulated.length >= CACHE_LIMIT) break;
           cursor = oldestTimestamp(data);
           await sleep(800);
         } catch {

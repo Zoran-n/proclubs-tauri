@@ -52,6 +52,12 @@ export function useMatchData() {
       setCursors((c) => ({ ...c, [type]: cached.length >= 10 ? oldestTimestamp(cached) : null }));
       return;
     }
+    if (!navigator.onLine) {
+      // Offline and no cache: mark as empty so we don't retry
+      setPages((p) => ({ ...p, [type]: [] }));
+      setCursors((c) => ({ ...c, [type]: null }));
+      return;
+    }
     setLoading(true);
     getMatches(currentClub.id, currentClub.platform, type)
       .then((data) => {
@@ -67,6 +73,7 @@ export function useMatchData() {
   // ── Load next page ────────────────────────────────────────────────────────
   const loadMore = () => {
     if (!currentClub || loading) return;
+    if (!navigator.onLine) return;
     const cursor = cursors[type];
     if (!cursor) return;
     setLoading(true);

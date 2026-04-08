@@ -146,6 +146,17 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Accessibilité** : focus-visible, skip-link, reduced-motion, forced-colors, attributs ARIA
 - **KPIs personnalisables** : bouton ÉDITER sur la barre KPI — choisir quels indicateurs afficher parmi 8 disponibles (Matchs, Victoires, Nuls, Défaites, % Victoires, Buts, Buts/Match, Points) — sélection persistée
 
+### Mode hors-ligne
+- Bannière **MODE HORS-LIGNE** affichée automatiquement quand il n'y a pas de connexion réseau
+- Toutes les données du cache (matchs, joueurs, sessions) restent accessibles
+- Le chargement automatique en arrière-plan et la pagination sont suspendus quand offline, reprennent dès reconnexion
+- Aucune perte de données : les matchs déjà chargés restent en mémoire et sur disque
+
+### Cache matchs
+- **Capacité 2000 matchs par type** (Championnat / Playoff / Amical) — soit jusqu'à 6000 matchs stockés pour le club lié
+- Indicateur de progression dans **Mon Profil** : barre par type avec compteur X / 2000
+- Le chargement en arrière-plan s'arrête proprement à la limite — aucun téléchargement inutile
+
 ### Proxy & réseau
 - Support proxy configurable (HTTP/HTTPS)
 - Détection du proxy système (variables d'environnement)
@@ -211,6 +222,4 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ### Technique
 - **Virtualisation MatchesTab** : VariableSizeList pour les très longs historiques (> 200 matchs)
 - **Export Excel (.xlsx)** : alternative au CSV avec mise en forme (couleurs, colonnes auto-taille)
-- **Mode hors-ligne** : afficher les données du cache même sans connexion à l'API EA
-- **Agrandisement Cache** : étre capable de conteniur jusque 2000 match sur le club lier
 

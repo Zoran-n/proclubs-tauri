@@ -1,5 +1,20 @@
 # Changelog — ProClubs Stats
 
+## v0.4.1 — 2026-04-08 (post-release, offline + cache)
+
+### Mode hors-ligne
+- Détection automatique de la connexion réseau via `navigator.onLine` + événements `online`/`offline`
+- Bannière **MODE HORS-LIGNE** affichée en haut de l'app quand le réseau est absent
+- `useAutoLoad` et `useMatchData` vérifient `navigator.onLine` avant chaque appel API — aucune requête inutile hors connexion
+- Les données du cache (matchs, joueurs, sessions) restent entièrement accessibles et navigables
+
+### Cache matchs — capacité 2000
+- Limite `CACHE_LIMIT = 2000` matchs par type dans `useAutoLoad` — la pagination s'arrête proprement à 2000
+- **Indicateur de progression dans Mon Profil** : barre de progression (X / 2000) pour chaque type (Championnat / Playoff / Amical) et total global (X / 6000)
+- Les barres passent au vert quand la limite est atteinte
+
+---
+
 ## v0.4.1 — 2026-04-08 (post-release, perf)
 
 ### Performance & architecture

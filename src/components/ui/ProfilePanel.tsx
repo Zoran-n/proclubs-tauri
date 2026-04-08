@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, User, Unlink, Send } from "lucide-react";
+import { Link, User, Unlink, Send, Database } from "lucide-react";
 import { searchClub, getMembers } from "../../api/tauri";
 import { sendDiscordWebhook } from "../../api/discord";
 import { useAppStore } from "../../store/useAppStore";
@@ -20,7 +20,7 @@ const labelStyle: React.CSSProperties = {
 
 export function ProfilePanel() {
   const { eaProfile, setEaProfile, addLog, persistSettings, setSidebarTab,
-    discordWebhook, setDiscordWebhook, addToast } = useAppStore();
+    discordWebhook, setDiscordWebhook, addToast, matchCache } = useAppStore();
   const { load } = useClub();
 
   const [gamertag, setGamertag] = useState(eaProfile?.gamertag ?? "");
@@ -232,6 +232,48 @@ export function ProfilePanel() {
           </button>
         </div>
       )}
+
+      {/* ── Section Cache ── */}
+      {eaProfile?.clubId && (() => {
+        const types: { key: string; label: string }[] = [
+          { key: `${eaProfile.clubId}_${eaProfile.platform}_leagueMatch`, label: "Championnat" },
+          { key: `${eaProfile.clubId}_${eaProfile.platform}_playoffMatch`, label: "Playoff" },
+          { key: `${eaProfile.clubId}_${eaProfile.platform}_friendlyMatch`, label: "Amical" },
+        ];
+        const total = types.reduce((acc, t) => acc + (matchCache[t.key]?.length ?? 0), 0);
+        return (
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 20, marginBottom: 20 }}>
+            <div style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.1em",
+              fontFamily: "'Bebas Neue', sans-serif", marginBottom: 10,
+              display: "flex", alignItems: "center", gap: 6 }}>
+              <Database size={11} /> CACHE MATCHS ({total} / 6000)
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {types.map(({ key, label }) => {
+                const count = matchCache[key]?.length ?? 0;
+                const pct = Math.min(100, Math.round((count / 2000) * 100));
+                return (
+                  <div key={key}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 }}>
+                      <span style={{ color: "var(--muted)" }}>{label}</span>
+                      <span style={{ color: count > 0 ? "var(--accent)" : "var(--muted)", fontWeight: 600 }}>
+                        {count} / 2000
+                      </span>
+                    </div>
+                    <div style={{ height: 4, background: "var(--hover)", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%", width: `${pct}%`,
+                        background: pct >= 100 ? "var(--green)" : "var(--accent)",
+                        borderRadius: 2, transition: "width 0.3s ease",
+                      }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Section Discord ── */}
       <div style={{ borderTop: "1px solid var(--border)", paddingTop: 20 }}>

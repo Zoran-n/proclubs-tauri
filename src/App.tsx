@@ -14,6 +14,7 @@ import { UpdateModal } from "./components/ui/UpdateModal";
 import { useAppStore } from "./store/useAppStore";
 import { checkProxy } from "./api/tauri";
 import { useAutoLoad } from "./hooks/useAutoLoad";
+import { useOffline } from "./hooks/useOffline";
 
 const win = getCurrentWindow();
 
@@ -25,6 +26,7 @@ function App() {
   } = useAppStore();
 
   useAutoLoad();
+  const isOffline = useOffline();
 
   useEffect(() => {
     const root = document.documentElement;
@@ -103,6 +105,16 @@ function App() {
       <a href="#main-content" className="skip-link">Skip to content</a>
       <div id="grid-overlay" />
       <TitleBar showDiscordLayout />
+      {isOffline && (
+        <div style={{
+          background: "var(--gold)", color: "#000", padding: "3px 12px",
+          fontSize: 11, fontWeight: 700, textAlign: "center",
+          letterSpacing: "0.06em", fontFamily: "'Bebas Neue', sans-serif",
+          flexShrink: 0,
+        }}>
+          MODE HORS-LIGNE — DONNÉES DU CACHE
+        </div>
+      )}
       <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative", zIndex: 2 }}>
         <GuildBar />
         <Sidebar />
