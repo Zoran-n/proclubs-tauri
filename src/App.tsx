@@ -13,6 +13,7 @@ import { ToastContainer } from "./components/ui/Toast";
 import { UpdateModal } from "./components/ui/UpdateModal";
 import { useAppStore } from "./store/useAppStore";
 import { checkProxy } from "./api/tauri";
+import { useAutoLoad } from "./hooks/useAutoLoad";
 
 const win = getCurrentWindow();
 
@@ -22,6 +23,8 @@ function App() {
     addRawLog, toggleDevPanel, showDevPanel, setProxyInfo,
     setSidebarTab, setActiveTab, onboarded, settingsLoaded, toggleGlobalSearch,
   } = useAppStore();
+
+  useAutoLoad();
 
   useEffect(() => {
     const root = document.documentElement;

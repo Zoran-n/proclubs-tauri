@@ -38,12 +38,30 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Tatsuki",
+    "copyright": "Copyright © 2025 Tatsuki. All rights reserved.",
+    "shortDescription": "ProClubs Stats — EA FC Pro Clubs statistics tracker",
+    "longDescription": "Desktop application to track EA FC Pro Clubs statistics. Built with Tauri.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "tsp": false,
+      "nsis": {
+        "displayLanguageSelector": false,
+        "languages": ["French"],
+        "shortcutName": "ProClubs Stats",
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "icons/128x128.png",
+        "sidebarImage": "icons/128x128@2x.png",
+        "installMode": "currentUser"
+      }
+    }
   }
 }
