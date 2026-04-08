@@ -112,6 +112,8 @@ interface AppState {
   addToast: (message: string, type?: ToastMessage["type"]) => void;
   removeToast: (id: string) => void;
   setMatchCache: (key: string, matches: Match[]) => void;
+  clearMatchCacheKey: (key: string) => void;
+  clearAllMatchCache: () => void;
   setDiscordWebhook: (v: string) => void;
   setAutoUpdate: (v: boolean) => void;
   setUpdateAvailable: (v: boolean) => void;
@@ -265,6 +267,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   })),
   removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   setMatchCache: (key, matches) => set((s) => ({ matchCache: { ...s.matchCache, [key]: matches } })),
+  clearMatchCacheKey: (key) => set((s) => {
+    const next = { ...s.matchCache };
+    delete next[key];
+    return { matchCache: next };
+  }),
+  clearAllMatchCache: () => set({ matchCache: {} }),
   setDiscordWebhook: (discordWebhook) => set({ discordWebhook }),
   setAutoUpdate: (autoUpdate) => set({ autoUpdate }),
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
