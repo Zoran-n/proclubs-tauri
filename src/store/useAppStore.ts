@@ -126,6 +126,9 @@ interface AppState {
   persistSettings: () => Promise<void>;
 }
 
+// ── Selective persistence: skip apiSave if nothing changed ───────────────────
+let _lastSavedJson = "";
+
 export const useAppStore = create<AppState>((set, get) => ({
   currentClub: null, players: [], matches: [], sessions: [], tactics: [],
   history: [], favs: [], eaProfile: null,
@@ -338,7 +341,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   persistSettings: async () => {
     const { history, favs, tactics, sessions, compareHistory, eaProfile, theme, darkMode, proxyUrl,
       showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations, visibleKpis } = get();
-    await apiSave({
+    const payload = {
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
       theme, darkMode,
@@ -354,6 +357,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       autoUpdate,
       matchAnnotations,
       visibleKpis,
-    });
+    };
+    // Skip the I/O write if nothing changed
+    const json = JSON.stringify(payload);
+    if (json === _lastSavedJson) return;
+    _lastSavedJson = json;
+    await apiSave(payload);
   },
 }));

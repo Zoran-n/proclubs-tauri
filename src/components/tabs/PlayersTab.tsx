@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { List, useListRef } from "react-window";
 import { Search, Download, ChevronUp, ChevronDown, Users, Filter, AlertTriangle } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { ExportModal } from "../ui/ExportModal";
@@ -47,9 +48,7 @@ function RatingBadge({ r }: { r: number }) {
       background: `${color}18`, border: `1px solid ${color}55`,
       color, fontSize: 13, fontWeight: 700, fontFamily: "'Bebas Neue', sans-serif",
       letterSpacing: "0.04em",
-    }}>
-      {r.toFixed(1)}
-    </span>
+    }}>{r.toFixed(1)}</span>
   );
 }
 
@@ -59,30 +58,134 @@ const BTN: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
 };
 
+const COMPARE_COLORS = ["var(--accent)", "#8b5cf6", "#ff6b35", "#57f287"];
+
+// ─── Row props passed via rowProps ────────────────────────────────────────────
+interface PlayerRowProps {
+  sorted: Player[];
+  compactMode: boolean;
+  compareMode: boolean;
+  compareSelected: Player[];
+  sortKey: SortKey;
+  t: ReturnType<typeof useT>;
+  sparklineFor: (name: string) => number[];
+  isUnderperforming: (name: string) => boolean;
+  handleCardClick: (p: Player) => void;
+}
+
+// ─── Row component (react-window v2 API) ─────────────────────────────────────
+function PlayerRow({
+  index, style, ariaAttributes,
+  sorted, compactMode, compareMode, compareSelected, sortKey, t,
+  sparklineFor, isUnderperforming, handleCardClick,
+}: {
+  index: number;
+  style: React.CSSProperties;
+  ariaAttributes: { "aria-posinset": number; "aria-setsize": number; role: "listitem" };
+} & PlayerRowProps) {
+  const p = sorted[index];
+  if (!p) return null;
+
+  const posLabel  = POS_LABELS[p.position] || p.position || "—";
+  const cIdx      = compareSelected.findIndex((pp) => pp.name === p.name);
+  const sel       = compareMode && cIdx >= 0;
+  const sparkline = sparklineFor(p.name);
+  const alert     = isUnderperforming(p.name);
+  const score     = compositeScore(p);
+
+  return (
+    <div style={{ ...style, paddingLeft: 16, paddingRight: 16, paddingTop: 3, paddingBottom: 3,
+      boxSizing: "border-box" }} {...ariaAttributes}>
+      <div
+        className="compact-row"
+        onClick={() => handleCardClick(p)}
+        style={{
+          display: "flex", alignItems: "center", gap: compactMode ? 8 : 12,
+          padding: compactMode ? "6px 10px" : "12px 16px",
+          background: sel ? `${COMPARE_COLORS[cIdx]}08` : "var(--card)",
+          border: `1px solid ${sel ? COMPARE_COLORS[cIdx] : alert ? "rgba(218,55,60,0.35)" : "var(--border)"}`,
+          borderRadius: 8, cursor: "pointer", transition: "border-color 0.15s",
+          height: "calc(100% - 6px)", boxSizing: "border-box",
+        }}
+        onMouseEnter={(e) => { if (!sel) e.currentTarget.style.borderColor = "var(--accent)"; }}
+        onMouseLeave={(e) => { if (!sel) e.currentTarget.style.borderColor = alert ? "rgba(218,55,60,0.35)" : "var(--border)"; }}
+      >
+        <span style={{
+          fontSize: 11, fontWeight: 700,
+          color: index === 0 ? "#f59e0b" : index === 1 ? "#94a3b8" : index === 2 ? "#cd7c3b" : "var(--muted)",
+          width: 18, textAlign: "center", flexShrink: 0,
+        }}>{index + 1}</span>
+        <PlayerAvatar name={p.name} size={32} />
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+            {alert && <span title="Note moyenne récente < 6.5"><AlertTriangle size={11} style={{ color: "var(--red)", flexShrink: 0 }} /></span>}
+          </div>
+          <span style={{ display: "inline-block", marginTop: 3, padding: "1px 6px", borderRadius: 3,
+            background: "var(--bg)", border: "1px solid var(--border)",
+            fontSize: 9, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif",
+            letterSpacing: "0.04em" }}>{posLabel}</span>
+        </div>
+
+        {sparkline.length >= 2 && (
+          <div style={{ flexShrink: 0 }} title={`Dernières notes: ${sparkline.map((v) => v.toFixed(1)).join(", ")}`}>
+            <MiniSparkline values={sparkline} />
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 14, alignItems: "center", flexShrink: 0 }}>
+          {[
+            { label: t("players.gp"),          value: p.gamesPlayed,              color: "var(--text)" },
+            { label: t("players.goalsShort"),   value: p.goals    || "—",          color: "var(--accent)" },
+            { label: t("players.assistsShort"), value: p.assists  || "—",          color: "var(--text)" },
+            { label: t("session.motm"),         value: p.motm > 0 ? p.motm : "—", color: "#ffd700" },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ textAlign: "center", minWidth: 30 }}>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, color, lineHeight: 1 }}>{value}</div>
+              <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em", marginTop: 2 }}>{label}</div>
+            </div>
+          ))}
+          <RatingBadge r={p.rating} />
+          {sortKey === "score" && (
+            <div style={{ textAlign: "center", minWidth: 36 }}>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, color: "#ffd700", lineHeight: 1 }}>{score}</div>
+              <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em", marginTop: 2 }}>Score</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export function PlayersTab() {
   const t = useT();
-  const players = useAppStore((s) => s.players);
+  const players    = useAppStore((s) => s.players);
   const matchCache = useAppStore((s) => s.matchCache);
   const currentClub = useAppStore((s) => s.currentClub);
   const compactMode = useAppStore((s) => s.compactMode);
 
-  const [sortKey, setSortKey] = useState<SortKey>("goals");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [selected, setSelected] = useState<Player | null>(null);
-  const [filter, setFilter] = useState("");
-  const debouncedFilter = useDebounce(filter, 200);
+  const listRef = useListRef(null);
+
+  const [sortKey, setSortKey]     = useState<SortKey>("goals");
+  const [sortDir, setSortDir]     = useState<"asc" | "desc">("desc");
+  const [selected, setSelected]   = useState<Player | null>(null);
+  const [filter, setFilter]       = useState("");
+  const debouncedFilter           = useDebounce(filter, 200);
   const [filterPos, setFilterPos] = useState<string>("all");
   const [filterMinRating, setFilterMinRating] = useState<number>(0);
-  const [filterMinGames, setFilterMinGames] = useState<number>(0);
+  const [filterMinGames, setFilterMinGames]   = useState<number>(0);
   const [filterAlertsOnly, setFilterAlertsOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  // Compare mode
   const [compareMode, setCompareMode] = useState(false);
   const [compareSelected, setCompareSelected] = useState<Player[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
+
+  const ITEM_HEIGHT = compactMode ? 50 : 80;
 
   const COLS: { key: SortKey; label: string }[] = useMemo(() => [
     { key: "score",       label: "🏆 Score" },
@@ -100,7 +203,6 @@ export function PlayersTab() {
     return Array.from(set).sort();
   }, [players]);
 
-  // Per-player recent rating history from matchCache (last 10 matches, newest→oldest)
   const playerRecentRatings = useMemo(() => {
     if (!currentClub) return new Map<string, number[]>();
     const key = `${currentClub.id}_${currentClub.platform}_leagueMatch`;
@@ -123,20 +225,16 @@ export function PlayersTab() {
     return map;
   }, [matchCache, currentClub?.id]);
 
-  // Returns sparkline values (oldest→newest) for a player
-  const sparklineFor = (name: string): number[] => {
-    const arr = playerRecentRatings.get(name) ?? [];
-    return [...arr].reverse();
-  };
+  const sparklineFor = useCallback((name: string): number[] =>
+    [...(playerRecentRatings.get(name) ?? [])].reverse(),
+  [playerRecentRatings]);
 
-  // Returns true if avg of last 5 rated matches < 6.5 (minimum 3 datapoints)
-  const isUnderperforming = (name: string): boolean => {
+  const isUnderperforming = useCallback((name: string): boolean => {
     const arr = playerRecentRatings.get(name) ?? [];
     if (arr.length < 3) return false;
-    const recent = arr.slice(0, 5);
-    const avg = recent.reduce((a, b) => a + b, 0) / recent.length;
+    const avg = arr.slice(0, 5).reduce((a, b) => a + b, 0) / Math.min(arr.length, 5);
     return avg < 6.5;
-  };
+  }, [playerRecentRatings]);
 
   const sorted = useMemo(() => [...players]
     .filter((p) => {
@@ -155,32 +253,34 @@ export function PlayersTab() {
       const av = a[sortKey as keyof Player], bv = b[sortKey as keyof Player];
       if (typeof av === "number" && typeof bv === "number") return sortDir === "desc" ? bv - av : av - bv;
       return sortDir === "desc" ? String(bv).localeCompare(String(av)) : String(av).localeCompare(String(bv));
-    }), [players, sortKey, sortDir, debouncedFilter, filterPos, filterMinRating, filterMinGames, filterAlertsOnly, playerRecentRatings]);
+    }),
+  [players, sortKey, sortDir, debouncedFilter, filterPos, filterMinRating, filterMinGames, filterAlertsOnly, playerRecentRatings]);
 
   const csvHeaders = [t("players.playerCount"), t("players.pos"), t("players.gp"), t("players.goals"), t("players.assistsShort"), t("players.passes"), t("players.tackles"), t("session.motm"), t("players.rating"), "Score"];
-  const csvRows = sorted.map((p) => [
+  const csvRows    = sorted.map((p) => [
     p.name, POS_LABELS[p.position] || p.position || "—",
     p.gamesPlayed, p.goals, p.assists, p.passesMade, p.tacklesMade, p.motm,
     p.rating.toFixed(1), compositeScore(p),
   ]);
   const dateStr = new Date().toISOString().slice(0, 10);
 
-  const handleCardClick = (p: Player) => {
+  const handleCardClick = useCallback((p: Player) => {
     if (compareMode) {
       setCompareSelected((prev) => {
         if (prev.some((pp) => pp.name === p.name)) return prev.filter((pp) => pp.name !== p.name);
-        if (prev.length >= 4) return [...prev.slice(1), p]; // replace oldest when at max
+        if (prev.length >= 4) return [...prev.slice(1), p];
         return [...prev, p];
       });
     } else {
       setSelected(p);
     }
-  };
+  }, [compareMode]);
 
-  const isCompareSelected = (p: Player) => compareSelected.some((pp) => pp.name === p.name);
-  const compareIdx = (p: Player) => compareSelected.findIndex((pp) => pp.name === p.name);
-
-  const COMPARE_COLORS = ["var(--accent)", "#8b5cf6", "#ff6b35", "#57f287"];
+  const rowProps: PlayerRowProps = useMemo(() => ({
+    sorted, compactMode, compareMode, compareSelected, sortKey, t,
+    sparklineFor, isUnderperforming, handleCardClick,
+  }), [sorted, compactMode, compareMode, compareSelected, sortKey, t,
+      sparklineFor, isUnderperforming, handleCardClick]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -197,8 +297,7 @@ export function PlayersTab() {
               padding: "6px 10px 6px 28px", borderRadius: 6, fontSize: 12, outline: "none", width: "100%",
               transition: "border-color 0.15s" }}
             onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-            onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-          />
+            onBlur={(e) => (e.target.style.borderColor = "var(--border)")} />
         </div>
 
         <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>
@@ -228,30 +327,22 @@ export function PlayersTab() {
           <Users size={11} /> {t("players.compare")}
         </button>
 
-        <button onClick={() => setExportModal("png")} style={{ ...BTN }}>
-          <Download size={11} /> PNG
-        </button>
-        <button onClick={() => setExportModal("csv")} style={{ ...BTN }}>
-          <Download size={11} /> CSV
-        </button>
+        <button onClick={() => setExportModal("png")} style={BTN}><Download size={11} /> PNG</button>
+        <button onClick={() => setExportModal("csv")} style={BTN}><Download size={11} /> CSV</button>
       </div>
 
-      {/* Compare mode banner */}
+      {/* Compare banner */}
       {compareMode && (
         <div style={{ padding: "6px 16px", background: "var(--card)", borderBottom: "1px solid var(--border)",
           fontSize: 11, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <Users size={11} style={{ color: "var(--accent)", flexShrink: 0 }} />
-          {compareSelected.length === 0 && (
-            <span style={{ color: "var(--muted)" }}>Sélectionne 2 à 4 joueurs à comparer</span>
-          )}
+          {compareSelected.length === 0 && <span style={{ color: "var(--muted)" }}>Sélectionne 2 à 4 joueurs à comparer</span>}
           {compareSelected.map((p, i) => (
             <span key={p.name} style={{
               padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700,
               background: `${COMPARE_COLORS[i]}18`, border: `1px solid ${COMPARE_COLORS[i]}55`,
               color: COMPARE_COLORS[i],
-            }}>
-              {p.name}
-            </span>
+            }}>{p.name}</span>
           ))}
           {compareSelected.length >= 2 && (
             <button onClick={() => setShowCompareModal(true)}
@@ -263,7 +354,7 @@ export function PlayersTab() {
         </div>
       )}
 
-      {/* Filter panel */}
+      {/* Filters */}
       {showFilters && (
         <div style={{ padding: "8px 16px", background: "var(--card)", borderBottom: "1px solid var(--border)",
           display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -278,17 +369,15 @@ export function PlayersTab() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ fontSize: 10, color: "var(--muted)" }}>{t("players.minRating")}</span>
-            <input type="number" min={0} max={10} step={0.5} value={filterMinRating || ""}
+            <input type="number" min={0} max={10} step={0.5} value={filterMinRating || ""} placeholder="0"
               onChange={(e) => setFilterMinRating(Number(e.target.value) || 0)}
-              placeholder="0"
               style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)",
                 padding: "4px 6px", borderRadius: 4, fontSize: 11, outline: "none", width: 50 }} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ fontSize: 10, color: "var(--muted)" }}>{t("players.minGames")}</span>
-            <input type="number" min={0} step={1} value={filterMinGames || ""}
+            <input type="number" min={0} step={1} value={filterMinGames || ""} placeholder="0"
               onChange={(e) => setFilterMinGames(Number(e.target.value) || 0)}
-              placeholder="0"
               style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)",
                 padding: "4px 6px", borderRadius: 4, fontSize: 11, outline: "none", width: 50 }} />
           </div>
@@ -300,131 +389,41 @@ export function PlayersTab() {
               background: filterAlertsOnly ? "var(--red)" : "var(--border)",
               position: "relative", transition: "background 0.15s",
             }}>
-              <div style={{
-                position: "absolute", top: 2, left: filterAlertsOnly ? 15 : 2,
-                width: 14, height: 14, borderRadius: "50%", background: "#fff",
-                transition: "left 0.15s",
-              }} />
+              <div style={{ position: "absolute", top: 2, left: filterAlertsOnly ? 15 : 2,
+                width: 14, height: 14, borderRadius: "50%", background: "#fff", transition: "left 0.15s" }} />
             </div>
           </div>
           {(filterPos !== "all" || filterMinRating > 0 || filterMinGames > 0 || filterAlertsOnly) && (
             <button onClick={() => { setFilterPos("all"); setFilterMinRating(0); setFilterMinGames(0); setFilterAlertsOnly(false); }}
-              style={{ ...BTN, fontSize: 10, color: "var(--red)" }}>
-              {t("players.reset")}
-            </button>
+              style={{ ...BTN, fontSize: 10, color: "var(--red)" }}>{t("players.reset")}</button>
           )}
         </div>
       )}
 
-      {/* Cards list */}
-      <div ref={contentRef} style={{ flex: 1, overflowY: "auto", padding: "10px 16px",
-        display: "flex", flexDirection: "column", gap: 6 }}>
-        {sorted.map((p, i) => {
-          const posLabel = POS_LABELS[p.position] || p.position || "—";
-          const sel = compareMode && isCompareSelected(p);
-          const cIdx = compareIdx(p);
-          const sparkline = sparklineFor(p.name);
-          const alert = isUnderperforming(p.name);
-          const score = compositeScore(p);
-          return (
-            <div key={`${p.name}-${i}`} onClick={() => handleCardClick(p)}
-              className="compact-row"
-              style={{
-                display: "flex", alignItems: "center", gap: compactMode ? 8 : 12,
-                padding: compactMode ? "6px 10px" : "12px 16px",
-                background: sel ? `${COMPARE_COLORS[cIdx]}08` : "var(--card)",
-                border: `1px solid ${sel ? COMPARE_COLORS[cIdx] : alert ? "rgba(218,55,60,0.35)" : "var(--border)"}`,
-                borderRadius: 8, cursor: "pointer", transition: "border-color 0.15s",
-              }}
-              onMouseEnter={(e) => { if (!sel) e.currentTarget.style.borderColor = "var(--accent)"; }}
-              onMouseLeave={(e) => { if (!sel) e.currentTarget.style.borderColor = alert ? "rgba(218,55,60,0.35)" : "var(--border)"; }}
-            >
-              {/* Rank + Avatar */}
-              <span style={{
-                fontSize: 11, fontWeight: 700,
-                color: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7c3b" : "var(--muted)",
-                width: 18, textAlign: "center", flexShrink: 0,
-              }}>
-                {i + 1}
-              </span>
-              <PlayerAvatar name={p.name} size={32} />
-
-              {/* Name + position + alert */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)",
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {p.name}
-                  </div>
-                  {alert && (
-                    <span title="Note moyenne récente < 6.5">
-                      <AlertTriangle size={11} style={{ color: "var(--red)", flexShrink: 0 }} />
-                    </span>
-                  )}
-                </div>
-                <span style={{
-                  display: "inline-block", marginTop: 3, padding: "1px 6px", borderRadius: 3,
-                  background: "var(--bg)", border: "1px solid var(--border)",
-                  fontSize: 9, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif",
-                  letterSpacing: "0.04em",
-                }}>
-                  {posLabel}
-                </span>
-              </div>
-
-              {/* Sparkline */}
-              {sparkline.length >= 2 && (
-                <div style={{ flexShrink: 0 }} title={`Dernières notes: ${sparkline.map((v) => v.toFixed(1)).join(", ")}`}>
-                  <MiniSparkline values={sparkline} />
-                </div>
-              )}
-
-              {/* Stats chips */}
-              <div style={{ display: "flex", gap: 14, alignItems: "center", flexShrink: 0 }}>
-                {[
-                  { label: t("players.gp"),        value: p.gamesPlayed,             color: "var(--text)" },
-                  { label: t("players.goalsShort"), value: p.goals    || "—",         color: "var(--accent)" },
-                  { label: t("players.assistsShort"), value: p.assists || "—",        color: "var(--text)" },
-                  { label: t("session.motm"),       value: p.motm > 0 ? p.motm : "—", color: "#ffd700" },
-                ].map(({ label, value, color }) => (
-                  <div key={label} style={{ textAlign: "center", minWidth: 30 }}>
-                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, color, lineHeight: 1 }}>
-                      {value}
-                    </div>
-                    <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em", marginTop: 2 }}>
-                      {label}
-                    </div>
-                  </div>
-                ))}
-                <RatingBadge r={p.rating} />
-                {sortKey === "score" && (
-                  <div style={{ textAlign: "center", minWidth: 36 }}>
-                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, color: "#ffd700", lineHeight: 1 }}>
-                      {score}
-                    </div>
-                    <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em", marginTop: 2 }}>
-                      Score
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-        {sorted.length === 0 && (
+      {/* Virtualized list (fills remaining height) */}
+      <div style={{ flex: 1, overflow: "hidden" }}>
+        {sorted.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
             {t("players.noPlayers")}
           </div>
+        ) : (
+          <List
+            listRef={listRef}
+            rowComponent={PlayerRow}
+            rowProps={rowProps}
+            rowCount={sorted.length}
+            rowHeight={ITEM_HEIGHT}
+            style={{ overflowX: "hidden" }}
+          />
         )}
       </div>
 
       {selected && <PlayerModal player={selected} onClose={() => setSelected(null)} />}
       {showCompareModal && compareSelected.length >= 2 && (
-        <CompareModal players={compareSelected} allPlayers={players}
-          onClose={() => setShowCompareModal(false)} />
+        <CompareModal players={compareSelected} allPlayers={players} onClose={() => setShowCompareModal(false)} />
       )}
       {exportModal === "png" && (
-        <ExportModal type="png" pngSourceEl={contentRef.current}
+        <ExportModal type="png" pngSourceEl={listRef.current?.element ?? null}
           defaultFilename={`joueurs-${dateStr}`} onClose={() => setExportModal(null)} />
       )}
       {exportModal === "csv" && (
