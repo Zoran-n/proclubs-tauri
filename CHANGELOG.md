@@ -1,6 +1,25 @@
 # Changelog — ProClubs Stats
 
-## v0.4.1 — 2026-04-08 (post-release)
+## v0.4.1 — 2026-04-08 (post-release, suite)
+
+### Chargement automatique au démarrage
+
+#### Club auto-chargé si profil EA lié
+- Nouveau hook `useAutoLoad` : dès que les settings sont restaurés, si un profil EA est lié, le club est chargé automatiquement — plus besoin de cliquer "Charger mon club" à chaque ouverture
+
+#### Chargement complet des matchs en arrière-plan
+- Dès que le club est chargé et un profil EA est lié, les 3 types de matchs (Championnat, Playoff, Amical) sont récupérés silencieusement page par page (800 ms entre chaque page, 500 ms entre chaque type)
+- Tous les matchs sont stockés dans `matchCache` → la vue Calendrier est entièrement remplie sans action manuelle
+- Évite les re-téléchargements inutiles : si des matchs sont déjà en cache, la pagination reprend depuis le plus ancien
+
+### Bundle Windows — réduction faux positifs antivirus
+- Ajout des métadonnées `publisher`, `copyright`, `shortDescription` dans le bundle
+- Installeur NSIS configuré en `installMode: currentUser` (installation sans droits admin, moins suspect pour les AV)
+- `digestAlgorithm: sha256` pour les signatures
+
+---
+
+## v0.4.1 — 2026-04-08 (post-release, comparaison de clubs)
 
 ### Comparaison de clubs — refonte complète
 

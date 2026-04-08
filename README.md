@@ -126,7 +126,9 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 
 ### Mon Profil
 - **Liaison gamertag EA** : entre ton pseudo EA + le nom de ton club — l'app vérifie que le gamertag est bien membre du club via `getMembers()`, puis lie le profil
-- Bouton "Charger mon club" : charge directement le club lié sans resaisir
+- **Chargement automatique au démarrage** : si un profil EA est lié, le club est chargé automatiquement à l'ouverture de l'app sans aucune action requise
+- **Chargement complet des matchs en arrière-plan** : dès que le club est chargé, les 3 types de matchs (Championnat, Playoff, Amical) sont récupérés page par page en silent, pour que la vue Calendrier soit entièrement remplie
+- Bouton "Charger mon club" : force le rechargement manuel du club lié
 - **Webhook Discord** : configuré dans le profil (URL privée par utilisateur), bouton Tester inclus
 - Indicateur "Webhook configuré" (point vert) + badge violet sur l'icône profil dans la guild bar
 
