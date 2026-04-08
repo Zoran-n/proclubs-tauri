@@ -49,19 +49,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "windows": {
-      "digestAlgorithm": "sha256",
-      "timestampUrl": "",
-      "tsp": false,
-      "nsis": {
-        "displayLanguageSelector": false,
-        "languages": ["French"],
-        "shortcutName": "ProClubs Stats",
-        "installerIcon": "icons/icon.ico",
-        "headerImage": "icons/128x128.png",
-        "sidebarImage": "icons/128x128@2x.png",
-        "installMode": "currentUser"
-      }
+    "nsis": {
+      "displayLanguageSelector": false,
+      "languages": ["French"],
+      "shortcutName": "ProClubs Stats",
+      "installerIcon": "icons/icon.ico",
+      "installMode": "currentUser"
     }
   }
 }
