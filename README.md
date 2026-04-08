@@ -38,9 +38,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 
 ### Matchs
 - Trois types de matchs : Championnat, Playoff, Amical
-- **Sélection du nombre de matchs** : 10 / 25 / 50 résultats (pagination API EA)
-- **Bouton "Charger plus"** pour augmenter le nombre de matchs affichés dynamiquement
-- Cache par type et par quantité (pas de rechargement inutile)
+- Cache intelligent par type — pas de rechargement inutile
 - Carte par match : score, adversaire, date, résultat (VICTOIRE / NUL / DEFAITE)
 - Modale détail match : score final, durée, stats joueurs avec colonnes **avancées** : tacles, interceptions, fautes, cartons (colonnes affichées uniquement si les données existent)
 - **Résumé d'événements** : buteurs, passeurs, cartons et MOTM affichés en badges dans la modale match
@@ -192,4 +190,26 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ---
 
 ## Axes d'amélioration possibles
+
+### Joueurs & stats
+- **Heatmap de présence** : visualisation calendrier des matchs joués par joueur (présence / absence / remplaçant)
+- **Évolution du SR** : courbe du Skill Rating au fil des sessions, avec marqueurs de tournois
+- **Classement interne** : podium dynamique par catégorie (buteur, passeur, défenseur de la semaine)
+
+### Matchs
+- **Replay tactique** : reconstitution des événements clés du match (buts, cartons) sur une timeline
+- **Analyse des adversaires** : fiche automatique générée pour chaque club affronté (bilan, style de jeu, menaces)
+
+### Session
+- **Comparaison inter-sessions** : graphique superposant les courbes de forme de 2 sessions distinctes
+- **Objectifs avancés** : objectifs multi-critères (ex. 5V + moins de 3D + note moy > 7)
+
+### Interface
+- **Thème personnalisé complet** : éditer background, surface, card individuellement (pas seulement l'accent)
+- **Notifications push in-app** : toast à chaque nouveau match détecté pendant une session, avec résumé score
+
+### Technique
+- **Virtualisation MatchesTab** : VariableSizeList pour les très longs historiques (> 200 matchs)
+- **Export Excel (.xlsx)** : alternative au CSV avec mise en forme (couleurs, colonnes auto-taille)
+- **Mode hors-ligne** : afficher les données du cache même sans connexion à l'API EA
 
