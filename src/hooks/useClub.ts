@@ -2,12 +2,14 @@ import { loadClub } from "../api/tauri";
 import { useAppStore } from "../store/useAppStore";
 
 export function useClub() {
-  const { setClub, setLoading, setError, addHistory, addLog } = useAppStore();
+  const { setClub, setLoading, setError, addHistory, addLog, clearMatchCacheStaleFor } = useAppStore();
 
   const load = async (clubId: string, platform: string) => {
     setLoading(true);
     setError(null);
     addLog(`Chargement club ${clubId} (${platform})…`);
+    // Purge cache entries for this club on other platforms (avoids duplicates)
+    clearMatchCacheStaleFor(clubId, platform);
     try {
       const data = await loadClub(clubId, platform);
       const club = { ...data.club, platform: data.club.platform || platform, id: data.club.id || clubId };

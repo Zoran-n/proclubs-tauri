@@ -10,9 +10,11 @@ import { useT, LANGUAGES } from "../../i18n";
 import type { Lang } from "../../i18n";
 
 export function SettingsTab() {
-  const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent,
+  const { theme, darkMode, showAnimations, showLogs, showIdSearch, fontSize, fontFamily,
+    customAccent, customBg, customSurface, customCard,
     language, setTheme, setDarkMode, setShowAnimations, setShowLogs,
-    setShowIdSearch, setFontSize, setFontFamily, setCustomAccent, setLanguage,
+    setShowIdSearch, setFontSize, setFontFamily, setCustomAccent,
+    setCustomBg, setCustomSurface, setCustomCard, setLanguage,
     autoUpdate, setAutoUpdate, setUpdateAvailable, setUpdateInfo,
     navLayout, setNavLayout,
     persistSettings } = useAppStore();
@@ -167,17 +169,49 @@ export function SettingsTab() {
           }}>
             {theme !== "custom" && <Palette size={14} color="#fff" />}
           </button>
-          <input id="custom-color-picker" type="color" aria-label={t("settings.custom")}
-            value={customAccent || "#00d4ff"}
-            onChange={(e) => { setCustomAccent(e.target.value); persistSettings(); }}
-            style={{ position: "absolute", opacity: 0, width: 0, height: 0, top: 0, left: 0 }}
-          />
+          {/* color picker is in the custom theme panel below */}
         </div>
       </div>
       {theme === "custom" && (
-        <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 14, height: 14, borderRadius: 3, background: customAccent }} />
-          {customAccent}
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+          {([
+            { id: "accent",  label: "Accent",      value: customAccent,  setter: setCustomAccent,  inputId: "custom-color-picker",         default: "#00d4ff" },
+            { id: "bg",      label: "Background",  value: customBg,      setter: setCustomBg,      inputId: "custom-bg-picker",            default: "#1e1f22" },
+            { id: "surface", label: "Surface",     value: customSurface, setter: setCustomSurface, inputId: "custom-surface-picker",       default: "#2b2d31" },
+            { id: "card",    label: "Card",        value: customCard,    setter: setCustomCard,    inputId: "custom-card-picker",          default: "#313338" },
+          ] as const).map((row) => (
+            <div key={row.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <span style={{ fontSize: 11, color: "var(--muted)", width: 68 }}>{row.label}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+                <div style={{ position: "relative" }}>
+                  <button
+                    onClick={() => { document.getElementById(row.inputId)?.click(); }}
+                    style={{
+                      width: 24, height: 24, borderRadius: 5, padding: 0, cursor: "pointer",
+                      border: "2px solid var(--border)",
+                      background: row.value || row.default,
+                    }}
+                  />
+                  <input id={row.inputId} type="color"
+                    value={row.value || row.default}
+                    onChange={(e) => { row.setter(e.target.value); persistSettings(); }}
+                    style={{ position: "absolute", opacity: 0, width: 0, height: 0, top: 0, left: 0 }}
+                  />
+                </div>
+                <span style={{ fontSize: 10, color: "var(--muted)", fontFamily: "monospace" }}>
+                  {row.value || row.default}
+                </span>
+                {row.value && (
+                  <button
+                    onClick={() => { row.setter(""); persistSettings(); }}
+                    title="Réinitialiser"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)",
+                      fontSize: 10, padding: "0 2px", marginLeft: "auto" }}
+                  >↺</button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

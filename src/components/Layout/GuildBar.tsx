@@ -100,7 +100,7 @@ export function GuildBar() {
           key={club.id}
           club={club}
           active={currentClub?.id === club.id}
-          onClick={() => load(club.id, club.platform)}
+          onClick={() => { load(club.id, club.platform); setSidebarTab("search"); }}
         />
       ))}
 

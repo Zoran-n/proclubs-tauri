@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, Fragment } from "react";
 import { Download } from "lucide-react";
-import { PieChart, Pie, Cell, Label, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Label, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
 import { ExportModal } from "../ui/ExportModal";
 import { getSeasonHistory, getLeaderboard } from "../../api/tauri";
@@ -128,7 +128,7 @@ function HBarChart({ players, valueKey, color }: {
   );
 }
 
-interface SeasonRow { wins: number; losses: number; ties: number; goals: number; goalDiff: number; label: string }
+interface SeasonRow { wins: number; losses: number; ties: number; goals: number; goalDiff: number; label: string; sr?: number }
 interface LeaderRow { rank: number; name: string; wins: number; losses: number; ties: number; goals: number; sr: string }
 
 function parseSeasonHistory(raw: unknown, clubId: string): SeasonRow[] {
@@ -145,7 +145,8 @@ function parseSeasonHistory(raw: unknown, clubId: string): SeasonRow[] {
     const w = Number(v["wins"] ?? 0), l = Number(v["losses"] ?? 0), t = Number(v["ties"] ?? 0);
     const g = Number(v["goals"] ?? 0), ga = Number(v["goalsAgainst"] ?? 0);
     const sid = String(v["seasonId"] ?? v["season"] ?? "");
-    return { wins: w, losses: l, ties: t, goals: g, goalDiff: g - ga, label: sid ? `S${sid}` : "?" };
+    const sr = Number(v["skillRating"] ?? v["skill_rating"] ?? 0) || undefined;
+    return { wins: w, losses: l, ties: t, goals: g, goalDiff: g - ga, label: sid ? `S${sid}` : "?", sr };
   }).filter((s) => s.wins + s.losses + s.ties > 0).slice(-10);
 }
 
@@ -269,6 +270,82 @@ function SeasonHistorySection({ clubId, platform }: { clubId: string; platform: 
               </div>
             );
           })()}
+        </>
+      )}
+    </div>
+  );
+}
+
+function SrEvolutionSection({ clubId, platform }: { clubId: string; platform: string }) {
+  const t = useT();
+  const [seasons, setSeasons] = useState<SeasonRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [tried, setTried] = useState(false);
+
+  useEffect(() => { setSeasons([]); setTried(false); }, [clubId]);
+
+  const load = () => {
+    if (tried) return;
+    setLoading(true); setTried(true);
+    getSeasonHistory(clubId, platform)
+      .then((raw) => setSeasons(parseSeasonHistory(raw, clubId)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  const srData = seasons.filter((s) => s.sr && s.sr > 0).map((s) => ({ label: s.label, sr: s.sr! }));
+
+  return (
+    <div style={{ background: "var(--card)", borderRadius: 8, padding: "14px 16px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <p style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em", fontFamily: "'Bebas Neue', sans-serif" }}>
+          ÉVOLUTION DU SKILL RATING
+        </p>
+        {!tried && (
+          <button onClick={load} style={{
+            fontSize: 10, padding: "4px 10px", borderRadius: 4, cursor: "pointer",
+            background: "none", border: "1px solid var(--accent)", color: "var(--accent)",
+            fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em",
+          }}>
+            {t("charts.load")}
+          </button>
+        )}
+      </div>
+      {loading && <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>{t("misc.loading")}</p>}
+      {tried && !loading && srData.length === 0 && (
+        <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>SR non disponible pour ce club</p>
+      )}
+      {srData.length > 0 && (
+        <>
+          <ResponsiveContainer width="100%" height={140}>
+            <LineChart data={srData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="label" tick={{ fill: "var(--muted)", fontSize: 9 }} />
+              <YAxis tick={{ fill: "var(--muted)", fontSize: 9 }}
+                domain={["auto", "auto"]} />
+              <Tooltip
+                contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11 }}
+                labelStyle={{ color: "var(--muted)" }}
+                itemStyle={{ color: "var(--accent)" }}
+                formatter={(v) => [v, "SR"]}
+              />
+              <Line type="monotone" dataKey="sr" stroke="var(--accent)" strokeWidth={2}
+                dot={{ fill: "var(--accent)", r: 3 }} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+          {/* Min / Max / Current */}
+          <div style={{ display: "flex", justifyContent: "space-around", marginTop: 8 }}>
+            {[
+              { label: "MIN", value: Math.min(...srData.map((s) => s.sr)), color: "var(--red)" },
+              { label: "MAX", value: Math.max(...srData.map((s) => s.sr)), color: "var(--green)" },
+              { label: "ACTUEL", value: srData[srData.length - 1].sr, color: "var(--accent)" },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{ textAlign: "center" }}>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color, lineHeight: 1 }}>{value}</div>
+                <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.08em", marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
         </>
       )}
     </div>
@@ -461,8 +538,9 @@ export function ChartsTab() {
             <HBarChart players={topPasses} valueKey="passesMade" color="purple" />
           </ChartCard>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
           <SeasonHistorySection clubId={currentClub.id} platform={currentClub.platform} />
+          <SrEvolutionSection clubId={currentClub.id} platform={currentClub.platform} />
           <LeaderboardSection clubId={currentClub.id} platform={currentClub.platform} />
         </div>
       </div>

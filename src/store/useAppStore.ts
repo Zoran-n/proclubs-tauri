@@ -42,6 +42,9 @@ interface AppState {
   fontSize: number;
   fontFamily: string;
   customAccent: string;
+  customBg: string;
+  customSurface: string;
+  customCard: string;
   language: Lang;
   onboarded: boolean;
   settingsLoaded: boolean;
@@ -98,6 +101,9 @@ interface AppState {
   setFontSize: (v: number) => void;
   setFontFamily: (v: string) => void;
   setCustomAccent: (v: string) => void;
+  setCustomBg: (v: string) => void;
+  setCustomSurface: (v: string) => void;
+  setCustomCard: (v: string) => void;
   setLanguage: (v: Lang) => void;
   setOnboarded: () => void;
   setEaProfile: (p: EaProfile) => void;
@@ -115,6 +121,7 @@ interface AppState {
   setMatchCache: (key: string, matches: Match[]) => void;
   clearMatchCacheKey: (key: string) => void;
   clearAllMatchCache: () => void;
+  clearMatchCacheStaleFor: (clubId: string, platform: string) => void;
   setDiscordWebhook: (v: string) => void;
   setAutoUpdate: (v: boolean) => void;
   setUpdateAvailable: (v: boolean) => void;
@@ -139,6 +146,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   theme: "cyan", darkMode: true, showGrid: true, showAnimations: true,
   showLogs: true, showIdSearch: false, fontSize: 13, fontFamily: "barlow",
   customAccent: "",
+  customBg: "",
+  customSurface: "",
+  customCard: "",
   language: "fr" as Lang,
   onboarded: false,
   settingsLoaded: false,
@@ -253,6 +263,24 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ customAccent, theme: "custom" });
     document.documentElement.setAttribute("data-theme", "custom");
   },
+  setCustomBg: (customBg) => {
+    if (customBg) document.documentElement.style.setProperty("--bg", customBg);
+    else document.documentElement.style.removeProperty("--bg");
+    set({ customBg, theme: "custom" });
+    document.documentElement.setAttribute("data-theme", "custom");
+  },
+  setCustomSurface: (customSurface) => {
+    if (customSurface) document.documentElement.style.setProperty("--surface", customSurface);
+    else document.documentElement.style.removeProperty("--surface");
+    set({ customSurface, theme: "custom" });
+    document.documentElement.setAttribute("data-theme", "custom");
+  },
+  setCustomCard: (customCard) => {
+    if (customCard) document.documentElement.style.setProperty("--card", customCard);
+    else document.documentElement.style.removeProperty("--card");
+    set({ customCard, theme: "custom" });
+    document.documentElement.setAttribute("data-theme", "custom");
+  },
   setLanguage: (language) => set({ language }),
   setOnboarded: () => set({ onboarded: true }),
   setEaProfile: (eaProfile) => set({ eaProfile }),
@@ -276,6 +304,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { matchCache: next };
   }),
   clearAllMatchCache: () => set({ matchCache: {} }),
+  clearMatchCacheStaleFor: (clubId, platform) => set((s) => {
+    const next: Record<string, Match[]> = {};
+    for (const [key, val] of Object.entries(s.matchCache)) {
+      // Keep only entries that belong to this club+platform, or to other clubs entirely
+      if (!key.startsWith(`${clubId}_`) || key.startsWith(`${clubId}_${platform}_`)) {
+        next[key] = val;
+      }
+    }
+    return { matchCache: next };
+  }),
   setDiscordWebhook: (discordWebhook) => set({ discordWebhook }),
   setAutoUpdate: (autoUpdate) => set({ autoUpdate }),
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
@@ -319,15 +357,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       root.toggleAttribute("data-light",   !(s.darkMode ?? true));
       root.toggleAttribute("data-no-grid", !(s.showGrid ?? true));
       root.toggleAttribute("data-no-anim", !(s.showAnimations ?? true));
-      if (theme === "custom" && s.customAccent) {
-        root.style.setProperty("--accent", s.customAccent);
+      if (theme === "custom") {
+        if (s.customAccent) root.style.setProperty("--accent", s.customAccent);
+        if (s.customBg)      root.style.setProperty("--bg",      s.customBg);
+        if (s.customSurface) root.style.setProperty("--surface",  s.customSurface);
+        if (s.customCard)    root.style.setProperty("--card",     s.customCard);
       }
       set({
         history: s.history ?? [], favs: s.favs ?? [],
         tactics: s.tactics ?? [], sessions: s.sessions ?? [],
         compareHistory: s.compareHistory ?? [],
         eaProfile: s.eaProfile ?? null, theme,
-        customAccent: s.customAccent ?? "",
+        customAccent:   s.customAccent   ?? "",
+        customBg:       s.customBg       ?? "",
+        customSurface:  s.customSurface  ?? "",
+        customCard:     s.customCard     ?? "",
         darkMode:        s.darkMode        ?? true,
         showGrid:        s.showGrid        ?? true,
         showAnimations:  s.showAnimations  ?? true,
@@ -353,7 +397,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   persistSettings: async () => {
     const { history, favs, tactics, sessions, compareHistory, eaProfile, theme, darkMode, proxyUrl,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout } = get();
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, customBg, customSurface, customCard, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout } = get();
     const payload = {
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -362,7 +406,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       showGrid, showAnimations, showLogs, showIdSearch,
       fontSize: String(fontSize),
       fontFamily,
-      customAccent: customAccent || undefined,
+      customAccent:   customAccent   || undefined,
+      customBg:       customBg       || undefined,
+      customSurface:  customSurface  || undefined,
+      customCard:     customCard     || undefined,
       language,
       onboarded,
       matchCache,

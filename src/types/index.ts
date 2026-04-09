@@ -159,6 +159,9 @@ export interface Settings {
   fontSize?: string;
   fontFamily?: string;
   customAccent?: string;
+  customBg?: string;
+  customSurface?: string;
+  customCard?: string;
   language?: string;
   onboarded?: boolean;
   matchCache?: Record<string, Match[]>;

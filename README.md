@@ -146,6 +146,9 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Accessibilité** : focus-visible, skip-link, reduced-motion, forced-colors, attributs ARIA
 - **KPIs personnalisables** : bouton ÉDITER sur la barre KPI — choisir quels indicateurs afficher parmi 8 disponibles (Matchs, Victoires, Nuls, Défaites, % Victoires, Buts, Buts/Match, Points) — sélection persistée
 - **Disposition de la navigation configurable** : choix entre barre horizontale (en haut du contenu) et panneau vertical (à gauche), paramètre accessible dans les Paramètres → Interface, persisté entre les sessions
+- **Heatmap de présence** : grille joueurs × matchs récents (20 derniers), cellules colorées par résultat (victoire/nul/défaite/absent), pourcentage de présence par joueur — accessible via l'icône grille dans l'onglet Joueurs
+- **Classement interne (Podium)** : vue podium dynamique (or/argent/bronze) par catégorie — Buteurs, Passeurs, Défenseurs (tacles), MOTM, Moyenne, Présence — accessible via l'icône trophée dans l'onglet Joueurs
+- **Évolution du Skill Rating** : courbe SR par saison dans l'onglet Graphiques, avec min/max/actuel — chargement à la demande via le bouton CHARGER dans la section historique
 
 ### Mode hors-ligne
 - Bannière **MODE HORS-LIGNE** affichée automatiquement quand il n'y a pas de connexion réseau
@@ -204,9 +207,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ## Axes d'amélioration possibles
 
 ### Joueurs & stats
-- **Heatmap de présence** : visualisation calendrier des matchs joués par joueur (présence / absence / remplaçant)
-- **Évolution du SR** : courbe du Skill Rating au fil des sessions, avec marqueurs de tournois
-- **Classement interne** : podium dynamique par catégorie (buteur, passeur, défenseur de la semaine)
 
 ### Matchs
 - **Replay tactique** : reconstitution des événements clés du match (buts, cartons) sur une timeline

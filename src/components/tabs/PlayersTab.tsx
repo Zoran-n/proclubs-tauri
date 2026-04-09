@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { List, useListRef } from "react-window";
-import { Search, Download, ChevronUp, ChevronDown, Users, Filter, AlertTriangle } from "lucide-react";
+import { Search, Download, ChevronUp, ChevronDown, Users, Filter, AlertTriangle, LayoutGrid, Trophy } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { ExportModal } from "../ui/ExportModal";
 import { useT } from "../../i18n";
@@ -160,6 +160,182 @@ function PlayerRow({
   );
 }
 
+// ─── Heatmap de présence ─────────────────────────────────────────────────────
+
+function HeatmapView({ players, matchCache, currentClub }: {
+  players: Player[];
+  matchCache: Record<string, unknown[]>;
+  currentClub: { id: string; platform: string };
+}) {
+  const key = `${currentClub.id}_${currentClub.platform}_leagueMatch`;
+  const allMatches = (matchCache[key] ?? []) as { timestamp: string; clubs: Record<string, unknown>; players: Record<string, Record<string, { name?: string; playername?: string; playerName?: string }>> }[];
+
+  // Sort matches newest → oldest, keep last 20
+  const recent = [...allMatches]
+    .sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
+    .slice(0, 20)
+    .reverse(); // oldest → newest for display left→right
+
+  if (recent.length === 0) return (
+    <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+      Aucun match en cache — charge les matchs d'abord
+    </div>
+  );
+
+  // Build set of player names per match
+  const matchPlayerSets: Set<string>[] = recent.map((m) => {
+    const clubPlayers = m.players[currentClub.id] ?? {};
+    const names = new Set<string>();
+    for (const p of Object.values(clubPlayers)) {
+      const name = p.name ?? p.playername ?? p.playerName ?? "";
+      if (name) names.add(name.toLowerCase());
+    }
+    return names;
+  });
+
+  // Match results for column header color
+  const matchResults = recent.map((m) => {
+    const c = m.clubs[currentClub.id] as Record<string, string> | undefined;
+    if (!c) return "D";
+    if (Number(c.wins) > 0) return "W";
+    if (Number(c.losses) > 0) return "L";
+    return "D";
+  });
+
+  // Sort players by games played desc
+  const sorted = [...players].sort((a, b) => b.gamesPlayed - a.gamesPlayed);
+
+  const CELL = 16;
+  const resultColor = (r: string) => r === "W" ? "var(--green)" : r === "L" ? "var(--red)" : "#eab308";
+
+  return (
+    <div style={{ flex: 1, overflow: "auto", padding: "12px 16px" }}>
+      <div style={{ display: "inline-block", minWidth: "100%" }}>
+        {/* Header row — match columns */}
+        <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 4, paddingLeft: 148 }}>
+          {recent.map((m, i) => (
+            <div key={m.timestamp} style={{ width: CELL + 4, flexShrink: 0, textAlign: "center" }}>
+              <div style={{ width: CELL, height: 6, borderRadius: 2, margin: "0 2px",
+                background: resultColor(matchResults[i]) }} title={matchResults[i]} />
+            </div>
+          ))}
+          <div style={{ fontSize: 9, color: "var(--muted)", paddingLeft: 6 }}>
+            {recent.length} matchs
+          </div>
+        </div>
+        {/* Player rows */}
+        {sorted.map((player) => {
+          const nameLower = player.name.toLowerCase();
+          const presenceCount = matchPlayerSets.filter((s) => s.has(nameLower)).length;
+          const pct = recent.length > 0 ? Math.round((presenceCount / recent.length) * 100) : 0;
+          return (
+            <div key={player.name} style={{ display: "flex", alignItems: "center", marginBottom: 3 }}>
+              {/* Player label */}
+              <div style={{ width: 120, fontSize: 11, color: "var(--text)", overflow: "hidden",
+                textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0, paddingRight: 8 }}
+                title={player.name}>
+                {player.name}
+              </div>
+              {/* Presence pct */}
+              <div style={{ width: 28, fontSize: 9, color: pct >= 70 ? "var(--green)" : pct >= 40 ? "#eab308" : "var(--muted)",
+                textAlign: "right", paddingRight: 8, flexShrink: 0 }}>
+                {pct}%
+              </div>
+              {/* Cells */}
+              {matchPlayerSets.map((s, i) => {
+                const played = s.has(nameLower);
+                return (
+                  <div key={i} style={{
+                    width: CELL, height: CELL, borderRadius: 2, margin: "0 2px", flexShrink: 0,
+                    background: played ? resultColor(matchResults[i]) : "var(--border)",
+                    opacity: played ? 0.85 : 0.3,
+                    transition: "opacity 0.1s",
+                  }} title={played ? `Présent — ${matchResults[i]}` : "Absent"} />
+                );
+              })}
+            </div>
+          );
+        })}
+        {/* Legend */}
+        <div style={{ display: "flex", gap: 12, marginTop: 12, fontSize: 9, color: "var(--muted)", paddingLeft: 148 }}>
+          {[{ color: "var(--green)", label: "Victoire" }, { color: "#eab308", label: "Nul" }, { color: "var(--red)", label: "Défaite" }, { color: "var(--border)", label: "Absent" }].map(({ color, label }) => (
+            <span key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: "inline-block" }} />
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Classement interne (Podium) ─────────────────────────────────────────────
+
+const MEDAL = ["#f59e0b", "#94a3b8", "#cd7c3b"];
+const MEDAL_LABEL = ["🥇", "🥈", "🥉"];
+
+function PodiumCategory({ title, entries, valueLabel }: {
+  title: string;
+  entries: { name: string; value: number }[];
+  valueLabel: string;
+}) {
+  const top3 = entries.slice(0, 3);
+  return (
+    <div style={{ background: "var(--card)", borderRadius: 8, padding: "12px 14px" }}>
+      <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+        fontFamily: "'Bebas Neue', sans-serif", marginBottom: 10 }}>{title}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {top3.map((e, i) => (
+          <div key={e.name} style={{ display: "flex", alignItems: "center", gap: 8,
+            padding: "7px 10px", borderRadius: 6,
+            background: i === 0 ? "rgba(245,158,11,0.08)" : "var(--bg)",
+            border: `1px solid ${i === 0 ? "rgba(245,158,11,0.25)" : "var(--border)"}` }}>
+            <span style={{ fontSize: 14, flexShrink: 0 }}>{MEDAL_LABEL[i]}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</div>
+            </div>
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: MEDAL[i], lineHeight: 1 }}>{e.value}</div>
+              <div style={{ fontSize: 8, color: "var(--muted)", letterSpacing: "0.06em" }}>{valueLabel}</div>
+            </div>
+          </div>
+        ))}
+        {top3.length === 0 && (
+          <div style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", padding: 8 }}>—</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PodiumView({ players }: { players: Player[] }) {
+  const sorted = (key: keyof Player) =>
+    [...players]
+      .filter((p) => Number(p[key]) > 0)
+      .sort((a, b) => Number(b[key]) - Number(a[key]))
+      .map((p) => ({ name: p.name, value: Number(p[key]) }));
+
+  const ratingEntries = [...players]
+    .filter((p) => p.gamesPlayed >= 3 && p.rating > 0)
+    .sort((a, b) => b.rating - a.rating)
+    .map((p) => ({ name: p.name, value: Number(p.rating.toFixed(2)) }));
+
+  return (
+    <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+        <PodiumCategory title="⚽ BUTEURS" entries={sorted("goals")} valueLabel="BUTS" />
+        <PodiumCategory title="🎯 PASSEURS" entries={sorted("assists")} valueLabel="PD" />
+        <PodiumCategory title="🛡️ DÉFENSEURS" entries={sorted("tacklesMade")} valueLabel="TACLES" />
+        <PodiumCategory title="⭐ MOTM" entries={sorted("motm")} valueLabel="MOTM" />
+        <PodiumCategory title="📊 MOYENNE" entries={ratingEntries} valueLabel="NOTE" />
+        <PodiumCategory title="🎮 PRÉSENCE" entries={sorted("gamesPlayed")} valueLabel="MATCHS" />
+      </div>
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export function PlayersTab() {
   const t = useT();
@@ -184,6 +360,7 @@ export function PlayersTab() {
   const [compareMode, setCompareMode] = useState(false);
   const [compareSelected, setCompareSelected] = useState<Player[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "heatmap" | "podium">("list");
 
   const ITEM_HEIGHT = compactMode ? 50 : 80;
 
@@ -329,6 +506,23 @@ export function PlayersTab() {
 
         <button onClick={() => setExportModal("png")} style={BTN}><Download size={11} /> PNG</button>
         <button onClick={() => setExportModal("csv")} style={BTN}><Download size={11} /> CSV</button>
+
+        {/* View mode toggles */}
+        <div style={{ display: "flex", gap: 2, marginLeft: "auto", flexShrink: 0, background: "var(--bg)", borderRadius: 6, padding: 2 }}>
+          {([
+            { mode: "list",    icon: <ChevronDown size={11} />,  title: "Liste" },
+            { mode: "heatmap", icon: <LayoutGrid size={11} />,   title: "Heatmap présence" },
+            { mode: "podium",  icon: <Trophy size={11} />,       title: "Classement interne" },
+          ] as const).map(({ mode, icon, title }) => (
+            <button key={mode} onClick={() => setViewMode(mode)} title={title}
+              style={{ ...BTN, padding: "5px 8px", borderRadius: 4,
+                background: viewMode === mode ? "var(--accent)" : "none",
+                color: viewMode === mode ? "#000" : "var(--muted)",
+                border: "none" }}>
+              {icon}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Compare banner */}
@@ -400,8 +594,16 @@ export function PlayersTab() {
         </div>
       )}
 
+      {/* Heatmap / Podium views */}
+      {viewMode === "heatmap" && currentClub && (
+        <HeatmapView players={players} matchCache={matchCache} currentClub={currentClub} />
+      )}
+      {viewMode === "podium" && (
+        <PodiumView players={players} />
+      )}
+
       {/* Virtualized list (fills remaining height) */}
-      <div style={{ flex: 1, overflow: "hidden" }}>
+      <div style={{ flex: 1, overflow: "hidden", display: viewMode === "list" ? undefined : "none" }}>
         {sorted.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
             {t("players.noPlayers")}
