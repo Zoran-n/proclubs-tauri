@@ -112,10 +112,13 @@ export function ProfilePanel() {
 
     const processMatches = (ms: typeof matches) => {
       for (const m of ms) {
-        const clubPlayers = m.players?.[cid] ?? {};
-        const entry = Object.entries(clubPlayers).find(([k]) => k.toLowerCase() === gt);
+        const clubPlayers = (m.players?.[cid] ?? {}) as Record<string, Record<string, unknown>>;
+        const entry = Object.entries(clubPlayers).find(([, v]) => {
+          const name = String(v["name"] ?? v["playername"] ?? v["playerName"] ?? "").toLowerCase();
+          return name === gt;
+        });
         if (!entry) continue;
-        const p = entry[1];
+        const p = entry[1] as Record<string, unknown>;
         games++;
         goals += Number(p.goals ?? 0);
         assists += Number(p.assists ?? 0);

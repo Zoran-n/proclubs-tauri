@@ -52,13 +52,16 @@ export function MyProfilePage() {
 
     const processMatch = (m: Match) => {
       if (seen.has(m.matchId)) return;
-      const clubPlayers = m.players?.[cid];
+      const clubPlayers = m.players?.[cid] as Record<string, Record<string, unknown>> | undefined;
       if (!clubPlayers) return;
-      const entry = Object.entries(clubPlayers).find(([k]) => k.toLowerCase() === gt);
+      const entry = Object.entries(clubPlayers).find(([, v]) => {
+        const name = String(v["name"] ?? v["playername"] ?? v["playerName"] ?? "").toLowerCase();
+        return name === gt;
+      });
       if (!entry) return;
       seen.add(m.matchId);
 
-      const p = entry[1] as EaMatchPlayer;
+      const p = entry[1] as unknown as EaMatchPlayer;
       const myClub = m.clubs?.[cid];
       const oppId = Object.keys(m.clubs).find(k => k !== cid);
       const oppClub = oppId ? m.clubs[oppId] : null;
