@@ -149,6 +149,14 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Historique de chargement** : log des dernières synchronisations avec horodatage, club et statut (collapsible)
 - **Backup / restauration locale** : export complet en JSON (sessions, tactics, profils, settings) + import depuis fichier
 - **Fiche de profil partageable** : export PNG canvas (gamertag, club, division, stats) + copie embed Discord au presse-papiers
+- **Page Stats Solo** : page dédiée accessible depuis la sidebar (onglet Profil) avec :
+  - 6 KPI cards (matchs, buts, PD, MOTM, note moy, % victoires)
+  - Barre V/N/D proportionnelle
+  - Courbe d'évolution de la note (40 derniers matchs)
+  - Bar chart buts/PD par tranche de 5 matchs
+  - Répartition par poste (matchs, buts, PD, note moy)
+  - Tableau des 25 dernières performances individuelles
+  - Données récupérées automatiquement du cache matchs du club lié
 
 ### Interface
 - Fenêtre frameless avec barre de titre draggable (minimize / maximize / close)
