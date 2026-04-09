@@ -92,6 +92,7 @@ interface AppState {
   archiveSession: (id: string) => void;
   updateSession: (id: string, patch: Partial<Session>) => void;
   setActiveSessionGoal: (goal: number | undefined) => void;
+  setActiveSessionAdvancedGoals: (ag: { maxLosses?: number; minRating?: number }) => void;
   setTheme: (t: string) => void;
   setDarkMode: (v: boolean) => void;
   setShowGrid: (v: boolean) => void;
@@ -220,6 +221,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   })),
   setActiveSessionGoal: (goal) => set((s) => ({
     activeSession: s.activeSession ? { ...s.activeSession, goal } : null,
+  })),
+  setActiveSessionAdvancedGoals: (advancedGoals) => set((s) => ({
+    activeSession: s.activeSession ? { ...s.activeSession, advancedGoals } : null,
   })),
   setTheme: (theme) => {
     document.documentElement.setAttribute("data-theme", theme);

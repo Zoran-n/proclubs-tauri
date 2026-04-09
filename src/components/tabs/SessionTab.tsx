@@ -125,6 +125,7 @@ export function SessionTab() {
   const {
     activeSession, sessions, currentClub, startSession, stopSession, persistSettings,
     deleteSession, archiveSession, updateSession, setActiveSessionGoal,
+    setActiveSessionAdvancedGoals,
     discordWebhook, addToast,
   } = useAppStore();
 
@@ -140,6 +141,13 @@ export function SessionTab() {
   const [noteValue, setNoteValue] = useState("");
   const [editingTagsId, setEditingTagsId] = useState<string | null>(null);
   const [goalInput, setGoalInput] = useState<string>("");
+  const [showAdvGoals, setShowAdvGoals] = useState(false);
+  const [advMaxLossesInput, setAdvMaxLossesInput] = useState<string>("");
+  const [advMinRatingInput, setAdvMinRatingInput] = useState<string>("");
+  // Session comparison
+  const [showCompare, setShowCompare] = useState(false);
+  const [compareA, setCompareA] = useState<string>("");
+  const [compareB, setCompareB] = useState<string>("");
   const contentRef = useRef<HTMLDivElement>(null);
   const PAGE_SIZE = 10;
 
@@ -296,47 +304,147 @@ export function SessionTab() {
             </button>
           </div>
 
-          {/* Goal / objective */}
-          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
-            <Flag size={13} style={{ color: "var(--gold)", flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
-              {t("session.goalLabel")} :
-            </span>
-            <input
-              type="number"
-              min={1}
-              value={goalInput !== "" ? goalInput : (activeSession.goal ?? "")}
-              placeholder="—"
-              onChange={(e) => setGoalInput(e.target.value)}
-              onBlur={() => {
-                const v = parseInt(goalInput);
-                setActiveSessionGoal(isNaN(v) ? undefined : v);
-                setGoalInput("");
-              }}
-              style={{
-                width: 48, background: "var(--bg)", border: "1px solid var(--border)",
-                color: "var(--text)", padding: "3px 6px", borderRadius: 4, fontSize: 12,
-                outline: "none", textAlign: "center",
-              }}
-            />
-            {activeSession.goal != null && activeWLD && (
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                  <span style={{ fontSize: 10, color: "var(--muted)" }}>
-                    {activeWLD.w} / {activeSession.goal} {t("session.goalProgress")}
-                  </span>
-                  <span style={{ fontSize: 10, color: activeWLD.w >= activeSession.goal ? "var(--green)" : "var(--accent)" }}>
-                    {Math.min(100, Math.round((activeWLD.w / activeSession.goal) * 100))}%
-                  </span>
+          {/* Objectifs — simple + avancés */}
+          <div style={{ marginTop: 10 }}>
+            {/* Ligne principale : victoires cibles */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Flag size={13} style={{ color: "var(--gold)", flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                {t("session.goalLabel")} :
+              </span>
+              <input
+                type="number" min={1}
+                value={goalInput !== "" ? goalInput : (activeSession.goal ?? "")}
+                placeholder="—"
+                onChange={(e) => setGoalInput(e.target.value)}
+                onBlur={() => {
+                  const v = parseInt(goalInput);
+                  setActiveSessionGoal(isNaN(v) ? undefined : v);
+                  setGoalInput("");
+                }}
+                style={{ width: 48, background: "var(--bg)", border: "1px solid var(--border)",
+                  color: "var(--text)", padding: "3px 6px", borderRadius: 4, fontSize: 12,
+                  outline: "none", textAlign: "center" }}
+              />
+              {activeSession.goal != null && activeWLD && (
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                    <span style={{ fontSize: 10, color: "var(--muted)" }}>{activeWLD.w} / {activeSession.goal} {t("session.goalProgress")}</span>
+                    <span style={{ fontSize: 10, color: activeWLD.w >= activeSession.goal ? "var(--green)" : "var(--accent)" }}>
+                      {Math.min(100, Math.round((activeWLD.w / activeSession.goal) * 100))}%
+                    </span>
+                  </div>
+                  <div style={{ height: 5, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 3,
+                      width: `${Math.min(100, (activeWLD.w / activeSession.goal) * 100)}%`,
+                      background: activeWLD.w >= activeSession.goal ? "var(--green)" : "var(--accent)",
+                      transition: "width 0.4s ease" }} />
+                  </div>
                 </div>
-                <div style={{ height: 5, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
-                  <div style={{
-                    height: "100%", borderRadius: 3,
-                    width: `${Math.min(100, (activeWLD.w / activeSession.goal) * 100)}%`,
-                    background: activeWLD.w >= activeSession.goal ? "var(--green)" : "var(--accent)",
-                    transition: "width 0.4s ease",
-                  }} />
-                </div>
+              )}
+              <button onClick={() => setShowAdvGoals((v) => !v)}
+                title="Objectifs avancés"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px",
+                  color: showAdvGoals ? "var(--accent)" : "var(--muted)", fontSize: 14, lineHeight: 1 }}>
+                {showAdvGoals ? "▾" : "▸"}
+              </button>
+            </div>
+
+            {/* Objectifs avancés */}
+            {showAdvGoals && (
+              <div style={{ marginTop: 8, padding: "10px 12px", background: "var(--bg)",
+                borderRadius: 8, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em",
+                  fontFamily: "'Bebas Neue', sans-serif" }}>OBJECTIFS AVANCÉS</div>
+
+                {/* Max défaites */}
+                {(() => {
+                  const maxL = activeSession.advancedGoals?.maxLosses;
+                  const achieved = maxL != null && activeWLD ? activeWLD.l <= maxL : false;
+                  return (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, color: "var(--muted)", flex: 1 }}>Défaites max :</span>
+                        <input type="number" min={0}
+                          value={advMaxLossesInput !== "" ? advMaxLossesInput : (maxL ?? "")}
+                          placeholder="—"
+                          onChange={(e) => setAdvMaxLossesInput(e.target.value)}
+                          onBlur={() => {
+                            const v = parseInt(advMaxLossesInput);
+                            setActiveSessionAdvancedGoals({ ...activeSession.advancedGoals, maxLosses: isNaN(v) ? undefined : v });
+                            setAdvMaxLossesInput("");
+                          }}
+                          style={{ width: 40, background: "var(--card)", border: "1px solid var(--border)",
+                            color: "var(--text)", padding: "2px 5px", borderRadius: 4, fontSize: 11,
+                            outline: "none", textAlign: "center" }}
+                        />
+                        {maxL != null && activeWLD && (
+                          <span style={{ fontSize: 10, color: achieved ? "var(--green)" : "var(--red)", fontWeight: 700 }}>
+                            {activeWLD.l}D {achieved ? "✓" : "✗"}
+                          </span>
+                        )}
+                      </div>
+                      {maxL != null && activeWLD && (
+                        <div style={{ height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: 2,
+                            width: `${Math.min(100, (activeWLD.l / Math.max(1, maxL + 1)) * 100)}%`,
+                            background: achieved ? "var(--green)" : "var(--red)", transition: "width 0.4s ease" }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Note moy min */}
+                {(() => {
+                  const minR = activeSession.advancedGoals?.minRating;
+                  const avgRating = (() => {
+                    if (!activeSession.matches.length) return null;
+                    const allRatings: number[] = [];
+                    for (const m of activeSession.matches) {
+                      const cps = m.players[activeSession.clubId] as Record<string, Record<string, unknown>> | undefined;
+                      if (!cps) continue;
+                      for (const p of Object.values(cps)) {
+                        const r = Number(p["rating"] ?? 0);
+                        if (r > 0) allRatings.push(r);
+                      }
+                    }
+                    return allRatings.length ? allRatings.reduce((a, b) => a + b, 0) / allRatings.length : null;
+                  })();
+                  const achieved = minR != null && avgRating != null && avgRating >= minR;
+                  return (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, color: "var(--muted)", flex: 1 }}>Note moy. min :</span>
+                        <input type="number" min={1} max={10} step={0.1}
+                          value={advMinRatingInput !== "" ? advMinRatingInput : (minR ?? "")}
+                          placeholder="—"
+                          onChange={(e) => setAdvMinRatingInput(e.target.value)}
+                          onBlur={() => {
+                            const v = parseFloat(advMinRatingInput);
+                            setActiveSessionAdvancedGoals({ ...activeSession.advancedGoals, minRating: isNaN(v) ? undefined : v });
+                            setAdvMinRatingInput("");
+                          }}
+                          style={{ width: 40, background: "var(--card)", border: "1px solid var(--border)",
+                            color: "var(--text)", padding: "2px 5px", borderRadius: 4, fontSize: 11,
+                            outline: "none", textAlign: "center" }}
+                        />
+                        {minR != null && avgRating != null && (
+                          <span style={{ fontSize: 10, color: achieved ? "var(--green)" : "var(--red)", fontWeight: 700 }}>
+                            {avgRating.toFixed(2)} {achieved ? "✓" : "✗"}
+                          </span>
+                        )}
+                      </div>
+                      {minR != null && avgRating != null && (
+                        <div style={{ height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: 2,
+                            width: `${Math.min(100, (avgRating / 10) * 100)}%`,
+                            background: achieved ? "var(--green)" : "#eab308", transition: "width 0.4s ease" }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -426,6 +534,112 @@ export function SessionTab() {
                 dot={{ r: 3, fill: "var(--accent)" }} />
             </LineChart>
           </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* ── Comparaison inter-sessions ─────────────────────────────────── */}
+      {sessions.filter((s) => !s.archived && s.matches.length > 0).length >= 2 && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showCompare ? 10 : 0 }}>
+            <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+              fontFamily: "'Bebas Neue', sans-serif", display: "flex", alignItems: "center", gap: 5 }}>
+              ⚖️ COMPARER 2 SESSIONS
+            </span>
+            <button onClick={() => setShowCompare((v) => !v)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: showCompare ? "var(--accent)" : "var(--muted)", fontSize: 13 }}>
+              {showCompare ? "▾" : "▸"}
+            </button>
+          </div>
+          {showCompare && (() => {
+            const eligibleSessions = sessions.filter((s) => !s.archived && s.matches.length > 0);
+            const sesA = eligibleSessions.find((s) => s.id === compareA) ?? null;
+            const sesB = eligibleSessions.find((s) => s.id === compareB) ?? null;
+
+            // Build chart data: cumulative wins per match for each session
+            const buildCurve = (s: SessionType) =>
+              s.matches.map((m, i) => {
+                const r = matchResult(m, s.clubId);
+                const prev = i > 0 ? (s.matches.slice(0, i).filter((mm) => matchResult(mm, s.clubId) === "W").length) : 0;
+                return { n: i + 1, v: prev + (r === "W" ? 1 : 0) };
+              });
+            const curveA = sesA ? buildCurve(sesA) : [];
+            const curveB = sesB ? buildCurve(sesB) : [];
+            const maxLen = Math.max(curveA.length, curveB.length);
+            const chartData = Array.from({ length: maxLen }, (_, i) => ({
+              n: i + 1,
+              a: curveA[i]?.v ?? null,
+              b: curveB[i]?.v ?? null,
+            }));
+
+            const wldA = sesA ? sessionWLD(sesA.matches, sesA.clubId) : null;
+            const wldB = sesB ? sessionWLD(sesB.matches, sesB.clubId) : null;
+
+            return (
+              <div>
+                {/* Selectors */}
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  {([
+                    { val: compareA, set: setCompareA, color: "var(--accent)", label: "Session A" },
+                    { val: compareB, set: setCompareB, color: "#a855f7",       label: "Session B" },
+                  ] as const).map((slot) => (
+                    <select key={slot.label} value={slot.val} onChange={(e) => slot.set(e.target.value)}
+                      style={{ flex: 1, background: "var(--bg)", border: `1px solid ${slot.color}`,
+                        color: "var(--text)", padding: "5px 8px", borderRadius: 6, fontSize: 11,
+                        outline: "none", cursor: "pointer" }}>
+                      <option value="">{slot.label}…</option>
+                      {eligibleSessions.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {new Date(s.date).toLocaleDateString()} · {s.clubName} ({s.matches.length}M)
+                        </option>
+                      ))}
+                    </select>
+                  ))}
+                </div>
+
+                {/* Stats comparison row */}
+                {sesA && sesB && wldA && wldB && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "4px 10px",
+                    marginBottom: 10, padding: "8px 10px", background: "var(--bg)",
+                    borderRadius: 6, border: "1px solid var(--border)" }}>
+                    {[
+                      { label: "Matchs", a: sesA.matches.length, b: sesB.matches.length },
+                      { label: "V", a: wldA.w, b: wldB.w },
+                      { label: "N", a: wldA.d, b: wldB.d },
+                      { label: "D", a: wldA.l, b: wldB.l },
+                      { label: "% V", a: Math.round((wldA.w / sesA.matches.length) * 100), b: Math.round((wldB.w / sesB.matches.length) * 100) },
+                    ].map(({ label, a, b }) => (
+                      <div key={label} style={{ display: "contents" }}>
+                        <div style={{ textAlign: "right", fontSize: 13, fontFamily: "'Bebas Neue', sans-serif",
+                          color: a > b ? "var(--accent)" : a < b ? "var(--muted)" : "var(--text)" }}>{a}{label === "% V" ? "%" : ""}</div>
+                        <div style={{ textAlign: "center", fontSize: 9, color: "var(--muted)",
+                          fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em", alignSelf: "center" }}>{label}</div>
+                        <div style={{ textAlign: "left", fontSize: 13, fontFamily: "'Bebas Neue', sans-serif",
+                          color: b > a ? "#a855f7" : b < a ? "var(--muted)" : "var(--text)" }}>{b}{label === "% V" ? "%" : ""}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Overlaid chart */}
+                {sesA && sesB && chartData.length > 0 && (
+                  <ResponsiveContainer width="100%" height={120}>
+                    <LineChart data={chartData} margin={{ top: 4, right: 8, left: -28, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="n" tick={{ fontSize: 9, fill: "var(--muted)" }} label={{ value: "Match", fontSize: 9, fill: "var(--muted)", position: "insideBottomRight", offset: -4 }} />
+                      <YAxis tick={{ fontSize: 9, fill: "var(--muted)" }} />
+                      <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11 }}
+                        formatter={(v, name) => [String(v) + " V", name === "a" ? sesA.clubName : sesB.clubName]} />
+                      <Line type="monotone" dataKey="a" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                      <Line type="monotone" dataKey="b" stroke="#a855f7" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+                {(!sesA || !sesB) && (
+                  <p style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", margin: "8px 0 0" }}>Sélectionne deux sessions pour comparer</p>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 

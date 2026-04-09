@@ -126,6 +126,7 @@ export interface Session {
   notes?: string;
   tags?: string[];
   goal?: number;
+  advancedGoals?: { maxLosses?: number; minRating?: number };
 }
 
 export interface CompareEntry {

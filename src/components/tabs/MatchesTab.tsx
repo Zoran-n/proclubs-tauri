@@ -45,7 +45,7 @@ export function MatchesTab() {
   const debouncedOppFilter                  = useDebounce(oppFilter, 200);
   const [fromDate,       setFromDate]       = useState("");
   const [toDate,         setToDate]         = useState("");
-  const [viewMode,       setViewMode]       = useState<"list" | "calendar">("list");
+  const [viewMode,       setViewMode]       = useState<"list" | "calendar" | "opponents">("list");
   const [calMonth,       setCalMonth]       = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
   const [openAnnotation, setOpenAnnotation] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -145,6 +145,23 @@ export function MatchesTab() {
 
   const dotColor = (v: number) => v === 3 ? "var(--green)" : v === 1 ? "#eab308" : "var(--red)";
 
+  // Opponent analysis — aggregate per unique opponent from all loaded matches
+  const opponentStats = useMemo(() => {
+    const map: Record<string, { name: string; w: number; d: number; l: number; gf: number; ga: number }> = {};
+    for (const m of allList) {
+      const name = getOppName(m);
+      const res = getResult(m);
+      const myId = currentClub?.id ?? "";
+      const my  = m.clubs[myId] as Record<string, unknown> | undefined;
+      const opp = Object.entries(m.clubs).find(([k]) => k !== myId)?.[1] as Record<string, unknown> | undefined;
+      if (!map[name]) map[name] = { name, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+      if (res === "W") map[name].w++; else if (res === "L") map[name].l++; else map[name].d++;
+      map[name].gf += Number(my?.["goals"] ?? 0);
+      map[name].ga += Number(opp?.["goals"] ?? 0);
+    }
+    return Object.values(map).sort((a, b) => (b.w + b.d + b.l) - (a.w + a.d + a.l));
+  }, [allList, getOppName, getResult, currentClub?.id]);
+
   // auto-scroll reset when tab/filter changes (rewind list to top)
   useEffect(() => { contentRef.current?.scrollTo({ top: 0 }); }, [type, debouncedOppFilter]);
 
@@ -201,10 +218,17 @@ export function MatchesTab() {
             style={{ ...BTN, padding: "5px 8px", color: "var(--red)" }}>✕</button>
         )}
 
-        <button onClick={() => setViewMode(viewMode === "list" ? "calendar" : "list")}
+        <button onClick={() => setViewMode("list")}
+          style={{ ...BTN, color: viewMode === "list" ? "var(--accent)" : "var(--muted)" }}>
+          <List size={11} /> {t("matches.listView")}
+        </button>
+        <button onClick={() => setViewMode("calendar")}
           style={{ ...BTN, color: viewMode === "calendar" ? "var(--accent)" : "var(--muted)" }}>
-          {viewMode === "list" ? <Calendar size={11} /> : <List size={11} />}
-          {viewMode === "list" ? t("matches.calendar") : t("matches.listView")}
+          <Calendar size={11} /> {t("matches.calendar")}
+        </button>
+        <button onClick={() => setViewMode("opponents")}
+          style={{ ...BTN, color: viewMode === "opponents" ? "var(--accent)" : "var(--muted)" }}>
+          👥 Adversaires
         </button>
 
         <button onClick={() => setExportModal("png")} style={BTN}><Download size={11} /> PNG</button>
@@ -272,7 +296,50 @@ export function MatchesTab() {
           </div>
         )}
 
-        {viewMode === "list" ? (
+        {viewMode === "opponents" ? (
+          /* Opponents analysis */
+          <div>
+            {opponentStats.length === 0 ? (
+              <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>Aucun match chargé</div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                      {["Adversaire", "MJ", "V", "N", "D", "% V", "BF", "BC", "Diff"].map((h) => (
+                        <th key={h} style={{ padding: "6px 10px", textAlign: h === "Adversaire" ? "left" : "center",
+                          fontSize: 10, color: "var(--muted)", fontWeight: "normal",
+                          fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {opponentStats.map((opp) => {
+                      const mj = opp.w + opp.d + opp.l;
+                      const wr = Math.round((opp.w / mj) * 100);
+                      const diff = opp.gf - opp.ga;
+                      return (
+                        <tr key={opp.name} style={{ borderBottom: "1px solid var(--border)" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "")}>
+                          <td style={{ padding: "7px 10px", color: "var(--text)", fontWeight: 600 }}>{opp.name}</td>
+                          <td style={{ padding: "7px 10px", textAlign: "center", color: "var(--muted)" }}>{mj}</td>
+                          <td style={{ padding: "7px 10px", textAlign: "center", color: "var(--green)", fontWeight: 700 }}>{opp.w}</td>
+                          <td style={{ padding: "7px 10px", textAlign: "center", color: "#eab308" }}>{opp.d}</td>
+                          <td style={{ padding: "7px 10px", textAlign: "center", color: "var(--red)" }}>{opp.l}</td>
+                          <td style={{ padding: "7px 10px", textAlign: "center", color: wr >= 60 ? "var(--green)" : wr >= 40 ? "#eab308" : "var(--red)", fontWeight: 700 }}>{wr}%</td>
+                          <td style={{ padding: "7px 10px", textAlign: "center", color: "var(--text)" }}>{opp.gf}</td>
+                          <td style={{ padding: "7px 10px", textAlign: "center", color: "var(--text)" }}>{opp.ga}</td>
+                          <td style={{ padding: "7px 10px", textAlign: "center", color: diff > 0 ? "var(--green)" : diff < 0 ? "var(--red)" : "var(--muted)", fontWeight: 700 }}>{diff > 0 ? "+" : ""}{diff}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : viewMode === "list" ? (
           <>
             {!loading && list.length === 0 && (
               <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
