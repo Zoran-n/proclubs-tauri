@@ -286,8 +286,10 @@ export function SettingsTab() {
         </span>
         <div style={{ display: "flex", gap: 6 }}>
           {([
-            { id: "horizontal", label: "Horizontale", desc: "Barre en haut" },
-            { id: "vertical",   label: "Verticale",   desc: "Panneau à gauche" },
+            { id: "horizontal", label: "Haut",    desc: "Barre en haut",       bar: { top:0,left:0,right:0,height:6,bottom:"auto",width:"auto" } },
+            { id: "bottom",     label: "Bas",     desc: "Barre en bas",        bar: { bottom:0,left:0,right:0,height:6,top:"auto",width:"auto" } },
+            { id: "vertical",   label: "Gauche",  desc: "Panneau à gauche",    bar: { top:0,left:0,bottom:0,width:8,right:"auto",height:"auto" } },
+            { id: "right",      label: "Droite",  desc: "Panneau à droite",    bar: { top:0,right:0,bottom:0,width:8,left:"auto",height:"auto" } },
           ] as const).map((opt) => {
             const active = navLayout === opt.id;
             return (
@@ -295,23 +297,17 @@ export function SettingsTab() {
                 onClick={() => { setNavLayout(opt.id); persistSettings(); }}
                 aria-pressed={active}
                 style={{
-                  flex: 1, padding: "8px 6px",
+                  flex: 1, padding: "8px 4px",
                   background: active ? "rgba(var(--accent-rgb,0,212,255),0.12)" : "var(--hover)",
                   border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
                   borderRadius: 6, cursor: "pointer", transition: "all 0.15s",
                   display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
                 }}
               >
-                {/* Mini preview icon */}
-                <div style={{ width: 36, height: 24, borderRadius: 3, border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`, position: "relative", overflow: "hidden", background: "var(--bg)" }}>
-                  {opt.id === "horizontal" ? (
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 6, background: active ? "var(--accent)" : "var(--muted)", opacity: 0.6 }} />
-                  ) : (
-                    <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 8, background: active ? "var(--accent)" : "var(--muted)", opacity: 0.6 }} />
-                  )}
+                <div style={{ width: 32, height: 22, borderRadius: 3, border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`, position: "relative", overflow: "hidden", background: "var(--bg)" }}>
+                  <div style={{ position: "absolute", ...opt.bar, background: active ? "var(--accent)" : "var(--muted)", opacity: 0.7 }} />
                 </div>
-                <span style={{ fontSize: 11, fontWeight: active ? 600 : 400, color: active ? "var(--accent)" : "var(--text)" }}>{opt.label}</span>
-                <span style={{ fontSize: 9, color: "var(--muted)" }}>{opt.desc}</span>
+                <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? "var(--accent)" : "var(--text)" }}>{opt.label}</span>
               </button>
             );
           })}

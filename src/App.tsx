@@ -123,6 +123,16 @@ function App() {
             <Sidebar />
             <MainPanel />
           </div>
+        ) : navLayout === "bottom" ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <MainPanel />
+            <Sidebar />
+          </div>
+        ) : navLayout === "right" ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "row", overflow: "hidden" }}>
+            <MainPanel />
+            <Sidebar />
+          </div>
         ) : (
           <>
             <Sidebar />

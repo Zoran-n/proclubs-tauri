@@ -73,7 +73,7 @@ interface AppState {
   visibleKpis: string[];
   compactMode: boolean;
   showGlobalSearch: boolean;
-  navLayout: "horizontal" | "vertical";
+  navLayout: "horizontal" | "vertical" | "right" | "bottom";
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -130,7 +130,7 @@ interface AppState {
   setVisibleKpis: (keys: string[]) => void;
   setCompactMode: (v: boolean) => void;
   toggleGlobalSearch: () => void;
-  setNavLayout: (v: "horizontal" | "vertical") => void;
+  setNavLayout: (v: "horizontal" | "vertical" | "right" | "bottom") => void;
   reorderFavs: (favs: Club[]) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
@@ -224,10 +224,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTheme: (theme) => {
     document.documentElement.setAttribute("data-theme", theme);
     if (theme === "custom") {
-      const accent = get().customAccent || "#00d4ff";
-      document.documentElement.style.setProperty("--accent", accent);
+      const { customAccent, customBg, customSurface, customCard } = get();
+      if (customAccent) document.documentElement.style.setProperty("--accent", customAccent);
+      if (customBg)     document.documentElement.style.setProperty("--bg",      customBg);
+      if (customSurface) document.documentElement.style.setProperty("--surface", customSurface);
+      if (customCard)   document.documentElement.style.setProperty("--card",    customCard);
     } else {
+      // Quitter le thème custom : retirer toutes les surcharges de couleur
       document.documentElement.style.removeProperty("--accent");
+      document.documentElement.style.removeProperty("--bg");
+      document.documentElement.style.removeProperty("--surface");
+      document.documentElement.style.removeProperty("--card");
+      set({ theme, customBg: "", customSurface: "", customCard: "" });
+      return;
     }
     set({ theme });
   },
@@ -387,7 +396,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         autoUpdate: s.autoUpdate ?? false,
         matchAnnotations: s.matchAnnotations ?? {},
         visibleKpis: s.visibleKpis ?? ["matches", "wins", "draws", "losses", "winRate", "goals"],
-        navLayout: (s.navLayout as "horizontal" | "vertical") ?? "horizontal",
+        navLayout: (s.navLayout as "horizontal" | "vertical" | "right" | "bottom") ?? "horizontal",
         settingsLoaded: true,
       });
     } catch { /* first launch */ } finally {

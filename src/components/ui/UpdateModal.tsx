@@ -102,14 +102,31 @@ export function UpdateModal() {
             <div style={{
               background: "var(--bg)", borderRadius: 8, padding: "10px 12px",
               border: "1px solid var(--border)", marginBottom: 16,
-              maxHeight: 140, overflowY: "auto",
+              maxHeight: 160, overflowY: "auto",
             }}>
-              <pre style={{
-                fontSize: 11, color: "var(--muted)", margin: 0,
-                whiteSpace: "pre-wrap", lineHeight: 1.6, fontFamily: "inherit",
-              }}>
-                {updateNotes}
-              </pre>
+              {updateNotes.split("\n").map((line, i) => {
+                if (line.startsWith("### ")) return (
+                  <p key={i} style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", margin: "8px 0 2px", lineHeight: 1.4 }}>
+                    {line.slice(4)}
+                  </p>
+                );
+                if (line.startsWith("## ")) return (
+                  <p key={i} style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", margin: "10px 0 4px", lineHeight: 1.4 }}>
+                    {line.slice(3)}
+                  </p>
+                );
+                if (line.startsWith("- ")) return (
+                  <p key={i} style={{ fontSize: 11, color: "var(--muted)", margin: "1px 0 1px 8px", lineHeight: 1.5 }}>
+                    · {line.slice(2)}
+                  </p>
+                );
+                if (line.trim() === "") return <div key={i} style={{ height: 4 }} />;
+                return (
+                  <p key={i} style={{ fontSize: 11, color: "var(--muted)", margin: "1px 0", lineHeight: 1.5 }}>
+                    {line}
+                  </p>
+                );
+              })}
             </div>
           )}
 

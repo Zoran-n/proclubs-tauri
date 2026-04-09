@@ -169,7 +169,7 @@ export interface Settings {
   autoUpdate?: boolean;
   matchAnnotations?: Record<string, string>;
   visibleKpis?: string[];
-  navLayout?: string;
+  navLayout?: "horizontal" | "vertical" | "right" | "bottom";
 }
 
 export interface ClubData {

@@ -45,7 +45,9 @@ function useNavItems(): { id: ActiveTab; icon: ReactNode; label: string }[] {
 
 export function Sidebar() {
   const { navLayout } = useAppStore();
-  return navLayout === "horizontal" ? <HorizontalSidebar /> : <VerticalSidebar />;
+  return (navLayout === "horizontal" || navLayout === "bottom")
+    ? <HorizontalSidebar />
+    : <VerticalSidebar />;
 }
 
 /* ══════════════════════════════════════════════════════════════════
