@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Download, ChevronDown, Search, Calendar, List, ChevronLeft, ChevronRight, PenLine } from "lucide-react";
+import { Download, ChevronDown, Search, Calendar, List, ChevronLeft, ChevronRight, PenLine, Table2 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
 import { ExportModal } from "../ui/ExportModal";
@@ -12,6 +12,10 @@ import { useMatchData } from "../../hooks/useMatchData";
 function matchDate(m: Match): Date {
   const n = Number(m.timestamp);
   return new Date(n > 1e12 ? n : n * 1000);
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 const BTN: React.CSSProperties = {
@@ -39,16 +43,21 @@ export function MatchesTab() {
 
   const { type, setType, allList, loading, loadMore, hasMore, eaProfile } = useMatchData();
 
-  const [selected,       setSelected]       = useState<Match | null>(null);
-  const [exportModal,    setExportModal]    = useState<"png" | "csv" | null>(null);
-  const [oppFilter,      setOppFilter]      = useState("");
-  const debouncedOppFilter                  = useDebounce(oppFilter, 200);
-  const [fromDate,       setFromDate]       = useState("");
-  const [toDate,         setToDate]         = useState("");
-  const [viewMode,       setViewMode]       = useState<"list" | "calendar" | "opponents">("list");
-  const [calMonth,       setCalMonth]       = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
-  const [openAnnotation, setOpenAnnotation] = useState<string | null>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const [selected,        setSelected]        = useState<Match | null>(null);
+  const [exportModal,     setExportModal]      = useState<"png" | "csv" | null>(null);
+  const [calExportModal,  setCalExportModal]   = useState(false);
+  const [oppFilter,       setOppFilter]        = useState("");
+  const debouncedOppFilter                     = useDebounce(oppFilter, 200);
+  const [fromDate,        setFromDate]         = useState("");
+  const [toDate,          setToDate]           = useState("");
+  const [resultFilter,    setResultFilter]     = useState<"all" | "W" | "D" | "L">("all");
+  const [viewMode,        setViewMode]         = useState<"list" | "calendar" | "opponents">("list");
+  const [calMonth,        setCalMonth]         = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
+  const [openAnnotation,  setOpenAnnotation]   = useState<string | null>(null);
+  const [visibleCount,    setVisibleCount]     = useState(50);
+  const contentRef   = useRef<HTMLDivElement>(null);
+  const calendarRef  = useRef<HTMLDivElement>(null);
+  const sentinelRef  = useRef<HTMLDivElement>(null);
 
   // ── Derived helpers ────────────────────────────────────────────────────────
   const getResult = useCallback((m: Match): "W" | "D" | "L" => {
@@ -72,6 +81,22 @@ export function MatchesTab() {
     return String(det?.["name"] ?? opp?.["name"] ?? (fallback || t("matches.opponent")));
   }, [currentClub?.id, t]);
 
+  // Half-time score (if available in EA data)
+  const getHalfTimeScore = useCallback((m: Match): string | null => {
+    const myId = currentClub?.id ?? "";
+    const my  = m.clubs[myId] as Record<string, unknown> | undefined;
+    const opp = Object.entries(m.clubs).find(([k]) => k !== myId)?.[1] as Record<string, unknown> | undefined;
+    if (!my || !opp) return null;
+    const keys = ["goalsHT", "goalsht", "clubGoalsHT", "clubgoalsht", "htGoals", "halftimeGoals"];
+    for (const k of keys) {
+      const myVal  = my[k]  ?? my[k.toLowerCase()];
+      const oppVal = opp[k] ?? opp[k.toLowerCase()];
+      if (myVal !== undefined && oppVal !== undefined) return `${myVal}-${oppVal}`;
+    }
+    return null;
+  }, [currentClub?.id]);
+
+  // ── Computed ────────────────────────────────────────────────────────────────
   const oppBilan = useMemo(() => {
     if (!debouncedOppFilter.trim()) return null;
     const q = debouncedOppFilter.toLowerCase();
@@ -102,6 +127,19 @@ export function MatchesTab() {
       }),
   [allList, getResult]);
 
+  // Streak indicator
+  const streak = useMemo(() => {
+    if (allList.length < 2) return null;
+    const sorted = [...allList].sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
+    const first = getResult(sorted[0]);
+    let count = 1;
+    for (let i = 1; i < sorted.length; i++) {
+      if (getResult(sorted[i]) === first) count++; else break;
+    }
+    if (count < 2) return null;
+    return { result: first, count };
+  }, [allList, getResult]);
+
   const list = useMemo(() => {
     let base = allList;
     if (debouncedOppFilter.trim()) {
@@ -116,15 +154,44 @@ export function MatchesTab() {
       const to = new Date(toDate).getTime() + 86400000;
       base = base.filter((m) => { const n = Number(m.timestamp); return (n > 1e12 ? n : n * 1000) <= to; });
     }
+    if (resultFilter !== "all") {
+      base = base.filter((m) => getResult(m) === resultFilter);
+    }
     return base;
-  }, [allList, debouncedOppFilter, fromDate, toDate, getOppName]);
+  }, [allList, debouncedOppFilter, fromDate, toDate, resultFilter, getOppName, getResult]);
 
-  const csvHeaders = [t("matches.date"), t("matches.opponent"), t("matches.score"), t("matches.result"), t("matches.type")];
-  const csvRows    = list.map((m) => [
-    formatDate(m.timestamp, locale), getOppName(m), getScore(m),
-    RESULT_LABEL[getResult(m)].text, type,
-  ]);
-  const dateStr = new Date().toISOString().slice(0, 10);
+  // Reset visible count when list changes
+  useEffect(() => { setVisibleCount(50); }, [list.length, type]);
+
+  // IntersectionObserver for incremental rendering
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || visibleCount >= list.length) return;
+    const io = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setVisibleCount(c => Math.min(c + 50, list.length));
+    }, { threshold: 0.1 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visibleCount, list.length]);
+
+  const displayedList = useMemo(() => list.slice(0, visibleCount), [list, visibleCount]);
+
+  // Opponent analysis
+  const opponentStats = useMemo(() => {
+    const map: Record<string, { name: string; w: number; d: number; l: number; gf: number; ga: number }> = {};
+    for (const m of allList) {
+      const name = getOppName(m);
+      const res = getResult(m);
+      const myId = currentClub?.id ?? "";
+      const my  = m.clubs[myId] as Record<string, unknown> | undefined;
+      const opp = Object.entries(m.clubs).find(([k]) => k !== myId)?.[1] as Record<string, unknown> | undefined;
+      if (!map[name]) map[name] = { name, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+      if (res === "W") map[name].w++; else if (res === "L") map[name].l++; else map[name].d++;
+      map[name].gf += Number(my?.["goals"] ?? 0);
+      map[name].ga += Number(opp?.["goals"] ?? 0);
+    }
+    return Object.values(map).sort((a, b) => (b.w + b.d + b.l) - (a.w + a.d + a.l));
+  }, [allList, getOppName, getResult, currentClub?.id]);
 
   const calendarDays = useMemo(() => {
     const { year, month } = calMonth;
@@ -143,27 +210,51 @@ export function MatchesTab() {
     return days;
   }, [calMonth, list]);
 
+  // CSV/Excel data
+  const csvHeaders = [t("matches.date"), t("matches.opponent"), t("matches.score"), "Mi-temps", t("matches.result"), t("matches.type")];
+  const csvRows    = list.map((m) => [
+    formatDate(m.timestamp, locale), getOppName(m), getScore(m),
+    getHalfTimeScore(m) ?? "—", RESULT_LABEL[getResult(m)].text, type,
+  ]);
+  const dateStr = new Date().toISOString().slice(0, 10);
+
+  // Excel export
+  const exportExcel = useCallback(() => {
+    const rows = list.map(m => {
+      const res = getResult(m);
+      const color = res === "W" ? "#16a34a" : res === "L" ? "#dc2626" : "#ca8a04";
+      const bg    = res === "W" ? "#f0fdf4"  : res === "L" ? "#fef2f2"  : "#fefce8";
+      const ht = getHalfTimeScore(m);
+      return `<tr>
+        <td>${formatDate(m.timestamp, locale)}</td>
+        <td>${escapeHtml(getOppName(m))}</td>
+        <td style="font-weight:bold;text-align:center">${getScore(m)}</td>
+        <td style="color:#64748b;text-align:center">${ht ?? "—"}</td>
+        <td style="color:${color};background:${bg};font-weight:bold;text-align:center">${RESULT_LABEL[res].text}</td>
+        <td style="color:#64748b">${type}</td>
+      </tr>`;
+    }).join("");
+    const html = `<html><head><meta charset="UTF-8"></head><body>
+    <table border="1" cellpadding="6" style="border-collapse:collapse;font-family:Arial;font-size:12px">
+      <tr style="background:#1e293b;color:white;font-weight:bold">
+        <th>Date</th><th>Adversaire</th><th>Score</th><th>Mi-temps</th><th>Résultat</th><th>Type</th>
+      </tr>
+      ${rows}
+    </table></body></html>`;
+    const blob = new Blob(["\ufeff" + html], { type: "application/vnd.ms-excel;charset=UTF-8" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = `matchs-${dateStr}.xls`; a.click();
+    URL.revokeObjectURL(url);
+  }, [list, getResult, getScore, getOppName, getHalfTimeScore, locale, type, dateStr, RESULT_LABEL]);
+
   const dotColor = (v: number) => v === 3 ? "var(--green)" : v === 1 ? "#eab308" : "var(--red)";
 
-  // Opponent analysis — aggregate per unique opponent from all loaded matches
-  const opponentStats = useMemo(() => {
-    const map: Record<string, { name: string; w: number; d: number; l: number; gf: number; ga: number }> = {};
-    for (const m of allList) {
-      const name = getOppName(m);
-      const res = getResult(m);
-      const myId = currentClub?.id ?? "";
-      const my  = m.clubs[myId] as Record<string, unknown> | undefined;
-      const opp = Object.entries(m.clubs).find(([k]) => k !== myId)?.[1] as Record<string, unknown> | undefined;
-      if (!map[name]) map[name] = { name, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
-      if (res === "W") map[name].w++; else if (res === "L") map[name].l++; else map[name].d++;
-      map[name].gf += Number(my?.["goals"] ?? 0);
-      map[name].ga += Number(opp?.["goals"] ?? 0);
-    }
-    return Object.values(map).sort((a, b) => (b.w + b.d + b.l) - (a.w + a.d + a.l));
-  }, [allList, getOppName, getResult, currentClub?.id]);
-
-  // auto-scroll reset when tab/filter changes (rewind list to top)
+  // auto-scroll reset when tab/filter changes
   useEffect(() => { contentRef.current?.scrollTo({ top: 0 }); }, [type, debouncedOppFilter]);
+
+  const streakColor = streak?.result === "W" ? "var(--green)" : streak?.result === "D" ? "#eab308" : "var(--red)";
+  const streakLabel = streak?.result === "W" ? "Série V" : streak?.result === "D" ? "Série N" : "Série D";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg)" }}>
@@ -171,7 +262,7 @@ export function MatchesTab() {
       {/* Tab bar */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px",
         flexShrink: 0, borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 8, flex: 1 }}>
+        <div style={{ display: "flex", gap: 8, flex: 1, flexWrap: "wrap" }}>
           {TYPES.map((tp) => {
             const active = type === tp.value;
             return (
@@ -195,6 +286,7 @@ export function MatchesTab() {
           )}
         </div>
 
+        {/* Search */}
         <div style={{ position: "relative", minWidth: 120 }}>
           <Search size={11} style={{ position: "absolute", left: 7, top: "50%", transform: "translateY(-50%)",
             color: "var(--muted)", pointerEvents: "none" }} />
@@ -207,6 +299,7 @@ export function MatchesTab() {
             onBlur={(e) => (e.target.style.borderColor = "var(--border)")} />
         </div>
 
+        {/* Date filters */}
         <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} title="Du"
           style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
             padding: "5px 8px", borderRadius: 5, fontSize: 11, outline: "none", cursor: "pointer", colorScheme: "dark" }} />
@@ -218,6 +311,24 @@ export function MatchesTab() {
             style={{ ...BTN, padding: "5px 8px", color: "var(--red)" }}>✕</button>
         )}
 
+        {/* Result filter */}
+        <div style={{ display: "flex", gap: 4 }}>
+          {(["all", "W", "D", "L"] as const).map((rf) => {
+            const labels: Record<string, string> = { all: "Tous", W: "V", D: "N", L: "D" };
+            const colors: Record<string, string> = { all: "var(--muted)", W: "var(--green)", D: "#eab308", L: "var(--red)" };
+            const active = resultFilter === rf;
+            return (
+              <button key={rf} onClick={() => setResultFilter(rf)} style={{
+                ...BTN, padding: "4px 8px", fontSize: 10,
+                color: active ? colors[rf] : "var(--muted)",
+                borderColor: active ? colors[rf] : "var(--border)",
+                background: active ? `${colors[rf]}18` : "var(--card)",
+              }}>{labels[rf]}</button>
+            );
+          })}
+        </div>
+
+        {/* View mode */}
         <button onClick={() => setViewMode("list")}
           style={{ ...BTN, color: viewMode === "list" ? "var(--accent)" : "var(--muted)" }}>
           <List size={11} /> {t("matches.listView")}
@@ -231,8 +342,10 @@ export function MatchesTab() {
           👥 Adversaires
         </button>
 
+        {/* Export */}
         <button onClick={() => setExportModal("png")} style={BTN}><Download size={11} /> PNG</button>
         <button onClick={() => setExportModal("csv")} style={BTN}><Download size={11} /> CSV</button>
+        <button onClick={exportExcel} style={BTN} title="Export Excel"><Table2 size={11} /> XLS</button>
       </div>
 
       {/* Content */}
@@ -261,13 +374,27 @@ export function MatchesTab() {
           </div>
         )}
 
-        {/* Graphique de forme */}
+        {/* Forme + streak */}
         {formData.length >= 3 && viewMode === "list" && (
           <div style={{ padding: "12px 16px 8px", background: "var(--card)", border: "1px solid var(--border)",
             borderRadius: 8, flexShrink: 0 }}>
-            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6,
-              fontFamily: "'Bebas Neue', sans-serif", letterSpacing: 1 }}>
-              Forme — {formData.length} derniers matchs
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: "var(--muted)",
+                fontFamily: "'Bebas Neue', sans-serif", letterSpacing: 1 }}>
+                Forme — {formData.length} derniers matchs
+              </div>
+              {streak && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 10px",
+                  borderRadius: 12, background: `${streakColor}18`, border: `1px solid ${streakColor}44` }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: streakColor,
+                    fontFamily: "'Bebas Neue', sans-serif", letterSpacing: 1 }}>
+                    {streakLabel}
+                  </span>
+                  <span style={{ fontSize: 16, fontFamily: "'Bebas Neue', sans-serif",
+                    color: streakColor, lineHeight: 1 }}>{streak.count}</span>
+                  <span style={{ fontSize: 9, color: streakColor, opacity: 0.7 }}>en cours</span>
+                </div>
+              )}
             </div>
             <ResponsiveContainer width="100%" height={60}>
               <LineChart data={formData} margin={{ top: 4, right: 8, left: -36, bottom: 0 }}>
@@ -347,11 +474,12 @@ export function MatchesTab() {
               </div>
             )}
 
-            {list.map((m) => {
+            {displayedList.map((m) => {
               const res = getResult(m);
               const rl  = RESULT_LABEL[res];
               const annotation = matchAnnotations[m.matchId] ?? "";
               const isOpen = openAnnotation === m.matchId;
+              const htScore = getHalfTimeScore(m);
               return (
                 <div key={m.matchId} style={{
                   display: "flex", flexDirection: "column",
@@ -362,10 +490,17 @@ export function MatchesTab() {
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = isOpen ? "var(--accent)" : "var(--border)")}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 18px" }}>
-                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26,
-                      color: "#eab308", minWidth: 56, flexShrink: 0, letterSpacing: 1 }}>
-                      {getScore(m)}
-                    </span>
+                    <div style={{ display: "flex", flexDirection: "column", minWidth: 60, flexShrink: 0 }}>
+                      <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26,
+                        color: "#eab308", letterSpacing: 1, lineHeight: 1 }}>
+                        {getScore(m)}
+                      </span>
+                      {htScore && (
+                        <span style={{ fontSize: 9, color: "var(--muted)", marginTop: 2 }}>
+                          HT {htScore}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 600,
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -424,6 +559,15 @@ export function MatchesTab() {
               );
             })}
 
+            {/* Incremental rendering sentinel */}
+            {visibleCount < list.length && (
+              <div ref={sentinelRef} style={{ textAlign: "center", padding: "8px 0", flexShrink: 0 }}>
+                <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                  {visibleCount} / {list.length} matchs affichés…
+                </span>
+              </div>
+            )}
+
             {hasMore && !eaProfile && (
               <button onClick={loadMore}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
@@ -443,7 +587,7 @@ export function MatchesTab() {
                 Chargement automatique en cours…
               </div>
             )}
-            {!hasMore && !loading && list.length > 0 && (
+            {!hasMore && !loading && list.length > 0 && visibleCount >= list.length && (
               <div style={{ textAlign: "center", fontSize: 11, color: "var(--muted)", padding: "8px 0" }}>
                 {t("matches.allShown")}
               </div>
@@ -452,54 +596,61 @@ export function MatchesTab() {
         ) : (
           /* Calendar view */
           <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginBottom: 12 }}>
-              <button onClick={() => setCalMonth((c) => {
-                const d = new Date(c.year, c.month - 1, 1);
-                return { year: d.getFullYear(), month: d.getMonth() };
-              })} style={BTN}><ChevronLeft size={13} /></button>
-              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--text)",
-                letterSpacing: "0.06em", minWidth: 160, textAlign: "center" }}>
-                {t(`months.${calMonth.month}`)} {calMonth.year}
-              </span>
-              <button onClick={() => setCalMonth((c) => {
-                const d = new Date(c.year, c.month + 1, 1);
-                return { year: d.getFullYear(), month: d.getMonth() };
-              })} style={BTN}><ChevronRight size={13} /></button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button onClick={() => setCalMonth((c) => {
+                  const d = new Date(c.year, c.month - 1, 1);
+                  return { year: d.getFullYear(), month: d.getMonth() };
+                })} style={BTN}><ChevronLeft size={13} /></button>
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--text)",
+                  letterSpacing: "0.06em", minWidth: 160, textAlign: "center" }}>
+                  {t(`months.${calMonth.month}`)} {calMonth.year}
+                </span>
+                <button onClick={() => setCalMonth((c) => {
+                  const d = new Date(c.year, c.month + 1, 1);
+                  return { year: d.getFullYear(), month: d.getMonth() };
+                })} style={BTN}><ChevronRight size={13} /></button>
+              </div>
+              <button onClick={() => setCalExportModal(true)} style={BTN}>
+                <Download size={11} /> PNG Calendrier
+              </button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
-              {[t("days.mon"), t("days.tue"), t("days.wed"), t("days.thu"), t("days.fri"), t("days.sat"), t("days.sun")].map((d) => (
-                <div key={d} style={{ textAlign: "center", fontSize: 9, color: "var(--muted)",
-                  fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em", padding: 4 }}>{d}</div>
-              ))}
-            </div>
+            <div ref={calendarRef}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
+                {[t("days.mon"), t("days.tue"), t("days.wed"), t("days.thu"), t("days.fri"), t("days.sat"), t("days.sun")].map((d) => (
+                  <div key={d} style={{ textAlign: "center", fontSize: 9, color: "var(--muted)",
+                    fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em", padding: 4 }}>{d}</div>
+                ))}
+              </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
-              {calendarDays.map((cell, i) => (
-                <div key={i} style={{
-                  minHeight: 64, padding: 4, borderRadius: 4,
-                  background: cell.day === 0 ? "transparent" : "var(--card)",
-                  border: cell.day === 0 ? "none" : "1px solid var(--border)",
-                }}>
-                  {cell.day > 0 && (
-                    <>
-                      <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 2 }}>{cell.day}</div>
-                      {cell.matches.map((m) => {
-                        const res   = getResult(m);
-                        const color = RESULT_LABEL[res].color;
-                        return (
-                          <div key={m.matchId} onClick={() => setSelected(m)}
-                            style={{ fontSize: 9, padding: "1px 3px", borderRadius: 3, marginBottom: 1,
-                              background: `${color}22`, color, cursor: "pointer", fontWeight: 600,
-                              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {getScore(m)}
-                          </div>
-                        );
-                      })}
-                    </>
-                  )}
-                </div>
-              ))}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+                {calendarDays.map((cell, i) => (
+                  <div key={i} style={{
+                    minHeight: 64, padding: 4, borderRadius: 4,
+                    background: cell.day === 0 ? "transparent" : "var(--card)",
+                    border: cell.day === 0 ? "none" : "1px solid var(--border)",
+                  }}>
+                    {cell.day > 0 && (
+                      <>
+                        <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 2 }}>{cell.day}</div>
+                        {cell.matches.map((m) => {
+                          const res   = getResult(m);
+                          const color = RESULT_LABEL[res].color;
+                          return (
+                            <div key={m.matchId} onClick={() => setSelected(m)}
+                              style={{ fontSize: 9, padding: "1px 3px", borderRadius: 3, marginBottom: 1,
+                                background: `${color}22`, color, cursor: "pointer", fontWeight: 600,
+                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {getScore(m)}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -513,6 +664,10 @@ export function MatchesTab() {
       {exportModal === "csv" && (
         <ExportModal type="csv" csvHeaders={csvHeaders} csvRows={csvRows}
           defaultFilename={`matchs-${dateStr}`} onClose={() => setExportModal(null)} />
+      )}
+      {calExportModal && (
+        <ExportModal type="png" pngSourceEl={calendarRef.current}
+          defaultFilename={`calendrier-${dateStr}`} onClose={() => setCalExportModal(false)} />
       )}
     </div>
   );
