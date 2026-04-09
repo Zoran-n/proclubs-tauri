@@ -127,6 +127,16 @@ export interface Session {
   tags?: string[];
   goal?: number;
   advancedGoals?: { maxLosses?: number; minRating?: number };
+  mergedFrom?: string[];
+}
+
+export interface SessionTemplate {
+  id: string;
+  name: string;
+  tags?: string[];
+  notes?: string;
+  goal?: number;
+  advancedGoals?: { maxLosses?: number; minRating?: number };
 }
 
 export interface CompareEntry {
@@ -182,6 +192,7 @@ export interface Settings {
   matchAnnotations?: Record<string, string>;
   visibleKpis?: string[];
   navLayout?: "horizontal" | "vertical" | "right" | "bottom";
+  sessionTemplates?: SessionTemplate[];
 }
 
 export interface ClubData {

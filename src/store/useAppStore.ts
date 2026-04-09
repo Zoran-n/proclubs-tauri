@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Club, Player, Match, Session, Tactic, EaProfile, SyncEntry, CompareEntry } from "../types";
+import type { Club, Player, Match, Session, Tactic, EaProfile, SyncEntry, CompareEntry, SessionTemplate } from "../types";
 import type { ToastMessage } from "../components/ui/Toast";
 import { saveSettings as apiSave, loadSettings as apiLoad, setProxy as apiSetProxy } from "../api/tauri";
 import type { Lang } from "../i18n";
@@ -76,6 +76,7 @@ interface AppState {
   compactMode: boolean;
   showGlobalSearch: boolean;
   navLayout: "horizontal" | "vertical" | "right" | "bottom";
+  sessionTemplates: SessionTemplate[];
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -95,6 +96,9 @@ interface AppState {
   updateSession: (id: string, patch: Partial<Session>) => void;
   setActiveSessionGoal: (goal: number | undefined) => void;
   setActiveSessionAdvancedGoals: (ag: { maxLosses?: number; minRating?: number }) => void;
+  saveSessionTemplate: (tpl: SessionTemplate) => void;
+  deleteSessionTemplate: (id: string) => void;
+  mergeSessions: (ids: string[], label: string) => void;
   setTheme: (t: string) => void;
   setDarkMode: (v: boolean) => void;
   setShowGrid: (v: boolean) => void;
@@ -182,6 +186,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   compactMode: false,
   showGlobalSearch: false,
   navLayout: "horizontal",
+  sessionTemplates: [],
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
@@ -231,6 +236,36 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveSessionAdvancedGoals: (advancedGoals) => set((s) => ({
     activeSession: s.activeSession ? { ...s.activeSession, advancedGoals } : null,
   })),
+  saveSessionTemplate: (tpl) => set((s) => ({
+    sessionTemplates: [tpl, ...s.sessionTemplates.filter((t) => t.id !== tpl.id)],
+  })),
+  deleteSessionTemplate: (id) => set((s) => ({
+    sessionTemplates: s.sessionTemplates.filter((t) => t.id !== id),
+  })),
+  mergeSessions: (ids, label) => set((s) => {
+    const toMerge = s.sessions.filter((x) => ids.includes(x.id));
+    if (toMerge.length < 2) return {};
+    const first = toMerge.reduce((a, b) => (a.date < b.date ? a : b));
+    const allMatches: Match[] = [];
+    const seenIds = new Set<string>();
+    for (const sess of toMerge) {
+      for (const m of sess.matches) {
+        if (!seenIds.has(m.matchId)) { seenIds.add(m.matchId); allMatches.push(m); }
+      }
+    }
+    const merged: Session = {
+      id: Date.now().toString(),
+      clubName: label || first.clubName,
+      clubId: first.clubId,
+      platform: first.platform,
+      date: first.date,
+      matches: allMatches,
+      tags: ["Tournoi"],
+      notes: `Fusion de ${toMerge.length} sessions`,
+      mergedFrom: ids,
+    };
+    return { sessions: [merged, ...s.sessions.filter((x) => !ids.includes(x.id))] };
+  }),
   setTheme: (theme) => {
     document.documentElement.setAttribute("data-theme", theme);
     if (theme === "custom") {
@@ -421,6 +456,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         matchAnnotations: s.matchAnnotations ?? {},
         visibleKpis: s.visibleKpis ?? ["matches", "wins", "draws", "losses", "winRate", "goals"],
         navLayout: (s.navLayout as "horizontal" | "vertical" | "right" | "bottom") ?? "horizontal",
+        sessionTemplates: (s.sessionTemplates as SessionTemplate[]) ?? [],
         settingsLoaded: true,
       });
     } catch { /* first launch */ } finally {
@@ -431,7 +467,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   persistSettings: async () => {
     const { history, favs, tactics, sessions, compareHistory, eaProfile, eaProfiles, syncHistory,
       theme, darkMode, proxyUrl,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, customBg, customSurface, customCard, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout } = get();
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, customBg, customSurface, customCard, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout, sessionTemplates } = get();
     const payload = {
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -453,6 +489,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       matchAnnotations,
       visibleKpis,
       navLayout,
+      sessionTemplates,
     };
     // Skip the I/O write if nothing changed
     const json = JSON.stringify(payload);

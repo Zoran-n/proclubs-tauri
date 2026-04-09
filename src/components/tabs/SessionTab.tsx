@@ -2,9 +2,11 @@ import { useRef, useState, useMemo } from "react";
 import {
   Play, Square, Trophy, Trash2, Archive, Download, Crown, Target,
   Handshake, Send, Info, X, Tag, FileText, Flag, TrendingUp,
+  Copy, Merge, AlertTriangle, Layers,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
 } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
 import { useSession } from "../../hooks/useSession";
@@ -127,6 +129,7 @@ export function SessionTab() {
     deleteSession, archiveSession, updateSession, setActiveSessionGoal,
     setActiveSessionAdvancedGoals,
     discordWebhook, addToast,
+    sessionTemplates, saveSessionTemplate, deleteSessionTemplate, mergeSessions,
   } = useAppStore();
 
   const [showArchived, setShowArchived] = useState(false);
@@ -148,6 +151,18 @@ export function SessionTab() {
   const [showCompare, setShowCompare] = useState(false);
   const [compareA, setCompareA] = useState<string>("");
   const [compareB, setCompareB] = useState<string>("");
+  // Templates
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [tplNameInput, setTplNameInput] = useState("");
+  // Merge sessions
+  const [showMerge, setShowMerge] = useState(false);
+  const [mergeSelected, setMergeSelected] = useState<Set<string>>(new Set());
+  const [mergeLabelInput, setMergeLabelInput] = useState("");
+  // Goal history
+  const [showGoalHistory, setShowGoalHistory] = useState(false);
+  // Radar
+  const [showRadar, setShowRadar] = useState(false);
+  const [radarSessionId, setRadarSessionId] = useState<string>("");
   const contentRef = useRef<HTMLDivElement>(null);
   const PAGE_SIZE = 10;
 
@@ -197,6 +212,42 @@ export function SessionTab() {
         description: `📅 ${new Date(s.date).toLocaleDateString()} · ${s.matches.length} match${s.matches.length !== 1 ? "s" : ""}`,
         fields,
         footer: { text: "ProClubs Stats" },
+      }]);
+      addToast(t("discord.sent"), "success");
+    } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
+    finally { setSharingId(null); }
+  };
+
+  // ── Live Discord share (active session partial) ──────────────────────
+  const shareLiveToDiscord = async () => {
+    if (!discordWebhook || !activeSession) return;
+    setSharingId(activeSession.id);
+    try {
+      const kpis = sessionKpis(activeSession.matches, activeSession.clubId);
+      const wld = sessionWLD(activeSession.matches, activeSession.clubId);
+      const color = wld.w > wld.l ? 0x23a559 : wld.l > wld.w ? 0xda373c : 0xfaa81a;
+      const elapsed = Math.round((Date.now() - new Date(activeSession.date).getTime()) / 60000);
+
+      const matchLines = [...activeSession.matches].reverse().slice(0, 10).map((m) => {
+        const r = matchResult(m, activeSession.clubId);
+        const { ourGoals, oppGoals } = getMatchScore(m, activeSession.clubId);
+        return `${r === "W" ? "🟢" : r === "L" ? "🔴" : "🟡"} **${ourGoals} – ${oppGoals}**`;
+      });
+
+      const fields: { name: string; value: string; inline?: boolean }[] = [
+        { name: "📊 Bilan en cours", value: `🟢 **${wld.w}V** · 🟡 **${wld.d}N** · 🔴 **${wld.l}D**`, inline: false },
+        { name: "⚽ Buts", value: String(kpis.goals), inline: true },
+        { name: "🅰️ Passes D.", value: String(kpis.assists), inline: true },
+        { name: "★ MOTM", value: String(kpis.motm), inline: true },
+      ];
+      if (matchLines.length > 0) fields.push({ name: "🎮 Matchs", value: matchLines.join("  ·  ").slice(0, 1024) });
+
+      await sendDiscordWebhook(discordWebhook, [{
+        title: `🔴 Session en cours — ${activeSession.clubName}`,
+        color,
+        description: `⏱️ ${elapsed} min · ${activeSession.matches.length} match${activeSession.matches.length !== 1 ? "s" : ""}`,
+        fields,
+        footer: { text: "ProClubs Stats · Bilan partiel" },
       }]);
       addToast(t("discord.sent"), "success");
     } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
@@ -279,6 +330,98 @@ export function SessionTab() {
   }), [allVisible]);
   const dateStr = new Date().toISOString().slice(0, 10);
 
+  // ── Goal history data ──────────────────────────────────────────────
+  const goalHistoryData = useMemo(() => {
+    const withGoals = sessions.filter((s) => s.goal != null && s.matches.length > 0);
+    if (withGoals.length === 0) return null;
+    let achieved = 0;
+    const entries = [...withGoals].reverse().map((s, i) => {
+      const wld = sessionWLD(s.matches, s.clubId);
+      const hit = wld.w >= (s.goal ?? 0);
+      if (hit) achieved++;
+      const advMax = s.advancedGoals?.maxLosses;
+      const advRat = s.advancedGoals?.minRating;
+      const advMaxHit = advMax != null ? wld.l <= advMax : null;
+      let advRatHit: boolean | null = null;
+      if (advRat != null) {
+        const allR: number[] = [];
+        for (const m of s.matches) {
+          const cps = m.players[s.clubId] as Record<string, Record<string, unknown>> | undefined;
+          if (!cps) continue;
+          for (const p of Object.values(cps)) { const r = Number(p["rating"] ?? 0); if (r > 0) allR.push(r); }
+        }
+        const avg = allR.length > 0 ? allR.reduce((a, b) => a + b, 0) / allR.length : 0;
+        advRatHit = avg >= advRat;
+      }
+      return { name: `S${i + 1}`, date: new Date(s.date).toLocaleDateString(), goal: s.goal!, wins: wld.w, hit, advMaxHit, advRatHit };
+    });
+    return { entries, total: withGoals.length, achieved, rate: Math.round((achieved / withGoals.length) * 100) };
+  }, [sessions]);
+
+  // ── Radar data ─────────────────────────────────────────────────────
+  const radarData = useMemo(() => {
+    const sid = radarSessionId || sessions.find((s) => !s.archived && s.matches.length > 0)?.id;
+    const s = sessions.find((x) => x.id === sid);
+    if (!s || s.matches.length === 0) return null;
+    const k = sessionKpis(s.matches, s.clubId);
+    const wld = sessionWLD(s.matches, s.clubId);
+    const n = s.matches.length;
+    // Normalize per match × 10 for radar scale
+    return {
+      session: s,
+      data: [
+        { stat: "Buts", value: Math.min(10, (k.goals / n) * 5) },
+        { stat: "Passes D.", value: Math.min(10, (k.assists / n) * 5) },
+        { stat: "Passes", value: Math.min(10, (k.passes / n) * 0.05) },
+        { stat: "Tacles", value: Math.min(10, (k.tackles / n) * 0.1) },
+        { stat: "MOTM", value: Math.min(10, (k.motm / n) * 10) },
+        { stat: "% Victoires", value: n > 0 ? (wld.w / n) * 10 : 0 },
+      ],
+    };
+  }, [radarSessionId, sessions]);
+
+  // ── Session alerts (check if goals about to be missed) ─────────────
+  const sessionAlerts = useMemo(() => {
+    if (!activeSession || activeSession.matches.length < 2) return [];
+    const alerts: string[] = [];
+    const wld = sessionWLD(activeSession.matches, activeSession.clubId);
+
+    // Goal: wins target
+    if (activeSession.goal != null) {
+      const remaining = activeSession.goal - wld.w;
+      const matchesPlayed = activeSession.matches.length;
+      if (remaining > 0 && wld.l >= Math.max(1, Math.floor(matchesPlayed * 0.4))) {
+        alerts.push(`Objectif ${activeSession.goal}V en danger — ${wld.w}V pour ${wld.l}D`);
+      }
+    }
+
+    // Advanced: max losses
+    const maxL = activeSession.advancedGoals?.maxLosses;
+    if (maxL != null && wld.l >= maxL) {
+      alerts.push(`Limite de défaites atteinte : ${wld.l}/${maxL}`);
+    } else if (maxL != null && wld.l === maxL - 1) {
+      alerts.push(`Attention : encore 1 défaite avant la limite (${wld.l}/${maxL})`);
+    }
+
+    // Advanced: min rating
+    const minR = activeSession.advancedGoals?.minRating;
+    if (minR != null) {
+      const allR: number[] = [];
+      for (const m of activeSession.matches) {
+        const cps = m.players[activeSession.clubId] as Record<string, Record<string, unknown>> | undefined;
+        if (!cps) continue;
+        for (const p of Object.values(cps)) { const r = Number(p["rating"] ?? 0); if (r > 0) allR.push(r); }
+      }
+      const avg = allR.length > 0 ? allR.reduce((a, b) => a + b, 0) / allR.length : 0;
+      if (avg > 0 && avg < minR) {
+        alerts.push(`Note moyenne ${avg.toFixed(2)} sous l'objectif de ${minR}`);
+      } else if (avg > 0 && avg < minR + 0.3) {
+        alerts.push(`Note moyenne ${avg.toFixed(2)} — proche de la limite ${minR}`);
+      }
+    }
+    return alerts;
+  }, [activeSession]);
+
   return (
     <div ref={contentRef} style={{ display: "flex", flexDirection: "column", height: "100%",
       overflowY: "auto", padding: 16, gap: 12 }}>
@@ -297,11 +440,24 @@ export function SessionTab() {
                 {new Date(activeSession.date).toLocaleString()} · {activeSession.matches.length} match{activeSession.matches.length !== 1 ? "s" : ""}
               </div>
             </div>
-            <button onClick={handleStop} style={{ display: "flex", alignItems: "center", gap: 5,
-              padding: "6px 12px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)",
-              borderRadius: 7, color: "#ef4444", fontSize: 12, cursor: "pointer" }}>
-              <Square size={12} /> {t("session.end")}
-            </button>
+            <div style={{ display: "flex", gap: 6 }}>
+              {discordWebhook && activeSession.matches.length > 0 && (
+                <button onClick={shareLiveToDiscord}
+                  disabled={sharingId === activeSession.id}
+                  title="Partager le bilan en cours"
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px",
+                    background: "rgba(88,101,242,0.15)", border: "1px solid rgba(88,101,242,0.35)",
+                    borderRadius: 7, color: "#8b9cf4", fontSize: 12, cursor: "pointer",
+                    opacity: sharingId === activeSession.id ? 0.5 : 1 }}>
+                  <Send size={12} /> Discord
+                </button>
+              )}
+              <button onClick={handleStop} style={{ display: "flex", alignItems: "center", gap: 5,
+                padding: "6px 12px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)",
+                borderRadius: 7, color: "#ef4444", fontSize: 12, cursor: "pointer" }}>
+                <Square size={12} /> {t("session.end")}
+              </button>
+            </div>
           </div>
 
           {/* Objectifs — simple + avancés */}
@@ -449,6 +605,59 @@ export function SessionTab() {
             )}
           </div>
 
+          {/* ── Sauvegarder comme template ── */}
+          {(activeSession.goal != null || (activeSession.tags ?? []).length > 0 || activeSession.advancedGoals) && (
+            <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+              {showTemplates ? (
+                <>
+                  <input value={tplNameInput} onChange={(e) => setTplNameInput(e.target.value)}
+                    placeholder="Nom du template"
+                    style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--border)",
+                      color: "var(--text)", padding: "4px 8px", borderRadius: 4, fontSize: 11, outline: "none" }} />
+                  <button onClick={() => {
+                    if (!tplNameInput.trim()) return;
+                    saveSessionTemplate({
+                      id: Date.now().toString(),
+                      name: tplNameInput.trim(),
+                      tags: activeSession.tags,
+                      notes: activeSession.notes,
+                      goal: activeSession.goal,
+                      advancedGoals: activeSession.advancedGoals,
+                    });
+                    persistSettings();
+                    setTplNameInput("");
+                    setShowTemplates(false);
+                    addToast("Template sauvegardé", "success");
+                  }} style={{ ...BTN, color: "var(--accent)", border: "1px solid var(--accent)" }}>
+                    ✓
+                  </button>
+                  <button onClick={() => setShowTemplates(false)} style={{ ...BTN }}>
+                    <X size={11} />
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setShowTemplates(true)}
+                  style={{ ...BTN, fontSize: 10, color: "var(--muted)" }}>
+                  <Copy size={11} /> Sauvegarder comme template
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* ── Alertes en session ── */}
+          {sessionAlerts.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+              {sessionAlerts.map((alert, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px",
+                  background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.3)",
+                  borderRadius: 6, fontSize: 11, color: "#eab308" }}>
+                  <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                  {alert}
+                </div>
+              ))}
+            </div>
+          )}
+
           {kpis && <KpiGrid kpis={kpis} t={t} />}
 
           {mvps && (mvps.topScorer || mvps.topAssister || mvps.topMotm) && (
@@ -492,16 +701,66 @@ export function SessionTab() {
           )}
         </div>
       ) : currentClub ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          padding: 32, gap: 10, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10 }}>
-          <Trophy size={36} style={{ color: "var(--muted)" }} />
-          <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>{t("session.noActive")}</p>
-          <button onClick={() => startSession(currentClub)} style={{
-            display: "flex", alignItems: "center", gap: 6, padding: "8px 18px",
-            background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.3)",
-            borderRadius: 8, color: "var(--accent)", fontSize: 13, cursor: "pointer" }}>
-            <Play size={14} /> {t("session.startBtn")}
-          </button>
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginBottom: sessionTemplates.length > 0 ? 16 : 0 }}>
+            <Trophy size={36} style={{ color: "var(--muted)" }} />
+            <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>{t("session.noActive")}</p>
+            <button onClick={() => startSession(currentClub)} style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 18px",
+              background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.3)",
+              borderRadius: 8, color: "var(--accent)", fontSize: 13, cursor: "pointer" }}>
+              <Play size={14} /> {t("session.startBtn")}
+            </button>
+          </div>
+
+          {/* ── Templates de session ── */}
+          {sessionTemplates.length > 0 && (
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+              <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+                fontFamily: "'Bebas Neue', sans-serif", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+                <Layers size={11} /> TEMPLATES
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {sessionTemplates.map((tpl) => (
+                  <div key={tpl.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <button
+                      onClick={() => {
+                        startSession(currentClub);
+                        // Apply template after start via setTimeout to let state settle
+                        setTimeout(() => {
+                          const s = useAppStore.getState();
+                          if (s.activeSession) {
+                            if (tpl.goal != null) s.setActiveSessionGoal(tpl.goal);
+                            if (tpl.advancedGoals) s.setActiveSessionAdvancedGoals(tpl.advancedGoals);
+                            if (tpl.tags || tpl.notes) {
+                              const patch: Partial<SessionType> = {};
+                              if (tpl.tags) patch.tags = tpl.tags;
+                              if (tpl.notes) patch.notes = tpl.notes;
+                              // We update via set since it's the active session
+                              useAppStore.setState((prev) => ({
+                                activeSession: prev.activeSession ? { ...prev.activeSession, ...patch } : null,
+                              }));
+                            }
+                          }
+                        }, 50);
+                      }}
+                      style={{ padding: "5px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer",
+                        background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.25)",
+                        color: "var(--accent)", display: "flex", alignItems: "center", gap: 4 }}>
+                      <Play size={10} /> {tpl.name}
+                    </button>
+                    <button onClick={() => { deleteSessionTemplate(tpl.id); persistSettings(); }}
+                      title="Supprimer template"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2, fontSize: 11 }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}>
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1,
@@ -636,6 +895,189 @@ export function SessionTab() {
                 )}
                 {(!sesA || !sesB) && (
                   <p style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", margin: "8px 0 0" }}>Sélectionne deux sessions pour comparer</p>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── Historique des objectifs ──────────────────────────────────── */}
+      {goalHistoryData && goalHistoryData.entries.length >= 2 && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showGoalHistory ? 10 : 0 }}>
+            <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+              fontFamily: "'Bebas Neue', sans-serif", display: "flex", alignItems: "center", gap: 5 }}>
+              <Flag size={11} /> HISTORIQUE DES OBJECTIFS
+              <span style={{ color: goalHistoryData.rate >= 50 ? "var(--green)" : "var(--red)", fontWeight: 700, fontSize: 11 }}>
+                {goalHistoryData.rate}%
+              </span>
+              <span style={{ fontSize: 10, color: "var(--muted)", fontWeight: 400 }}>
+                ({goalHistoryData.achieved}/{goalHistoryData.total})
+              </span>
+            </span>
+            <button onClick={() => setShowGoalHistory((v) => !v)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: showGoalHistory ? "var(--accent)" : "var(--muted)", fontSize: 13 }}>
+              {showGoalHistory ? "▾" : "▸"}
+            </button>
+          </div>
+          {showGoalHistory && (
+            <div>
+              <ResponsiveContainer width="100%" height={100}>
+                <LineChart data={goalHistoryData.entries} margin={{ top: 4, right: 8, left: -28, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="name" tick={{ fontSize: 9, fill: "var(--muted)" }} />
+                  <YAxis tick={{ fontSize: 9, fill: "var(--muted)" }} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11 }}
+                    formatter={(v: unknown, name: unknown) => [String(v), name === "goal" ? "Objectif" : "Victoires"]}
+                    labelFormatter={(_l: unknown, payload: unknown) => {
+                      const p = payload as Array<{ payload?: { date?: string } }>;
+                      return p?.[0]?.payload?.date ?? "";
+                    }}
+                  />
+                  <Line type="monotone" dataKey="goal" stroke="var(--gold)" strokeWidth={1} strokeDasharray="5 3" dot={false} />
+                  <Line type="monotone" dataKey="wins" stroke="var(--green)" strokeWidth={2}
+                    dot={(props: Record<string, unknown>) => {
+                      const cx = Number(props.cx ?? 0);
+                      const cy = Number(props.cy ?? 0);
+                      const payload = props.payload as { hit?: boolean } | undefined;
+                      return <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={4}
+                        fill={payload?.hit ? "var(--green)" : "var(--red)"} stroke="none" />;
+                    }} />
+                </LineChart>
+              </ResponsiveContainer>
+              {/* Detail table */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
+                {goalHistoryData.entries.map((e) => (
+                  <div key={e.name} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10,
+                    border: `1px solid ${e.hit ? "var(--green)" : "var(--red)"}`,
+                    background: e.hit ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+                    color: e.hit ? "var(--green)" : "var(--red)" }}>
+                    {e.name}: {e.wins}/{e.goal}V {e.hit ? "✓" : "✗"}
+                    {e.advMaxHit != null && <span style={{ marginLeft: 4 }}>{e.advMaxHit ? "D✓" : "D✗"}</span>}
+                    {e.advRatHit != null && <span style={{ marginLeft: 4 }}>{e.advRatHit ? "★✓" : "★✗"}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Radar de session ───────────────────────────────────────────── */}
+      {sessions.filter((s) => !s.archived && s.matches.length > 0).length >= 1 && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showRadar ? 10 : 0 }}>
+            <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+              fontFamily: "'Bebas Neue', sans-serif", display: "flex", alignItems: "center", gap: 5 }}>
+              📊 RADAR DE SESSION
+            </span>
+            <button onClick={() => setShowRadar((v) => !v)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: showRadar ? "var(--accent)" : "var(--muted)", fontSize: 13 }}>
+              {showRadar ? "▾" : "▸"}
+            </button>
+          </div>
+          {showRadar && (
+            <div>
+              <select value={radarSessionId}
+                onChange={(e) => setRadarSessionId(e.target.value)}
+                style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--border)",
+                  color: "var(--text)", padding: "5px 8px", borderRadius: 6, fontSize: 11,
+                  outline: "none", cursor: "pointer", marginBottom: 10 }}>
+                <option value="">Dernière session</option>
+                {sessions.filter((s) => !s.archived && s.matches.length > 0).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {new Date(s.date).toLocaleDateString()} · {s.clubName} ({s.matches.length}M)
+                  </option>
+                ))}
+              </select>
+              {radarData && (
+                <>
+                  <div style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", marginBottom: 4 }}>
+                    {radarData.session.clubName} — {new Date(radarData.session.date).toLocaleDateString()} ({radarData.session.matches.length} matchs)
+                  </div>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <RadarChart data={radarData.data}>
+                      <PolarGrid stroke="var(--border)" />
+                      <PolarAngleAxis dataKey="stat" tick={{ fontSize: 10, fill: "var(--muted)" }} />
+                      <PolarRadiusAxis domain={[0, 10]} tick={false} axisLine={false} />
+                      <Radar dataKey="value" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.25} strokeWidth={2} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Fusion de sessions ─────────────────────────────────────────── */}
+      {sessions.filter((s) => !s.archived && s.matches.length > 0).length >= 2 && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showMerge ? 10 : 0 }}>
+            <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+              fontFamily: "'Bebas Neue', sans-serif", display: "flex", alignItems: "center", gap: 5 }}>
+              <Merge size={11} /> FUSIONNER DES SESSIONS
+            </span>
+            <button onClick={() => { setShowMerge((v) => !v); setMergeSelected(new Set()); setMergeLabelInput(""); }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: showMerge ? "var(--accent)" : "var(--muted)", fontSize: 13 }}>
+              {showMerge ? "▾" : "▸"}
+            </button>
+          </div>
+          {showMerge && (() => {
+            const eligible = sessions.filter((s) => !s.archived && s.matches.length > 0);
+            return (
+              <div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>
+                  Sélectionne les sessions à fusionner en une session "tournoi" :
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 200, overflowY: "auto", marginBottom: 10 }}>
+                  {eligible.map((s) => {
+                    const checked = mergeSelected.has(s.id);
+                    const wld = sessionWLD(s.matches, s.clubId);
+                    return (
+                      <label key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px",
+                        background: checked ? "rgba(0,212,255,0.06)" : "var(--bg)",
+                        border: `1px solid ${checked ? "var(--accent)" : "var(--border)"}`,
+                        borderRadius: 6, cursor: "pointer", fontSize: 11, color: "var(--text)" }}>
+                        <input type="checkbox" checked={checked}
+                          onChange={() => {
+                            const next = new Set(mergeSelected);
+                            if (checked) next.delete(s.id); else next.add(s.id);
+                            setMergeSelected(next);
+                          }}
+                          style={{ accentColor: "var(--accent)" }} />
+                        <span style={{ flex: 1 }}>
+                          {new Date(s.date).toLocaleDateString()} · {s.clubName} · {s.matches.length}M
+                        </span>
+                        <span style={{ color: "#23a559" }}>{wld.w}V</span>
+                        <span style={{ color: "var(--muted)" }}>{wld.d}N</span>
+                        <span style={{ color: "#da373c" }}>{wld.l}D</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {mergeSelected.size >= 2 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input value={mergeLabelInput} onChange={(e) => setMergeLabelInput(e.target.value)}
+                      placeholder="Nom du tournoi (optionnel)"
+                      style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--border)",
+                        color: "var(--text)", padding: "5px 8px", borderRadius: 5, fontSize: 11, outline: "none" }} />
+                    <button onClick={() => {
+                      mergeSessions(Array.from(mergeSelected), mergeLabelInput.trim());
+                      persistSettings();
+                      setMergeSelected(new Set());
+                      setMergeLabelInput("");
+                      setShowMerge(false);
+                      addToast(`${mergeSelected.size} sessions fusionnées`, "success");
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px",
+                      background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.3)",
+                      borderRadius: 7, color: "var(--accent)", fontSize: 12, cursor: "pointer" }}>
+                      <Merge size={12} /> Fusionner ({mergeSelected.size})
+                    </button>
+                  </div>
                 )}
               </div>
             );

@@ -126,6 +126,7 @@ pub struct Settings {
     #[serde(default)] pub auto_update: bool,
     #[serde(default)] pub match_annotations: HashMap<String, String>,
     #[serde(default)] pub visible_kpis: Vec<String>,
+    #[serde(default)] pub session_templates: Vec<serde_json::Value>,
 }
 
 fn default_theme() -> String { "cyan".to_string() }
@@ -152,6 +153,7 @@ impl Default for Settings {
             auto_update: false,
             match_annotations: HashMap::new(),
             visible_kpis: vec![],
+            session_templates: vec![],
         }
     }
 }
