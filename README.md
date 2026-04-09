@@ -145,6 +145,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Onboarding** : assistant de bienvenue 3 étapes (langue, fonctionnalités, raccourcis) au premier lancement
 - **Accessibilité** : focus-visible, skip-link, reduced-motion, forced-colors, attributs ARIA
 - **KPIs personnalisables** : bouton ÉDITER sur la barre KPI — choisir quels indicateurs afficher parmi 8 disponibles (Matchs, Victoires, Nuls, Défaites, % Victoires, Buts, Buts/Match, Points) — sélection persistée
+- **Disposition de la navigation configurable** : choix entre barre horizontale (en haut du contenu) et panneau vertical (à gauche), paramètre accessible dans les Paramètres → Interface, persisté entre les sessions
 
 ### Mode hors-ligne
 - Bannière **MODE HORS-LIGNE** affichée automatiquement quand il n'y a pas de connexion réseau

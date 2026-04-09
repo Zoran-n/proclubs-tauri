@@ -70,6 +70,7 @@ interface AppState {
   visibleKpis: string[];
   compactMode: boolean;
   showGlobalSearch: boolean;
+  navLayout: "horizontal" | "vertical";
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -122,6 +123,7 @@ interface AppState {
   setVisibleKpis: (keys: string[]) => void;
   setCompactMode: (v: boolean) => void;
   toggleGlobalSearch: () => void;
+  setNavLayout: (v: "horizontal" | "vertical") => void;
   reorderFavs: (favs: Club[]) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
@@ -162,6 +164,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   visibleKpis: ["matches", "wins", "draws", "losses", "winRate", "goals"],
   compactMode: false,
   showGlobalSearch: false,
+  navLayout: "horizontal",
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
@@ -288,6 +291,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ compactMode });
   },
   toggleGlobalSearch: () => set((s) => ({ showGlobalSearch: !s.showGlobalSearch })),
+  setNavLayout: (navLayout) => set({ navLayout }),
   reorderFavs: (favs) => set({ favs }),
 
   applyProxy: async (url: string) => {
@@ -339,6 +343,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         autoUpdate: s.autoUpdate ?? false,
         matchAnnotations: s.matchAnnotations ?? {},
         visibleKpis: s.visibleKpis ?? ["matches", "wins", "draws", "losses", "winRate", "goals"],
+        navLayout: (s.navLayout as "horizontal" | "vertical") ?? "horizontal",
         settingsLoaded: true,
       });
     } catch { /* first launch */ } finally {
@@ -348,7 +353,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   persistSettings: async () => {
     const { history, favs, tactics, sessions, compareHistory, eaProfile, theme, darkMode, proxyUrl,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations, visibleKpis } = get();
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout } = get();
     const payload = {
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -365,6 +370,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       autoUpdate,
       matchAnnotations,
       visibleKpis,
+      navLayout,
     };
     // Skip the I/O write if nothing changed
     const json = JSON.stringify(payload);

@@ -14,6 +14,7 @@ export function SettingsTab() {
     language, setTheme, setDarkMode, setShowAnimations, setShowLogs,
     setShowIdSearch, setFontSize, setFontFamily, setCustomAccent, setLanguage,
     autoUpdate, setAutoUpdate, setUpdateAvailable, setUpdateInfo,
+    navLayout, setNavLayout,
     persistSettings } = useAppStore();
   const t = useT();
 
@@ -231,6 +232,45 @@ export function SettingsTab() {
       <Section label={t("settings.interface")} />
       <Toggle label={t("settings.showLogs")}  value={showLogs}     onChange={setShowLogs} />
       <Toggle label={t("settings.idSearch")}   value={showIdSearch} onChange={setShowIdSearch} />
+
+      {/* Navigation layout */}
+      <div style={{ padding: "8px 0" }}>
+        <span style={{ fontSize: 13, color: "var(--text)", display: "block", marginBottom: 8 }}>
+          Disposition de la navigation
+        </span>
+        <div style={{ display: "flex", gap: 6 }}>
+          {([
+            { id: "horizontal", label: "Horizontale", desc: "Barre en haut" },
+            { id: "vertical",   label: "Verticale",   desc: "Panneau à gauche" },
+          ] as const).map((opt) => {
+            const active = navLayout === opt.id;
+            return (
+              <button key={opt.id}
+                onClick={() => { setNavLayout(opt.id); persistSettings(); }}
+                aria-pressed={active}
+                style={{
+                  flex: 1, padding: "8px 6px",
+                  background: active ? "rgba(var(--accent-rgb,0,212,255),0.12)" : "var(--hover)",
+                  border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                  borderRadius: 6, cursor: "pointer", transition: "all 0.15s",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                }}
+              >
+                {/* Mini preview icon */}
+                <div style={{ width: 36, height: 24, borderRadius: 3, border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`, position: "relative", overflow: "hidden", background: "var(--bg)" }}>
+                  {opt.id === "horizontal" ? (
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 6, background: active ? "var(--accent)" : "var(--muted)", opacity: 0.6 }} />
+                  ) : (
+                    <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 8, background: active ? "var(--accent)" : "var(--muted)", opacity: 0.6 }} />
+                  )}
+                </div>
+                <span style={{ fontSize: 11, fontWeight: active ? 600 : 400, color: active ? "var(--accent)" : "var(--text)" }}>{opt.label}</span>
+                <span style={{ fontSize: 9, color: "var(--muted)" }}>{opt.desc}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* ── RACCOURCIS ── */}
       <Section label={t("settings.shortcuts")} />

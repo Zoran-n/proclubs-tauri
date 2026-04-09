@@ -166,6 +166,7 @@ export interface Settings {
   autoUpdate?: boolean;
   matchAnnotations?: Record<string, string>;
   visibleKpis?: string[];
+  navLayout?: string;
 }
 
 export interface ClubData {

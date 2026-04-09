@@ -23,6 +23,7 @@ function App() {
     loadSettings, theme, showGrid, showAnimations, darkMode, fontSize,
     addRawLog, toggleDevPanel, showDevPanel, setProxyInfo,
     setSidebarTab, setActiveTab, onboarded, settingsLoaded, toggleGlobalSearch,
+    navLayout,
   } = useAppStore();
 
   useAutoLoad();
@@ -117,8 +118,17 @@ function App() {
       )}
       <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative", zIndex: 2 }}>
         <GuildBar />
-        <Sidebar />
-        <MainPanel />
+        {navLayout === "horizontal" ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <Sidebar />
+            <MainPanel />
+          </div>
+        ) : (
+          <>
+            <Sidebar />
+            <MainPanel />
+          </>
+        )}
       </div>
       {showDevPanel && <DevPanel />}
       <SearchModal />
