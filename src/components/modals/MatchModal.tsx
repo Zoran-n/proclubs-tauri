@@ -90,7 +90,6 @@ export function MatchModal({ match, clubId, onClose }: { match: Match; clubId: s
   const discordWebhook = useAppStore((s) => s.discordWebhook);
   const addToast = useAppStore((s) => s.addToast);
   const [sharing, setSharing] = useState(false);
-  const [modalTab, setModalTab] = useState<"players" | "team" | "timeline">("players");
   const locale = lang === "fr" ? "fr-FR" : lang === "es" ? "es-ES" : lang === "de" ? "de-DE" : lang === "pt" ? "pt-BR" : "en-US";
 
   const myData   = match.clubs[clubId] as Record<string, unknown> | undefined;
@@ -229,27 +228,60 @@ export function MatchModal({ match, clubId, onClose }: { match: Match; clubId: s
           </div>
         </div>
 
-        {/* Tab selector */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>
-          {([
-            { id: "players",  label: t("matches.playerStats") || "JOUEURS" },
-            { id: "team",     label: t("matches.teamStats")   || "ÉQUIPE" },
-            { id: "timeline", label: "TIMELINE" },
-          ] as const).map((tab) => (
-            <button key={tab.id} onClick={() => setModalTab(tab.id)}
-              style={{
-                padding: "4px 14px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 11,
-                background: modalTab === tab.id ? "var(--accent)" : "var(--hover)",
-                color: modalTab === tab.id ? "#fff" : "var(--muted)",
-                fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em",
-                transition: "all 0.1s",
-              }}>{tab.label.toUpperCase()}</button>
-          ))}
-        </div>
+        {/* ── Timeline events ──────────────────────────────────── */}
+        {events.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14,
+            padding: "10px 12px", background: "var(--bg)", borderRadius: 8, border: "1px solid var(--border)" }}>
+            {events.map((ev, i) => {
+              const icon = ev.type === "goal" ? "⚽" : ev.type === "assist" ? "🅰️" : ev.type === "motm" ? "⭐" : (ev.detail ?? "🟨");
+              const color = ev.type === "goal" ? "var(--accent)" : ev.type === "assist" ? "#eab308" : ev.type === "motm" ? "#ffd700" : ev.detail?.includes("🟥") ? "var(--red)" : "#eab308";
+              const typeLabel = ev.type === "goal" ? "But" : ev.type === "assist" ? "Passe déc." : ev.type === "motm" ? "MOTM" : ev.detail?.includes("🟥") ? "Rouge" : "Jaune";
+              return (
+                <span key={i} style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  padding: "3px 8px", borderRadius: 12, fontSize: 11,
+                  background: `${color}18`, border: `1px solid ${color}44`,
+                  color, fontWeight: 600,
+                }}>
+                  {icon} {ev.player}
+                  <span style={{ fontSize: 9, opacity: 0.7, fontWeight: 400 }}>{typeLabel}</span>
+                </span>
+              );
+            })}
+          </div>
+        )}
 
-        {/* ── JOUEURS tab ─────────────────────────────────────── */}
-        {modalTab === "players" && (myPlayers.length > 0 ? (
+        {/* ── Stats équipe ─────────────────────────────────────── */}
+        {teamStats.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+              fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>{t("matches.teamStats")}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "4px 10px",
+              padding: "10px 12px", background: "var(--bg)", borderRadius: 8, border: "1px solid var(--border)" }}>
+              {teamStats.map(({ label, my, opp }) => {
+                const nMy = Number(String(my).replace("%", "")), nOpp = Number(String(opp).replace("%", ""));
+                const myWins = !isNaN(nMy) && !isNaN(nOpp) && nMy > nOpp;
+                const oppWins = !isNaN(nMy) && !isNaN(nOpp) && nOpp > nMy;
+                return (
+                  <div key={label} style={{ display: "contents" }}>
+                    <div style={{ textAlign: "right", fontSize: 13, fontFamily: "'Bebas Neue', sans-serif",
+                      color: myWins ? "var(--accent)" : "var(--text)" }}>{my}</div>
+                    <div style={{ textAlign: "center", fontSize: 9, color: "var(--muted)",
+                      fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em", alignSelf: "center" }}>{label.toUpperCase()}</div>
+                    <div style={{ textAlign: "left", fontSize: 13, fontFamily: "'Bebas Neue', sans-serif",
+                      color: oppWins ? "var(--red)" : "var(--text)" }}>{opp}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Tableau joueurs ──────────────────────────────────── */}
+        {myPlayers.length > 0 ? (
           <div style={{ overflowX: "auto" }}>
+            <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em",
+              fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>{t("matches.playerStats")}</div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
@@ -295,69 +327,6 @@ export function MatchModal({ match, clubId, onClose }: { match: Match; clubId: s
           </div>
         ) : (
           <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, marginTop: 16 }}>{t("matches.noPlayerStats")}</p>
-        ))}
-
-        {/* ── ÉQUIPE tab ──────────────────────────────────────── */}
-        {modalTab === "team" && (teamStats.length > 0 ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "4px 10px",
-            padding: "10px 12px", background: "var(--bg)", borderRadius: 8, border: "1px solid var(--border)" }}>
-            {teamStats.map(({ label, my, opp }) => {
-              const nMy = Number(String(my).replace("%", "")), nOpp = Number(String(opp).replace("%", ""));
-              const myWins = !isNaN(nMy) && !isNaN(nOpp) && nMy > nOpp;
-              const oppWins = !isNaN(nMy) && !isNaN(nOpp) && nOpp > nMy;
-              return (
-                <div key={label} style={{ display: "contents" }}>
-                  <div style={{ textAlign: "right", fontSize: 13, fontFamily: "'Bebas Neue', sans-serif",
-                    color: myWins ? "var(--accent)" : "var(--text)" }}>{my}</div>
-                  <div style={{ textAlign: "center", fontSize: 9, color: "var(--muted)",
-                    fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em", alignSelf: "center" }}>{label.toUpperCase()}</div>
-                  <div style={{ textAlign: "left", fontSize: 13, fontFamily: "'Bebas Neue', sans-serif",
-                    color: oppWins ? "var(--red)" : "var(--text)" }}>{opp}</div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, marginTop: 16 }}>Aucune stat d'équipe disponible</p>
-        ))}
-
-        {/* ── TIMELINE tab ────────────────────────────────────── */}
-        {modalTab === "timeline" && (
-          <div style={{ padding: "4px 0" }}>
-            {events.length === 0 ? (
-              <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, marginTop: 16 }}>Aucun événement disponible</p>
-            ) : (
-              <div style={{ position: "relative", paddingLeft: 32 }}>
-                {/* Vertical line */}
-                <div style={{ position: "absolute", left: 10, top: 8, bottom: 8,
-                  width: 2, background: "var(--border)", borderRadius: 1 }} />
-                {events.map((ev, i) => {
-                  const icon = ev.type === "goal" ? "⚽" : ev.type === "assist" ? "🅰️" : ev.type === "motm" ? "⭐" : (ev.detail ?? "🟨");
-                  const color = ev.type === "goal" ? "var(--accent)" : ev.type === "assist" ? "#eab308" : ev.type === "motm" ? "#ffd700" : ev.detail?.includes("🟥") ? "var(--red)" : "#eab308";
-                  return (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, position: "relative" }}>
-                      {/* Dot */}
-                      <div style={{
-                        position: "absolute", left: -26, width: 16, height: 16, borderRadius: "50%",
-                        background: "var(--card)", border: `2px solid ${color}`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 8, zIndex: 1,
-                      }}>{i + 1}</div>
-                      {/* Icon */}
-                      <span style={{ fontSize: 16, lineHeight: 1 }}>{icon}</span>
-                      {/* Label */}
-                      <div>
-                        <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>{ev.type === "card" ? ev.player : ev.player}</span>
-                        <span style={{ fontSize: 10, color, marginLeft: 6, fontWeight: 600 }}>
-                          {ev.type === "goal" ? "But" : ev.type === "assist" ? "Passe déc." : ev.type === "motm" ? "MOTM" : ev.type === "card" && ev.detail?.includes("🟥") ? "Carton rouge" : "Carton jaune"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         )}
       </div>
     </div>
