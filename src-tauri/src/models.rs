@@ -107,6 +107,8 @@ pub struct Settings {
     #[serde(default)] pub sessions: Vec<Session>,
     #[serde(default)] pub compare_history: Vec<serde_json::Value>,
     #[serde(default)] pub ea_profile: Option<EaProfile>,
+    #[serde(default)] pub ea_profiles: Vec<EaProfile>,
+    #[serde(default)] pub sync_history: Vec<serde_json::Value>,
     #[serde(default = "default_theme")] pub theme: String,
     #[serde(default = "default_true")] pub dark_mode: bool,
     #[serde(default)] pub proxy_url: Option<String>,
@@ -137,7 +139,8 @@ impl Default for Settings {
         Self {
             history: vec![], favs: vec![], tactics: vec![], sessions: vec![],
             compare_history: vec![],
-            ea_profile: None, theme: "cyan".to_string(), dark_mode: true, proxy_url: None,
+            ea_profile: None, ea_profiles: vec![], sync_history: vec![],
+            theme: "cyan".to_string(), dark_mode: true, proxy_url: None,
             show_grid: true, show_animations: true, show_logs: true,
             show_id_search: false, font_size: "medium".to_string(),
             font_family: "barlow".to_string(),

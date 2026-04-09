@@ -143,6 +143,12 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Bouton "Charger mon club" : force le rechargement manuel du club lié
 - **Webhook Discord** : configuré dans le profil (URL privée par utilisateur), bouton Tester inclus
 - Indicateur "Webhook configuré" (point vert) + badge violet sur l'icône profil dans la guild bar
+- **Profils multiples** : lier plusieurs gamertags / clubs et basculer entre eux en un clic (liste avec "ACTIVER" / "✕")
+- **Stats personnelles agrégées** : bilan tous matchs toutes sessions confondues (buts, PD, MOTM, note moyenne) affiché en KPI cards
+- **Badge de rang** : division estimée à partir du Skill Rating (Elite → Div 10) affichée dans le header avec couleur par tier
+- **Historique de chargement** : log des dernières synchronisations avec horodatage, club et statut (collapsible)
+- **Backup / restauration locale** : export complet en JSON (sessions, tactics, profils, settings) + import depuis fichier
+- **Fiche de profil partageable** : export PNG canvas (gamertag, club, division, stats) + copie embed Discord au presse-papiers
 
 ### Interface
 - Fenêtre frameless avec barre de titre draggable (minimize / maximize / close)
@@ -251,14 +257,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Mode Battle** : vote sur chaque stat — quel club est supérieur ? — avec résultat global
 - **Alerte changement SR** : notifier quand un des clubs comparés change de Skill Rating
 - **Comparaison joueurs cross-clubs** : tableau par poste mettant en face les meilleurs joueurs de chaque club
-
-### Mon Profil
-- **Profils multiples** : lier plusieurs gamertags / clubs et basculer entre eux en un clic
-- **Stats personnelles agrégées** : bilan de tous les matchs toutes sessions confondues (buts, PD, note moyenne)
-- **Badge de rang** : calcul et affichage d'un rang ou division estimé à partir du SR
-- **Historique de chargement** : log des dernières synchronisations avec horodatage et statut
-- **Synchronisation cloud optionnelle** : backup des sessions et settings vers un stockage distant
-- **Fiche de profil partageable** : générer une image PNG ou un embed Discord avec le bilan du profil
 
 ### Paramètres & Interface
 - **Thèmes supplémentaires** : Midnight (noir pur), Gold, Matrix (vert terminal), Rose

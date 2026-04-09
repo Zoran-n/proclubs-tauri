@@ -143,6 +143,15 @@ export interface EaProfile {
   clubName: string;
 }
 
+export interface SyncEntry {
+  ts: string;
+  clubId: string;
+  clubName: string;
+  matchCount: number;
+  status: "ok" | "error";
+  note?: string;
+}
+
 export interface Settings {
   history: Club[];
   favs: Club[];
@@ -150,6 +159,8 @@ export interface Settings {
   sessions: Session[];
   compareHistory?: CompareEntry[];
   eaProfile?: EaProfile;
+  eaProfiles?: EaProfile[];
+  syncHistory?: SyncEntry[];
   theme: string;
   darkMode: boolean;
   proxyUrl?: string;

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Club, Player, Match, Session, Tactic, EaProfile, CompareEntry } from "../types";
+import type { Club, Player, Match, Session, Tactic, EaProfile, SyncEntry, CompareEntry } from "../types";
 import type { ToastMessage } from "../components/ui/Toast";
 import { saveSettings as apiSave, loadSettings as apiLoad, setProxy as apiSetProxy } from "../api/tauri";
 import type { Lang } from "../i18n";
@@ -33,6 +33,8 @@ interface AppState {
   history: Club[];
   favs: Club[];
   eaProfile: EaProfile | null;
+  eaProfiles: EaProfile[];
+  syncHistory: SyncEntry[];
   theme: string;
   darkMode: boolean;
   showGrid: boolean;
@@ -108,6 +110,10 @@ interface AppState {
   setLanguage: (v: Lang) => void;
   setOnboarded: () => void;
   setEaProfile: (p: EaProfile) => void;
+  addEaProfile: (p: EaProfile) => void;
+  removeEaProfile: (gamertag: string) => void;
+  switchEaProfile: (p: EaProfile) => void;
+  addSyncEntry: (e: SyncEntry) => void;
   saveTactic: (t: Tactic) => void;
   deleteTactic: (id: string) => void;
   addLog: (msg: string) => void;
@@ -143,7 +149,7 @@ let _lastSavedJson = "";
 
 export const useAppStore = create<AppState>((set, get) => ({
   currentClub: null, players: [], matches: [], sessions: [], tactics: [],
-  history: [], favs: [], eaProfile: null,
+  history: [], favs: [], eaProfile: null, eaProfiles: [], syncHistory: [],
   theme: "cyan", darkMode: true, showGrid: true, showAnimations: true,
   showLogs: true, showIdSearch: false, fontSize: 13, fontFamily: "barlow",
   customAccent: "",
@@ -297,6 +303,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   setLanguage: (language) => set({ language }),
   setOnboarded: () => set({ onboarded: true }),
   setEaProfile: (eaProfile) => set({ eaProfile }),
+  addEaProfile: (p) => set((s) => {
+    const filtered = s.eaProfiles.filter(x => !(x.gamertag === p.gamertag && x.platform === p.platform));
+    return { eaProfiles: [...filtered, p] };
+  }),
+  removeEaProfile: (gamertag) => set((s) => ({
+    eaProfiles: s.eaProfiles.filter(x => x.gamertag !== gamertag),
+  })),
+  switchEaProfile: (p) => set({ eaProfile: p }),
+  addSyncEntry: (e) => set((s) => ({
+    syncHistory: [e, ...s.syncHistory].slice(0, 50),
+  })),
   saveTactic: (t) => set((s) => ({ tactics: [...s.tactics.filter((x) => x.id !== t.id), t] })),
   deleteTactic: (id) => set((s) => ({ tactics: s.tactics.filter((t) => t.id !== id) })),
   addLog: (msg) => set((s) => ({ logs: [...s.logs.slice(-99), msg] })),
@@ -380,7 +397,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         history: s.history ?? [], favs: s.favs ?? [],
         tactics: s.tactics ?? [], sessions: s.sessions ?? [],
         compareHistory: s.compareHistory ?? [],
-        eaProfile: s.eaProfile ?? null, theme,
+        eaProfile: s.eaProfile ?? null,
+        eaProfiles: s.eaProfiles ?? [],
+        syncHistory: (s.syncHistory as SyncEntry[]) ?? [],
+        theme,
         customAccent:   s.customAccent   ?? "",
         customBg:       s.customBg       ?? "",
         customSurface:  s.customSurface  ?? "",
@@ -409,11 +429,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   persistSettings: async () => {
-    const { history, favs, tactics, sessions, compareHistory, eaProfile, theme, darkMode, proxyUrl,
+    const { history, favs, tactics, sessions, compareHistory, eaProfile, eaProfiles, syncHistory,
+      theme, darkMode, proxyUrl,
       showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, customBg, customSurface, customCard, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout } = get();
     const payload = {
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
+      eaProfiles, syncHistory,
       theme, darkMode,
       proxyUrl: proxyUrl.trim() || undefined,
       showGrid, showAnimations, showLogs, showIdSearch,
