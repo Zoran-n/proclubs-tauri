@@ -180,15 +180,15 @@ function HorizontalSidebar() {
 
         {/* Mon Profil tab */}
         {eaProfile?.clubId && (
-          <button role="tab" aria-selected={sidebarTab === "profile"}
-            onClick={() => setSidebarTab("profile")}
+          <button role="tab" aria-selected={sidebarTab === "myprofile"}
+            onClick={() => setSidebarTab("myprofile")}
             style={{
               display: "flex", alignItems: "center", gap: 5,
               padding: "0 12px", height: "100%",
               background: "none", border: "none",
-              borderBottom: `2px solid ${sidebarTab === "profile" ? "var(--accent)" : "transparent"}`,
-              color: sidebarTab === "profile" ? "var(--text)" : "var(--muted)",
-              cursor: "pointer", fontSize: 12, fontWeight: sidebarTab === "profile" ? 600 : 400,
+              borderBottom: `2px solid ${sidebarTab === "myprofile" ? "var(--accent)" : "transparent"}`,
+              color: sidebarTab === "myprofile" ? "var(--text)" : "var(--muted)",
+              cursor: "pointer", fontSize: 12, fontWeight: sidebarTab === "myprofile" ? 600 : 400,
               transition: "color 0.1s, border-color 0.1s", whiteSpace: "nowrap", flexShrink: 0,
             }}
             onMouseEnter={(e) => { if (sidebarTab !== "profile") (e.currentTarget as HTMLElement).style.color = "var(--text)"; }}
@@ -472,12 +472,12 @@ function VerticalSidebar() {
               MON PROFIL
             </div>
             <div
-              className={`channel-item ${sidebarTab === "profile" ? "active" : ""}`}
-              onClick={() => setSidebarTab("profile")}
+              className={`channel-item ${sidebarTab === "myprofile" ? "active" : ""}`}
+              onClick={() => setSidebarTab("myprofile")}
               role="button" tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter") setSidebarTab("profile"); }}
+              onKeyDown={(e) => { if (e.key === "Enter") setSidebarTab("myprofile"); }}
               style={{ cursor: "pointer" }}>
-              <User size={18} style={{ color: sidebarTab === "profile" ? "var(--accent)" : "var(--muted)", flexShrink: 0 }} />
+              <User size={18} style={{ color: sidebarTab === "myprofile" ? "var(--accent)" : "var(--muted)", flexShrink: 0 }} />
               <span>{eaProfile.gamertag}</span>
             </div>
           </>
@@ -624,12 +624,12 @@ function VerticalLaunchSidebar() {
               MON PROFIL
             </div>
             <div
-              className={`channel-item ${sidebarTab === "profile" ? "active" : ""}`}
-              onClick={() => setSidebarTab("profile")}
+              className={`channel-item ${sidebarTab === "myprofile" ? "active" : ""}`}
+              onClick={() => setSidebarTab("myprofile")}
               role="button" tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter") setSidebarTab("profile"); }}
+              onKeyDown={(e) => { if (e.key === "Enter") setSidebarTab("myprofile"); }}
               style={{ cursor: "pointer" }}>
-              <User size={18} style={{ color: sidebarTab === "profile" ? "var(--accent)" : "var(--muted)", flexShrink: 0 }} />
+              <User size={18} style={{ color: sidebarTab === "myprofile" ? "var(--accent)" : "var(--muted)", flexShrink: 0 }} />
               <span>{eaProfile.gamertag}</span>
             </div>
           </>

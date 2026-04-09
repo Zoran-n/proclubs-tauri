@@ -8,6 +8,7 @@ import { SessionTab } from "../tabs/SessionTab";
 import { CompareTab } from "../Sidebar/CompareTab";
 import { SettingsTab } from "../Sidebar/SettingsTab";
 import { ProfilePanel } from "../ui/ProfilePanel";
+import { MyProfilePage } from "../tabs/MyProfilePage";
 import { Spinner } from "../ui/Spinner";
 import { getLogo } from "../../api/tauri";
 import { sendDiscordWebhook } from "../../api/discord";
@@ -70,8 +71,8 @@ export function MainPanel() {
 
   const KPIS = ALL_KPIS_CATALOG.filter(k => visibleKpis.includes(k.key));
 
-  // ── Profile page ───────────────────────────────────────────────────
-  if (sidebarTab === "profile") {
+  // ── My Profile stats page ───────────────────────────────────────────
+  if (sidebarTab === "myprofile") {
     return (
       <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--main-bg)" }}
         role="main" aria-label="Mon profil">
@@ -81,6 +82,23 @@ export function MainPanel() {
           flexShrink: 0, background: "var(--main-bg)",
         }}>
           <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>Mon profil</span>
+        </div>
+        <MyProfilePage />
+      </main>
+    );
+  }
+
+  // ── Profile settings page ─────────────────────────────────────────
+  if (sidebarTab === "profile") {
+    return (
+      <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--main-bg)" }}
+        role="main" aria-label="Paramètres profil">
+        <div style={{
+          height: 48, display: "flex", alignItems: "center", gap: 8,
+          padding: "0 16px", borderBottom: "1px solid rgba(0,0,0,0.24)",
+          flexShrink: 0, background: "var(--main-bg)",
+        }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>Paramètres profil</span>
         </div>
         <ProfilePanel />
       </main>

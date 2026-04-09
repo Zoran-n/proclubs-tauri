@@ -5,7 +5,7 @@ import { saveSettings as apiSave, loadSettings as apiLoad, setProxy as apiSetPro
 import type { Lang } from "../i18n";
 
 export type ActiveTab = "players" | "matches" | "charts" | "session" | "compare";
-export type SidebarTab = "search" | "favs" | "settings" | "profile";
+export type SidebarTab = "search" | "favs" | "settings" | "profile" | "myprofile";
 
 // Injects a <style> tag that proportionally overrides hard-coded inline font-size px values.
 // This scales only text, without affecting layout dimensions or icons.
