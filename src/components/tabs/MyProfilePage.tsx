@@ -40,7 +40,13 @@ interface PerMatchStat {
 }
 
 export function MyProfilePage() {
-  const { eaProfile, currentClub, sessions, matches, matchCache } = useAppStore();
+  const { eaProfile, currentClub, players, sessions, matches, matchCache } = useAppStore();
+
+  // ── Season stats from the API (the real totals) ────────────────────
+  const seasonPlayer = useMemo(() => {
+    if (!eaProfile?.gamertag) return null;
+    return players.find(p => p.name.toLowerCase() === eaProfile.gamertag.toLowerCase()) ?? null;
+  }, [eaProfile, players]);
 
   // ── Collect ALL matches where this player appears ──────────────────
   const allPlayerMatches = useMemo(() => {
@@ -101,21 +107,45 @@ export function MyProfilePage() {
     return result;
   }, [eaProfile, sessions, matches, matchCache]);
 
-  // ── Aggregated stats ───────────────────────────────────────────────
+  // ── Aggregated stats (season from API when available) ───────────────
+  const matchWins = allPlayerMatches.filter(m => m.result === "W").length;
+  const matchDraws = allPlayerMatches.filter(m => m.result === "D").length;
+  const matchLosses = allPlayerMatches.filter(m => m.result === "L").length;
+
   const agg = useMemo(() => {
+    // Prefer season stats from the API (real totals)
+    if (seasonPlayer) {
+      const sp = seasonPlayer;
+      const clubW = currentClub?.wins ?? matchWins;
+      const clubD = currentClub?.ties ?? matchDraws;
+      const clubL = currentClub?.losses ?? matchLosses;
+      const clubTotal = clubW + clubD + clubL;
+      const winRate = clubTotal > 0 ? Math.round((clubW / clubTotal) * 100) : 0;
+      return {
+        games: sp.gamesPlayed, totalGoals: sp.goals, totalAssists: sp.assists,
+        totalMotm: sp.motm, avgRating: sp.rating,
+        wins: clubW, draws: clubD, losses: clubL, winRate,
+        passesMade: sp.passesMade, tacklesMade: sp.tacklesMade,
+        source: "season" as const,
+      };
+    }
+    // Fallback to match-by-match analysis
     const ms = allPlayerMatches;
     if (!ms.length) return null;
-    const totalGoals = ms.reduce((s, m) => s + m.goals, 0);
-    const totalAssists = ms.reduce((s, m) => s + m.assists, 0);
-    const totalMotm = ms.filter(m => m.motm).length;
     const rated = ms.filter(m => m.rating > 0);
     const avgRating = rated.length > 0 ? rated.reduce((s, m) => s + m.rating, 0) / rated.length : 0;
-    const wins = ms.filter(m => m.result === "W").length;
-    const draws = ms.filter(m => m.result === "D").length;
-    const losses = ms.filter(m => m.result === "L").length;
-    const winRate = ms.length > 0 ? Math.round((wins / ms.length) * 100) : 0;
-    return { games: ms.length, totalGoals, totalAssists, totalMotm, avgRating, wins, draws, losses, winRate };
-  }, [allPlayerMatches]);
+    return {
+      games: ms.length,
+      totalGoals: ms.reduce((s, m) => s + m.goals, 0),
+      totalAssists: ms.reduce((s, m) => s + m.assists, 0),
+      totalMotm: ms.filter(m => m.motm).length,
+      avgRating,
+      wins: matchWins, draws: matchDraws, losses: matchLosses,
+      winRate: ms.length > 0 ? Math.round((matchWins / ms.length) * 100) : 0,
+      passesMade: 0, tacklesMade: 0,
+      source: "matches" as const,
+    };
+  }, [seasonPlayer, currentClub, allPlayerMatches, matchWins, matchDraws, matchLosses]);
 
   // ── Rating evolution (last 40 matches, oldest first) ───────────────
   const ratingData = useMemo(() => {
@@ -194,7 +224,16 @@ export function MyProfilePage() {
             </div>
             <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>
               {eaProfile.clubName} · {eaProfile.platform}
-              {agg && <span style={{ marginLeft: 8, color: "var(--accent)" }}>{agg.games} matchs analysés</span>}
+              {agg && (
+                <span style={{ marginLeft: 8, color: "var(--accent)" }}>
+                  {agg.games} matchs
+                  {agg.source === "season" && allPlayerMatches.length > 0 && (
+                    <span style={{ color: "var(--muted)", marginLeft: 6, fontSize: 11 }}>
+                      ({allPlayerMatches.length} analysés)
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
           </div>
           {division && (
@@ -211,16 +250,25 @@ export function MyProfilePage() {
         </div>
 
         {/* ── KPI Cards ── */}
-        {agg && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 20 }}>
-            {[
-              { label: "MATCHS", value: agg.games, color: "var(--accent)", icon: <Swords size={14} /> },
-              { label: "BUTS", value: agg.totalGoals, color: "var(--green)", icon: <Target size={14} /> },
-              { label: "PASSES D.", value: agg.totalAssists, color: "var(--accent)", icon: <TrendingUp size={14} /> },
-              { label: "MOTM", value: agg.totalMotm, color: "var(--gold)", icon: <Trophy size={14} /> },
-              { label: "NOTE MOY.", value: agg.avgRating > 0 ? agg.avgRating.toFixed(2) : "—", color: "var(--text)", icon: <Star size={14} /> },
-              { label: "% VICTOIRES", value: `${agg.winRate}%`, color: agg.winRate >= 50 ? "var(--green)" : "var(--red)", icon: <Shield size={14} /> },
-            ].map(({ label, value, color, icon }) => (
+        {agg && (() => {
+          const kpis = [
+            { label: "MATCHS", value: agg.games, color: "var(--accent)", icon: <Swords size={14} /> },
+            { label: "BUTS", value: agg.totalGoals, color: "var(--green)", icon: <Target size={14} /> },
+            { label: "PASSES D.", value: agg.totalAssists, color: "var(--accent)", icon: <TrendingUp size={14} /> },
+            { label: "MOTM", value: agg.totalMotm, color: "var(--gold)", icon: <Trophy size={14} /> },
+            { label: "NOTE MOY.", value: agg.avgRating > 0 ? agg.avgRating.toFixed(2) : "—", color: "var(--text)", icon: <Star size={14} /> },
+            { label: "% VICTOIRES", value: `${agg.winRate}%`, color: agg.winRate >= 50 ? "var(--green)" : "var(--red)", icon: <Shield size={14} /> },
+          ];
+          if (agg.source === "season" && agg.passesMade > 0) {
+            kpis.push({ label: "PASSES", value: agg.passesMade, color: "var(--text)", icon: <TrendingUp size={14} /> });
+          }
+          if (agg.source === "season" && agg.tacklesMade > 0) {
+            kpis.push({ label: "TACLES", value: agg.tacklesMade, color: "var(--text)", icon: <Shield size={14} /> });
+          }
+          const cols = kpis.length <= 6 ? 6 : kpis.length <= 8 ? 4 : 6;
+          return (
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 10, marginBottom: 20 }}>
+            {kpis.map(({ label, value, color, icon }) => (
               <div key={label} style={kpiCardStyle}>
                 <div style={{ color: "var(--muted)", marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
                   {icon}
@@ -234,7 +282,8 @@ export function MyProfilePage() {
               </div>
             ))}
           </div>
-        )}
+          );
+        })()}
 
         {/* ── Win/Draw/Loss bar ── */}
         {agg && agg.games > 0 && (
