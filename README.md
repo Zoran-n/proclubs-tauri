@@ -50,6 +50,13 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Annotations de match** : ajouter une note libre sur chaque match (stockée localement, persistée)
 - **Chargement automatique en arrière-plan** : quand le profil EA est lié, tous les matchs sont chargés silencieusement pour un historique complet et un calendrier rempli
 - **Vue calendrier** : vue mensuelle des matchs avec navigation mois par mois, résultats colorés par jour
+- **Analyse des adversaires** : vue dédiée (bouton 👥 Adversaires) — tableau de tous les clubs affrontés avec MJ, V, N, D, % victoires, buts pour/contre et différentiel, trié par nombre de confrontations
+- **Filtre résultat combiné** : pills Tous / V / N / D cumulables avec les autres filtres (adversaire, période)
+- **Indicateur de série** : badge "Série V/N/D X en cours" affiché dans le graphique de forme
+- **Score de mi-temps** : affiché sous le score final dans chaque carte si disponible via l'API EA
+- **Export Excel (.xls)** : mise en forme colorée (V=vert, D=rouge, N=jaune), inclut le score mi-temps
+- **Export PNG calendrier** : bouton dédié dans la vue calendrier pour capturer uniquement la grille mensuelle
+- **Rendu incrémental** : liste paginée par 50 matchs au défilement — performances préservées sur les longs historiques
 - Export **PNG** et **CSV** avec prévisualisation
 
 ### Graphiques
@@ -58,8 +65,13 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Bar chart top passeurs décisifs
 - Bar chart top passeurs réussis
 - Export **PNG** avec prévisualisation
-- **Historique des saisons** (lazy-load) : bilan victoires/nuls/défaites par saison sous forme de barres horizontales
+- **Historique des saisons** (lazy-load) : bilan victoires/nuls/défaites par saison + **bar chart empilé V/N/D** + comparaison N vs N-1
 - **Classement all time** (lazy-load) : top 25 clubs de la plateforme avec V/N/D/Buts/SR
+- **Radar collectif d'équipe** : 5 axes normalisés (possession, tirs, passes, buts, % victoires) calculés sur les matchs chargés
+- **Courbe de possession** : évolution du % de possession sur les 20 derniers matchs
+- **Évolution de l'effectif** : nombre de joueurs distincts par match sur les 20 derniers matchs
+- **Distribution des scores** : histogramme des 10 scores les plus fréquents, coloré V/N/D
+- **Heatmap jour × heure** : grille 7 jours × 6 créneaux horaires affichant le taux de victoire par tranche
 
 ### Session live
 - Démarrage / arrêt de session de suivi
@@ -76,9 +88,11 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Export **PNG**, **CSV** et **PDF** des données de session (CSV enrichi avec Tags et Notes)
 - **Modal Détails session** : liste complète des matchs (score, adversaire, résultat, heure) + tableau stats joueurs (MJ, buts, PD, MOTM, note moyenne) + boutons Discord & PDF
 - **Objectif de session** : fixez un nombre cible de victoires, barre de progression live colorée (verte quand atteint)
+- **Objectifs avancés** : objectifs multi-critères — défaites maximum autorisées + note moyenne minimale, chacun avec barre de progression live (rouge si dépassé, vert si respecté)
 - **Notes tactiques** : champ texte libre par session pour consigner remarques et observations (inclus dans le Discord share)
 - **Tags personnalisés** : étiquetez vos sessions (Tournoi, Division, Soirée, Entraînement, Friendly, Ranked) avec filtrage par tag au-dessus de la liste
 - **Graphique de forme** : courbe du taux de victoire session par session (12 dernières sessions, recharts)
+- **Comparaison inter-sessions** : sélectionnez 2 sessions passées, comparez leurs stats face-à-face (MJ, V, N, D, %V) et visualisez les courbes de victoires cumulées superposées sur un même graphique
 
 ### Comparaison de clubs
 - Recherche et sélection de **2 à 4 clubs** simultanément (bouton + / × par slot)
@@ -206,18 +220,67 @@ source ~/.cargo/env && npm run tauri build -- --debug
 
 ## Axes d'amélioration possibles
 
+### Recherche de club
+- **Autocomplete** : suggestions de noms en temps réel pendant la saisie
+- **Dossiers de favoris** : organiser les clubs favoris en groupes nommés (ex : Rivaux, Amis, Suivis)
+- **Alerte SR** : notification quand le Skill Rating d'un club favori évolue
+- **Fiche survol** : tooltip avec stats résumées au hover sur un club en historique ou favori
+- **Historique étendu** : passer de 8 à 20+ clubs récents avec recherche dans l'historique
+- **Export de la liste** : exporter les favoris en CSV / JSON pour backup ou partage
+
 ### Joueurs & stats
+- **Historique multi-saisons** : courbe des stats du joueur sur plusieurs saisons (MJ, buts, note)
+- **Tendance prédictive** : régression linéaire pour estimer l'évolution de la note sur les prochains matchs
+- **Classement cross-clubs** : comparer les joueurs de différents clubs favoris sur le même tableau
+- **Stats sur période custom** : filtrer les stats joueurs sur une plage de dates choisie
+- **Filtre "Partants habituels"** : afficher uniquement les joueurs présents dans X% des matchs récents
+- **Fiche imprimable** : PDF enrichi avec graphiques visuels (radar + courbe note) intégrés
 
-### Matchs
-- **Replay tactique** : reconstitution des événements clés du match (buts, cartons) sur une timeline
-- **Analyse des adversaires** : fiche automatique générée pour chaque club affronté (bilan, style de jeu, menaces)
+### Session live
+- **Templates de session** : pré-configurer objectifs + tags + notes pour réutiliser les configs récurrentes
+- **Partage Discord en cours** : bouton pour envoyer le bilan partiel sans attendre la fin de la session
+- **Historique des objectifs** : taux de réussite des objectifs sur toutes les sessions passées
+- **Radar de session** : graphique radar des stats collectives (buts, PD, note, MOTM) de la session
+- **Alertes en session** : notification si un objectif avancé est sur le point d'être manqué
+- **Fusion de sessions** : regrouper plusieurs sessions en une session "tournoi" avec bilan global
 
-### Session
-- **Comparaison inter-sessions** : graphique superposant les courbes de forme de 2 sessions distinctes
-- **Objectifs avancés** : objectifs multi-critères (ex. 5V + moins de 3D + note moy > 7)
+### Comparaison de clubs
+- **Comparaison multi-saisons** : choisir la saison pour chaque club et comparer d'une saison à l'autre
+- **Export PDF rapport** : PDF complet avec tableau, radar et H2H mis en page automatiquement
+- **Comparaisons nommées** : sauvegarder une comparaison avec un nom personnalisé (ex : "Finale div 2")
+- **Mode Battle** : vote sur chaque stat — quel club est supérieur ? — avec résultat global
+- **Alerte changement SR** : notifier quand un des clubs comparés change de Skill Rating
+- **Comparaison joueurs cross-clubs** : tableau par poste mettant en face les meilleurs joueurs de chaque club
 
+### Mon Profil
+- **Profils multiples** : lier plusieurs gamertags / clubs et basculer entre eux en un clic
+- **Stats personnelles agrégées** : bilan de tous les matchs toutes sessions confondues (buts, PD, note moyenne)
+- **Badge de rang** : calcul et affichage d'un rang ou division estimé à partir du SR
+- **Historique de chargement** : log des dernières synchronisations avec horodatage et statut
+- **Synchronisation cloud optionnelle** : backup des sessions et settings vers un stockage distant
+- **Fiche de profil partageable** : générer une image PNG ou un embed Discord avec le bilan du profil
+
+### Paramètres & Interface
+- **Thèmes supplémentaires** : Midnight (noir pur), Gold, Matrix (vert terminal), Rose
+- **Import / export des paramètres** : sauvegarder et restaurer toute la configuration en JSON
+- **Raccourcis clavier personnalisables** : réassigner les raccourcis depuis les paramètres
+- **Mode streaming** : profil interface dédié masquant les infos sensibles (ID, webhook, gamertag)
+- **Notifications planifiées** : rappel configurable ("Lance une session ce soir à 21h")
+- **Profils d'interface** : plusieurs configs de layout/thème switchables en un clic (ex : PC, Tablette, Projecteur)
+
+### Cache & mode hors-ligne
+- **Gestion manuelle du cache** : supprimer les matchs d'un type ou d'une période depuis l'interface
+- **Export / import du cache** : sauvegarder et restaurer le cache complet (backup JSON)
+- **Indicateur de fraîcheur** : afficher "dernière MAJ il y a X min" sur les données chargées
+- **Synchronisation incrémentale** : ne recharger que les matchs nouveaux depuis la dernière synchro
+- **Compression du cache** : réduire l'espace disque via compression gzip côté Rust
+- **Cache par profil** : isoler les caches si plusieurs profils EA sont liés
 
 ### Technique
-- **Virtualisation MatchesTab** : VariableSizeList pour les très longs historiques (> 200 matchs)
-- **Export Excel (.xlsx)** : alternative au CSV avec mise en forme (couleurs, colonnes auto-taille)
+- **Tests unitaires** : couverture des fonctions de calcul de stats (score composite, résultats, agrégats)
+- **Web Worker** : délocaliser les calculs lourds (agrégats, recharts data) hors du thread UI
+- **Plugin Tauri dédié** : déplacer la logique de fetch EA dans un plugin Rust réutilisable
+- **CI automatisée** : build + `tsc --noEmit` + lint à chaque push via GitHub Actions
+- **Logs structurés** : remplacer les `console.log` par un système de log niveaux (debug/info/warn/error) exportable
+- **Mise à jour delta** : télécharger uniquement le diff binaire lors des mises à jour (réduire la taille du patch)
 
