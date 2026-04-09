@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Users, Swords, BarChart3, Timer, GitCompare, Star, ChevronDown, Search, RefreshCw, Send } from "lucide-react";
+import { Users, Swords, BarChart3, Timer, GitCompare, Star, ChevronDown, Search, RefreshCw, Send, User } from "lucide-react";
 import { useAppStore, type ActiveTab } from "../../store/useAppStore";
 import { SearchTab } from "../Sidebar/SearchTab";
 import { useClub } from "../../hooks/useClub";
@@ -313,8 +313,8 @@ function HorizontalLaunchBar() {
    ══════════════════════════════════════════════════════════════════ */
 
 function VerticalSidebar() {
-  const { currentClub, activeTab, setActiveTab, setSidebarTab, favs, activeSession, history,
-    toggleFav, persistSettings, discordWebhook, players, matches, addToast } = useAppStore();
+  const { currentClub, activeTab, setActiveTab, setSidebarTab, sidebarTab, favs, activeSession, history,
+    toggleFav, persistSettings, discordWebhook, players, matches, addToast, eaProfile } = useAppStore();
   const { load } = useClub();
   const t = useT();
   const NAV_ITEMS = useNavItems();
@@ -442,6 +442,25 @@ function VerticalSidebar() {
         <VerticalAutoRefreshItem clubId={currentClub.id} platform={currentClub.platform} load={load} />
 
         <VerticalDiscordSection onShare={shareOverview} sharing={sharing} />
+
+        {/* Mon Profil */}
+        {eaProfile?.clubId && (
+          <>
+            <div className="category-header" style={{ marginTop: 8 }}>
+              <ChevronDown size={10} style={{ marginRight: 2 }} />
+              MON PROFIL
+            </div>
+            <div
+              className={`channel-item ${sidebarTab === "profile" ? "active" : ""}`}
+              onClick={() => setSidebarTab("profile")}
+              role="button" tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter") setSidebarTab("profile"); }}
+              style={{ cursor: "pointer" }}>
+              <User size={18} style={{ color: sidebarTab === "profile" ? "var(--accent)" : "var(--muted)", flexShrink: 0 }} />
+              <span>{eaProfile.gamertag}</span>
+            </div>
+          </>
+        )}
       </div>
 
       <VerticalUserPanel />
@@ -450,7 +469,7 @@ function VerticalSidebar() {
 }
 
 function VerticalLaunchSidebar() {
-  const { history, favs, toggleFav, persistSettings, setActiveTab, activeTab, addLog, setSearchResults } = useAppStore();
+  const { history, favs, toggleFav, persistSettings, setActiveTab, activeTab, addLog, setSearchResults, eaProfile, sidebarTab, setSidebarTab } = useAppStore();
   const { load } = useClub();
   const t = useT();
   const NAV_ITEMS = useNavItems();
@@ -575,6 +594,25 @@ function VerticalLaunchSidebar() {
           <span>{t("sidebar.refreshBtn")}</span>
         </div>
         <VerticalAutoRefreshItem clubId={lastClub?.id} platform={lastClub?.platform} load={load} />
+
+        {/* Mon Profil */}
+        {eaProfile?.clubId && (
+          <>
+            <div className="category-header" style={{ marginTop: 8 }}>
+              <ChevronDown size={10} style={{ marginRight: 2 }} />
+              MON PROFIL
+            </div>
+            <div
+              className={`channel-item ${sidebarTab === "profile" ? "active" : ""}`}
+              onClick={() => setSidebarTab("profile")}
+              role="button" tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter") setSidebarTab("profile"); }}
+              style={{ cursor: "pointer" }}>
+              <User size={18} style={{ color: sidebarTab === "profile" ? "var(--accent)" : "var(--muted)", flexShrink: 0 }} />
+              <span>{eaProfile.gamertag}</span>
+            </div>
+          </>
+        )}
       </div>
     </>
   );
