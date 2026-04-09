@@ -93,6 +93,12 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Tags personnalisés** : étiquetez vos sessions (Tournoi, Division, Soirée, Entraînement, Friendly, Ranked) avec filtrage par tag au-dessus de la liste
 - **Graphique de forme** : courbe du taux de victoire session par session (12 dernières sessions, recharts)
 - **Comparaison inter-sessions** : sélectionnez 2 sessions passées, comparez leurs stats face-à-face (MJ, V, N, D, %V) et visualisez les courbes de victoires cumulées superposées sur un même graphique
+- **Templates de session** : sauvegardez une config (objectifs + tags + notes) comme template réutilisable — lancez une session pré-configurée en un clic
+- **Partage Discord en cours** : bouton Discord dans la session active pour envoyer le bilan partiel sans attendre la fin
+- **Historique des objectifs** : graphique du taux de réussite des objectifs sur toutes les sessions passées, avec badges ✓/✗ par session et indicateurs avancés
+- **Radar de session** : graphique radar des stats collectives (buts, PD, passes, tacles, MOTM, % victoires) normalisées — sélecteur de session
+- **Alertes en session** : notifications visuelles quand un objectif avancé est sur le point d'être manqué (défaites proches de la limite, note sous l'objectif)
+- **Fusion de sessions** : regroupez plusieurs sessions en une session "tournoi" avec bilan global — sélection par checkbox, nom personnalisable
 
 ### Comparaison de clubs
 - Recherche et sélection de **2 à 4 clubs** simultanément (bouton + / × par slot)
@@ -250,14 +256,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Stats sur période custom** : filtrer les stats joueurs sur une plage de dates choisie
 - **Filtre "Partants habituels"** : afficher uniquement les joueurs présents dans X% des matchs récents
 - **Fiche imprimable** : PDF enrichi avec graphiques visuels (radar + courbe note) intégrés
-
-### Session live
-- **Templates de session** : pré-configurer objectifs + tags + notes pour réutiliser les configs récurrentes
-- **Partage Discord en cours** : bouton pour envoyer le bilan partiel sans attendre la fin de la session
-- **Historique des objectifs** : taux de réussite des objectifs sur toutes les sessions passées
-- **Radar de session** : graphique radar des stats collectives (buts, PD, note, MOTM) de la session
-- **Alertes en session** : notification si un objectif avancé est sur le point d'être manqué
-- **Fusion de sessions** : regrouper plusieurs sessions en une session "tournoi" avec bilan global
 
 ### Comparaison de clubs
 - **Comparaison multi-saisons** : choisir la saison pour chaque club et comparer d'une saison à l'autre
