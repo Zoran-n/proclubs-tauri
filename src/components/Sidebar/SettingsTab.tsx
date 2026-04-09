@@ -174,6 +174,18 @@ export function SettingsTab() {
       </div>
       {theme === "custom" && (
         <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+          <button
+            onClick={() => {
+              setCustomAccent(""); setCustomBg(""); setCustomSurface(""); setCustomCard("");
+              persistSettings();
+            }}
+            style={{
+              alignSelf: "flex-end", padding: "3px 10px",
+              background: "var(--hover)", border: "1px solid var(--border)",
+              borderRadius: 4, cursor: "pointer", fontSize: 11,
+              color: "var(--muted)", display: "flex", alignItems: "center", gap: 4,
+            }}
+          >↺ Tout réinitialiser</button>
           {([
             { id: "accent",  label: "Accent",      value: customAccent,  setter: setCustomAccent,  inputId: "custom-color-picker",         default: "#00d4ff" },
             { id: "bg",      label: "Background",  value: customBg,      setter: setCustomBg,      inputId: "custom-bg-picker",            default: "#1e1f22" },
