@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Trophy, Target, Star, TrendingUp, Shield, Swords } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
-import type { Match, EaMatchPlayer } from "../../types";
+import type { Match } from "../../types";
 
 function getDivision(sr: number): { div: string; color: string } {
   if (sr >= 3000) return { div: "Elite",  color: "#f59e0b" };
@@ -61,23 +61,20 @@ export function MyProfilePage() {
       if (!entry) return;
       seen.add(m.matchId);
 
-      const p = entry[1] as unknown as EaMatchPlayer;
-      const myClub = m.clubs?.[cid];
-      const oppId = Object.keys(m.clubs).find(k => k !== cid);
-      const oppClub = oppId ? m.clubs[oppId] : null;
-      const myGoals = Number(myClub?.goals ?? 0);
-      const oppGoals = Number(oppClub?.goals ?? 0);
-      const res = myGoals > oppGoals ? "W" : myGoals < oppGoals ? "L" : "D";
+      const p = entry[1];
+      const myClub = m.clubs?.[cid] as Record<string, unknown> | undefined;
+      // Result via wins/losses flags (same method as MatchModal)
+      const res = myClub?.["wins"] === "1" ? "W" : myClub?.["losses"] === "1" ? "L" : "D";
 
       result.push({
         matchId: m.matchId,
         date: m.timestamp,
-        goals: Number(p.goals ?? 0),
-        assists: Number(p.assists ?? 0),
-        rating: Number(p.rating ?? p.ratingAve ?? 0),
-        motm: Number(p.mom ?? p.manofthematch ?? 0) > 0,
+        goals: Number(p["goals"] ?? 0),
+        assists: Number(p["assists"] ?? 0),
+        rating: Number(p["rating"] ?? p["ratingAve"] ?? 0),
+        motm: p["mom"] === "1" || p["manofthematch"] === "1",
         result: res,
-        position: String(p.pos ?? (p as Record<string, unknown>).position ?? (p as Record<string, unknown>).posSorted ?? ""),
+        position: String(p["vproPos"] ?? p["favoritePosition"] ?? ""),
       });
     };
 

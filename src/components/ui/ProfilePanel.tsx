@@ -118,12 +118,12 @@ export function ProfilePanel() {
           return name === gt;
         });
         if (!entry) continue;
-        const p = entry[1] as Record<string, unknown>;
+        const p = entry[1];
         games++;
-        goals += Number(p.goals ?? 0);
-        assists += Number(p.assists ?? 0);
-        motm += Number(p.mom ?? p.manofthematch ?? 0);
-        const r = Number(p.rating ?? p.ratingAve ?? 0);
+        goals += Number(p["goals"] ?? 0);
+        assists += Number(p["assists"] ?? 0);
+        motm += (p["mom"] === "1" || p["manofthematch"] === "1") ? 1 : 0;
+        const r = Number(p["rating"] ?? p["ratingAve"] ?? 0);
         if (r > 0) { ratingSum += r; ratingCount++; }
       }
     };
