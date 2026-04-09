@@ -55,8 +55,8 @@ export function Sidebar() {
    ══════════════════════════════════════════════════════════════════ */
 
 function HorizontalSidebar() {
-  const { currentClub, activeTab, setActiveTab, setSidebarTab, favs, activeSession, history,
-    toggleFav, persistSettings, discordWebhook, players, matches, addToast } = useAppStore();
+  const { currentClub, activeTab, setActiveTab, setSidebarTab, sidebarTab, favs, activeSession, history,
+    toggleFav, persistSettings, discordWebhook, players, matches, addToast, eaProfile } = useAppStore();
   const { load } = useClub();
   const t = useT();
   const NAV_ITEMS = useNavItems().map((i) => ({ ...i, icon: cloneIconSize(i.icon, 15) }));
@@ -177,6 +177,27 @@ function HorizontalSidebar() {
             </button>
           );
         })}
+
+        {/* Mon Profil tab */}
+        {eaProfile?.clubId && (
+          <button role="tab" aria-selected={sidebarTab === "profile"}
+            onClick={() => setSidebarTab("profile")}
+            style={{
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "0 12px", height: "100%",
+              background: "none", border: "none",
+              borderBottom: `2px solid ${sidebarTab === "profile" ? "var(--accent)" : "transparent"}`,
+              color: sidebarTab === "profile" ? "var(--text)" : "var(--muted)",
+              cursor: "pointer", fontSize: 12, fontWeight: sidebarTab === "profile" ? 600 : 400,
+              transition: "color 0.1s, border-color 0.1s", whiteSpace: "nowrap", flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { if (sidebarTab !== "profile") (e.currentTarget as HTMLElement).style.color = "var(--text)"; }}
+            onMouseLeave={(e) => { if (sidebarTab !== "profile") (e.currentTarget as HTMLElement).style.color = "var(--muted)"; }}
+          >
+            <User size={15} />
+            <span>Profil</span>
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1 }} />
