@@ -23,7 +23,7 @@ function App() {
     loadSettings, theme, showGrid, showAnimations, darkMode, fontSize,
     addRawLog, toggleDevPanel, showDevPanel, setProxyInfo,
     setSidebarTab, setActiveTab, onboarded, settingsLoaded, toggleGlobalSearch,
-    navLayout,
+    navLayout, customShortcuts, scheduledNotifications, addToast,
   } = useAppStore();
 
   useAutoLoad();
@@ -48,16 +48,25 @@ function App() {
     return () => { unlisten.then((fn) => fn()); };
   }, [addRawLog]);
 
-  // ── Global keyboard shortcuts ──────────────────────────────────────
+  // ── Global keyboard shortcuts (with custom remapping) ──────────────
   useEffect(() => {
+    function matchesCombo(e: KeyboardEvent, defaultCombo: string, action: string): boolean {
+      const combo = customShortcuts[action] || defaultCombo;
+      const parts = combo.toLowerCase().split("+");
+      const key = parts[parts.length - 1];
+      const ctrl = parts.includes("ctrl");
+      const shift = parts.includes("shift");
+      return e.ctrlKey === ctrl && e.shiftKey === shift && e.key.toLowerCase() === key;
+    }
+
     const handler = (e: KeyboardEvent) => {
-      // F11 → Fullscreen toggle
+      // F11 → Fullscreen toggle (not remappable)
       if (e.key === "F11") {
         e.preventDefault();
         win.isFullscreen().then((fs) => win.setFullscreen(!fs));
         return;
       }
-      // Ctrl+Shift+D → Dev panel
+      // Ctrl+Shift+D → Dev panel (not remappable)
       if (e.ctrlKey && e.shiftKey && e.key === "D") {
         e.preventDefault();
         toggleDevPanel();
@@ -67,7 +76,7 @@ function App() {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       // Ctrl+F → Focus search
-      if (e.ctrlKey && e.key === "f") {
+      if (matchesCombo(e, "ctrl+f", "search")) {
         e.preventDefault();
         setSidebarTab("search");
         setTimeout(() => {
@@ -76,14 +85,14 @@ function App() {
         }, 50);
         return;
       }
-      // Ctrl+E → Export (dispatches a custom event caught by active tab)
-      if (e.ctrlKey && e.key === "e") {
+      // Ctrl+E → Export
+      if (matchesCombo(e, "ctrl+e", "export")) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("shortcut:export"));
         return;
       }
       // Ctrl+K → Global search
-      if (e.ctrlKey && e.key === "k") {
+      if (matchesCombo(e, "ctrl+k", "globalSearch")) {
         e.preventDefault();
         toggleGlobalSearch();
         return;
@@ -99,7 +108,24 @@ function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [toggleDevPanel, setSidebarTab, setActiveTab, toggleGlobalSearch]);
+  }, [toggleDevPanel, setSidebarTab, setActiveTab, toggleGlobalSearch, customShortcuts]);
+
+  // ── Scheduled notifications ───────────────────────────────────────
+  useEffect(() => {
+    if (!scheduledNotifications.length) return;
+    const interval = setInterval(() => {
+      const now = new Date();
+      const day = now.getDay(); // 0=Sun…6=Sat
+      const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      for (const notif of scheduledNotifications) {
+        if (!notif.enabled) continue;
+        if (notif.time !== hhmm) continue;
+        if (notif.days.length > 0 && !notif.days.includes(day)) continue;
+        addToast(notif.message || "Rappel ProClubs Stats !", "info");
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [scheduledNotifications, addToast]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh", overflow: "hidden", background: "var(--bg)", position: "relative" }}>

@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import { RefreshCw, Download, Palette, Check } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { RefreshCw, Download, Palette, Check, Upload, Save, Trash2, Bell, BellOff, Layers, EyeOff } from "lucide-react";
 import { check as checkUpdate } from "@tauri-apps/plugin-updater";
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
+import { saveSettings as apiSave } from "../../api/tauri";
 import { useAppStore } from "../../store/useAppStore";
 import { setPendingUpdate, setPendingManualUrl } from "../../utils/pendingUpdate";
 import { THEMES } from "../../types";
@@ -17,6 +18,11 @@ export function SettingsTab() {
     setCustomBg, setCustomSurface, setCustomCard, setLanguage,
     autoUpdate, setAutoUpdate, setUpdateAvailable, setUpdateInfo,
     navLayout, setNavLayout,
+    streamingMode, setStreamingMode,
+    customShortcuts, setCustomShortcut, resetCustomShortcuts,
+    scheduledNotifications, addScheduledNotification, updateScheduledNotification, deleteScheduledNotification,
+    interfaceProfiles, saveInterfaceProfile, deleteInterfaceProfile, applyInterfaceProfile,
+    addToast, loadSettings,
     persistSettings } = useAppStore();
   const t = useT();
 
@@ -24,6 +30,20 @@ export function SettingsTab() {
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState("…");
+
+  // Shortcut remapping state
+  const [capturingAction, setCapturingAction] = useState<string | null>(null);
+
+  // Scheduled notifications state
+  const [notifTime, setNotifTime] = useState("20:00");
+  const [notifDays, setNotifDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [notifMsg, setNotifMsg] = useState("");
+
+  // Interface profiles state
+  const [profileName, setProfileName] = useState("");
+
+  // Settings import ref
+  const settingsImportRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { getVersion().then(setAppVersion).catch(() => {}); }, []);
 
@@ -34,6 +54,91 @@ export function SettingsTab() {
   }, []);
 
   const apply = (fn: () => void) => { fn(); persistSettings(); };
+
+  // ── Export settings (without matchCache / sessions) ─────────────────
+  const exportSettings = () => {
+    try {
+      const s = useAppStore.getState();
+      const payload = {
+        theme: s.theme, darkMode: s.darkMode,
+        showGrid: s.showGrid, showAnimations: s.showAnimations,
+        showLogs: s.showLogs, showIdSearch: s.showIdSearch,
+        fontSize: String(s.fontSize), fontFamily: s.fontFamily,
+        customAccent: s.customAccent || undefined,
+        customBg: s.customBg || undefined,
+        customSurface: s.customSurface || undefined,
+        customCard: s.customCard || undefined,
+        language: s.language, onboarded: s.onboarded,
+        navLayout: s.navLayout,
+        tactics: s.tactics,
+        favs: s.favs,
+        history: s.history,
+        discordWebhook: s.discordWebhook || undefined,
+        autoUpdate: s.autoUpdate,
+        visibleKpis: s.visibleKpis,
+        eaProfile: s.eaProfile ?? undefined,
+        eaProfiles: s.eaProfiles,
+        customShortcuts: s.customShortcuts,
+        streamingMode: s.streamingMode,
+        scheduledNotifications: s.scheduledNotifications,
+        interfaceProfiles: s.interfaceProfiles,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `prostats_settings_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      addToast("Paramètres exportés !", "success");
+    } catch (e) {
+      addToast(`Export échoué: ${String(e)}`, "error");
+    }
+  };
+
+  const importSettings = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        const s = useAppStore.getState();
+        // Merge settings fields only — keep sessions and matchCache from current state
+        const merged = {
+          ...data,
+          sessions: s.sessions,
+          matchCache: s.matchCache,
+          cacheTimestamps: s.cacheTimestamps,
+          cacheOwners: s.cacheOwners,
+          compareHistory: s.compareHistory ?? [],
+          syncHistory: s.syncHistory ?? [],
+          eaProfile: data.eaProfile ?? s.eaProfile ?? undefined,
+          eaProfiles: data.eaProfiles ?? s.eaProfiles ?? [],
+        };
+        await apiSave(merged);
+        await loadSettings();
+        addToast("Paramètres importés !", "success");
+      } catch {
+        addToast("Fichier de paramètres invalide", "error");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // ── Shortcut key capture ────────────────────────────────────────────
+  const handleKeyCapture = (e: React.KeyboardEvent, action: string) => {
+    e.preventDefault();
+    const parts: string[] = [];
+    if (e.ctrlKey) parts.push("ctrl");
+    if (e.shiftKey) parts.push("shift");
+    if (e.altKey) parts.push("alt");
+    const key = e.key.toLowerCase();
+    if (!["control", "shift", "alt", "meta"].includes(key)) parts.push(key);
+    if (parts.length > 0 && parts[parts.length - 1] !== parts[0]) {
+      setCustomShortcut(action, parts.join("+"));
+      persistSettings();
+      setCapturingAction(null);
+    }
+  };
 
   const handleCheckUpdate = async () => {
     setUpdateStatus("checking");
@@ -314,28 +419,216 @@ export function SettingsTab() {
         </div>
       </div>
 
-      {/* ── RACCOURCIS ── */}
+      {/* ── RACCOURCIS PERSONNALISABLES ── */}
       <Section label={t("settings.shortcuts")} />
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 4 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 4 }}>
+        {/* Non-remappable */}
         {[
           { keys: "F11",           label: t("shortcut.fullscreen") },
-          { keys: "Ctrl+F",       label: t("shortcut.search") },
-          { keys: "Ctrl+E",       label: t("shortcut.export") },
-          { keys: "Ctrl+1-5",     label: t("nav.players") + " / " + t("nav.matches") + " / ..." },
+          { keys: "Ctrl+1–5",     label: t("nav.players") + " / " + t("nav.matches") + " / ..." },
           { keys: "Ctrl+Shift+D", label: t("shortcut.devPanel") },
         ].map((s) => (
-          <div key={s.keys} style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "4px 0",
-          }}>
-            <span style={{ fontSize: 12, color: "var(--text)" }}>{s.label}</span>
-            <kbd style={{
-              padding: "2px 6px", background: "var(--hover)", borderRadius: 3,
-              fontSize: 10, fontWeight: 700, color: "var(--accent)",
-              border: "1px solid var(--border)", fontFamily: "monospace",
-            }}>{s.keys}</kbd>
+          <div key={s.keys} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "3px 0" }}>
+            <span style={{ fontSize: 11, color: "var(--text)" }}>{s.label}</span>
+            <kbd style={{ padding: "2px 6px", background: "var(--hover)", borderRadius: 3, fontSize: 10, fontWeight: 700, color: "var(--muted)", border: "1px solid var(--border)", fontFamily: "monospace" }}>{s.keys}</kbd>
           </div>
         ))}
+        {/* Remappable shortcuts */}
+        {[
+          { action: "search",      defaultCombo: "ctrl+f", label: t("shortcut.search") },
+          { action: "export",      defaultCombo: "ctrl+e", label: t("shortcut.export") },
+          { action: "globalSearch",defaultCombo: "ctrl+k", label: "Recherche globale" },
+        ].map(({ action, defaultCombo, label }) => {
+          const current = customShortcuts[action] || defaultCombo;
+          const isCapturing = capturingAction === action;
+          return (
+            <div key={action} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "3px 0" }}>
+              <span style={{ fontSize: 11, color: "var(--text)" }}>{label}</span>
+              <button
+                onKeyDown={isCapturing ? (e) => handleKeyCapture(e, action) : undefined}
+                onClick={() => setCapturingAction(isCapturing ? null : action)}
+                onBlur={() => setCapturingAction(null)}
+                style={{
+                  padding: "2px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700,
+                  fontFamily: "monospace", cursor: "pointer", outline: "none",
+                  border: isCapturing ? "1px solid var(--accent)" : "1px solid var(--border)",
+                  background: isCapturing ? "rgba(0,212,255,0.1)" : "var(--hover)",
+                  color: isCapturing ? "var(--accent)" : "var(--text)",
+                  transition: "all 0.1s", minWidth: 80,
+                }}>
+                {isCapturing ? "Appuyez…" : current.split("+").map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("+")}
+              </button>
+            </div>
+          );
+        })}
+        {Object.keys(customShortcuts).length > 0 && (
+          <button onClick={() => { resetCustomShortcuts(); persistSettings(); }}
+            style={{ alignSelf: "flex-end", padding: "2px 8px", background: "transparent",
+              border: "1px solid var(--border)", borderRadius: 4, fontSize: 10,
+              color: "var(--muted)", cursor: "pointer" }}>
+            ↺ Réinitialiser les raccourcis
+          </button>
+        )}
+      </div>
+
+      {/* ── MODE STREAMING ── */}
+      <Section label="MODE STREAMING" />
+      <div style={{ marginBottom: 8 }}>
+        <Toggle
+          label={streamingMode ? "Mode streaming actif — infos masquées" : "Masquer ID, webhook et gamertag"}
+          value={streamingMode}
+          onChange={(v) => { setStreamingMode(v); persistSettings(); }}
+        />
+        {streamingMode && (
+          <div style={{ marginTop: 6, padding: "6px 10px", background: "rgba(245,158,11,0.1)",
+            border: "1px solid rgba(245,158,11,0.3)", borderRadius: 5, fontSize: 10, color: "var(--gold)",
+            display: "flex", alignItems: "center", gap: 6 }}>
+            <EyeOff size={11} /> IDs de club, webhook Discord et gamertag masqués dans l'interface
+          </div>
+        )}
+      </div>
+
+      {/* ── NOTIFICATIONS PLANIFIÉES ── */}
+      <Section label="RAPPELS PLANIFIÉS" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
+        {scheduledNotifications.map((n) => {
+          const dayLabels = ["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"];
+          return (
+            <div key={n.id} style={{ background: "var(--hover)", borderRadius: 6, padding: "8px 10px",
+              border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: n.enabled ? "var(--text)" : "var(--muted)", fontWeight: 600 }}>
+                  {n.time} — {n.message || "Rappel ProClubs Stats"}
+                </div>
+                <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
+                  {n.days.length === 0 ? "Tous les jours" : n.days.map((d) => dayLabels[d]).join(", ")}
+                </div>
+              </div>
+              <button onClick={() => { updateScheduledNotification(n.id, { enabled: !n.enabled }); persistSettings(); }}
+                style={{ padding: "3px 6px", background: "transparent", border: "1px solid var(--border)",
+                  borderRadius: 4, cursor: "pointer", color: n.enabled ? "var(--accent)" : "var(--muted)" }}>
+                {n.enabled ? <Bell size={11} /> : <BellOff size={11} />}
+              </button>
+              <button onClick={() => { deleteScheduledNotification(n.id); persistSettings(); }}
+                style={{ padding: "3px 6px", background: "transparent", border: "1px solid var(--border)",
+                  borderRadius: 4, cursor: "pointer", color: "var(--red)" }}>
+                <Trash2 size={11} />
+              </button>
+            </div>
+          );
+        })}
+        {/* Add form */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "var(--hover)",
+          borderRadius: 6, padding: "10px", border: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input type="time" value={notifTime} onChange={(e) => setNotifTime(e.target.value)}
+              style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
+                padding: "5px 8px", borderRadius: 4, fontSize: 12, flex: 1 }} />
+            <input value={notifMsg} onChange={(e) => setNotifMsg(e.target.value)}
+              placeholder="Message du rappel…"
+              style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
+                padding: "5px 8px", borderRadius: 4, fontSize: 11, flex: 2 }} />
+          </div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"].map((label, idx) => {
+              const active = notifDays.includes(idx);
+              return (
+                <button key={idx} onClick={() => setNotifDays((d) => active ? d.filter((x) => x !== idx) : [...d, idx])}
+                  style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--border)",
+                    background: active ? "var(--accent)" : "transparent",
+                    color: active ? "#fff" : "var(--muted)", fontSize: 10, cursor: "pointer" }}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={() => {
+            addScheduledNotification({ id: crypto.randomUUID(), time: notifTime, days: notifDays, message: notifMsg, enabled: true });
+            persistSettings();
+            setNotifMsg("");
+            addToast("Rappel ajouté !", "success");
+          }} style={{ padding: "6px", background: "var(--accent)", color: "#fff", border: "none",
+            borderRadius: 4, fontSize: 12, cursor: "pointer", fontFamily: "'Bebas Neue', sans-serif",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <Bell size={12} /> AJOUTER UN RAPPEL
+          </button>
+        </div>
+      </div>
+
+      {/* ── PROFILS D'INTERFACE ── */}
+      <Section label="PROFILS D'INTERFACE" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
+        {interfaceProfiles.map((p) => (
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--hover)",
+            borderRadius: 6, padding: "8px 10px", border: "1px solid var(--border)" }}>
+            <Layers size={12} color="var(--muted)" />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: "var(--text)", fontWeight: 600 }}>{p.name}</div>
+              <div style={{ fontSize: 10, color: "var(--muted)" }}>{p.theme} · {p.navLayout} · {p.darkMode ? "sombre" : "clair"}</div>
+            </div>
+            <button onClick={() => applyInterfaceProfile(p.id)}
+              style={{ padding: "3px 8px", background: "var(--accent)", color: "#fff", border: "none",
+                borderRadius: 4, fontSize: 10, cursor: "pointer", fontFamily: "'Bebas Neue', sans-serif" }}>
+              APPLIQUER
+            </button>
+            <button onClick={() => { deleteInterfaceProfile(p.id); persistSettings(); }}
+              style={{ padding: "3px 6px", background: "transparent", border: "1px solid var(--border)",
+                borderRadius: 4, cursor: "pointer", color: "var(--red)" }}>
+              <Trash2 size={11} />
+            </button>
+          </div>
+        ))}
+        {/* Save current as profile */}
+        <div style={{ display: "flex", gap: 6 }}>
+          <input value={profileName} onChange={(e) => setProfileName(e.target.value)}
+            placeholder="Nom du profil (ex: Streaming, Tournoi…)"
+            style={{ flex: 1, background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
+              padding: "6px 10px", borderRadius: 4, fontSize: 11 }} />
+          <button onClick={() => {
+            if (!profileName.trim()) return;
+            saveInterfaceProfile({ id: crypto.randomUUID(), name: profileName.trim(), theme, navLayout, darkMode });
+            persistSettings();
+            setProfileName("");
+            addToast(`Profil "${profileName.trim()}" sauvegardé !`, "success");
+          }} disabled={!profileName.trim()}
+            style={{ padding: "6px 10px", background: profileName.trim() ? "var(--accent)" : "var(--hover)",
+              color: profileName.trim() ? "#fff" : "var(--muted)", border: "none",
+              borderRadius: 4, fontSize: 12, cursor: profileName.trim() ? "pointer" : "default",
+              fontFamily: "'Bebas Neue', sans-serif", display: "flex", alignItems: "center", gap: 4 }}>
+            <Save size={12} /> SAUVEGARDER
+          </button>
+        </div>
+        <p style={{ fontSize: 10, color: "var(--muted)", lineHeight: 1.5 }}>
+          Sauvegarde le thème, la disposition et le mode clair/sombre actuels.
+        </p>
+      </div>
+
+      {/* ── IMPORT / EXPORT PARAMÈTRES ── */}
+      <Section label="PARAMÈTRES" />
+      <p style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.5, marginBottom: 8 }}>
+        Exporte ou importe uniquement les paramètres (thème, raccourcis, tactiques, favoris…) — sans le cache de matchs ni les sessions.
+      </p>
+      <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+        <button onClick={exportSettings} style={{
+          flex: 1, padding: "8px", background: "var(--hover)",
+          border: "1px solid var(--border)", borderRadius: 6,
+          color: "var(--text)", fontSize: 11, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+          fontFamily: "'Bebas Neue', sans-serif",
+        }}>
+          <Download size={11} /> EXPORTER
+        </button>
+        <button onClick={() => settingsImportRef.current?.click()} style={{
+          flex: 1, padding: "8px", background: "var(--hover)",
+          border: "1px solid var(--border)", borderRadius: 6,
+          color: "var(--text)", fontSize: 11, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+          fontFamily: "'Bebas Neue', sans-serif",
+        }}>
+          <Upload size={11} /> IMPORTER
+        </button>
+        <input ref={settingsImportRef} type="file" accept=".json" style={{ display: "none" }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) importSettings(f); e.target.value = ""; }} />
       </div>
 
       {/* ── MISES A JOUR ── */}

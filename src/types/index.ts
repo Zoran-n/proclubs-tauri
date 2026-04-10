@@ -213,12 +213,16 @@ export const PLATFORMS = [
 export const FORMATIONS = ["433", "4231", "442", "4141", "4321", "352", "343", "532", "541"] as const;
 
 export const THEMES = [
-  { id: "cyan",    color: "#00d4ff", label: "Cyan" },
-  { id: "violet",  color: "#8b5cf6", label: "Violet" },
-  { id: "orange",  color: "#ff6b35", label: "Orange" },
-  { id: "green",   color: "#00ff88", label: "Vert" },
-  { id: "red",     color: "#ff3355", label: "Rouge" },
-  { id: "blurple", color: "#5865f2", label: "Discord" },
+  { id: "cyan",     color: "#00d4ff", label: "Cyan" },
+  { id: "violet",   color: "#8b5cf6", label: "Violet" },
+  { id: "orange",   color: "#ff6b35", label: "Orange" },
+  { id: "green",    color: "#00ff88", label: "Vert" },
+  { id: "red",      color: "#ff3355", label: "Rouge" },
+  { id: "blurple",  color: "#5865f2", label: "Discord" },
+  { id: "midnight", color: "#6366f1", label: "Midnight" },
+  { id: "gold",     color: "#f59e0b", label: "Gold" },
+  { id: "matrix",   color: "#00ff41", label: "Matrix" },
+  { id: "rose",     color: "#f43f5e", label: "Rose" },
 ] as const;
 
 export type MatchType = "leagueMatch" | "playoffMatch" | "friendlyMatch";

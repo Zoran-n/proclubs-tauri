@@ -79,6 +79,10 @@ interface AppState {
   showGlobalSearch: boolean;
   navLayout: "horizontal" | "vertical" | "right" | "bottom";
   sessionTemplates: SessionTemplate[];
+  streamingMode: boolean;
+  customShortcuts: Record<string, string>;  // action → key combo, e.g. "search" → "ctrl+f"
+  scheduledNotifications: { id: string; time: string; days: number[]; message: string; enabled: boolean }[];
+  interfaceProfiles: { id: string; name: string; theme: string; navLayout: string; darkMode: boolean }[];
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -147,6 +151,15 @@ interface AppState {
   toggleGlobalSearch: () => void;
   setNavLayout: (v: "horizontal" | "vertical" | "right" | "bottom") => void;
   reorderFavs: (favs: Club[]) => void;
+  setStreamingMode: (v: boolean) => void;
+  setCustomShortcut: (action: string, combo: string) => void;
+  resetCustomShortcuts: () => void;
+  addScheduledNotification: (n: { id: string; time: string; days: number[]; message: string; enabled: boolean }) => void;
+  updateScheduledNotification: (id: string, patch: Partial<{ time: string; days: number[]; message: string; enabled: boolean }>) => void;
+  deleteScheduledNotification: (id: string) => void;
+  saveInterfaceProfile: (p: { id: string; name: string; theme: string; navLayout: string; darkMode: boolean }) => void;
+  deleteInterfaceProfile: (id: string) => void;
+  applyInterfaceProfile: (id: string) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
@@ -193,6 +206,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   showGlobalSearch: false,
   navLayout: "horizontal",
   sessionTemplates: [],
+  streamingMode: false,
+  customShortcuts: {},
+  scheduledNotifications: [],
+  interfaceProfiles: [],
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
@@ -433,6 +450,34 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleGlobalSearch: () => set((s) => ({ showGlobalSearch: !s.showGlobalSearch })),
   setNavLayout: (navLayout) => set({ navLayout }),
   reorderFavs: (favs) => set({ favs }),
+  setStreamingMode: (streamingMode) => set({ streamingMode }),
+  setCustomShortcut: (action, combo) => set((s) => ({
+    customShortcuts: { ...s.customShortcuts, [action]: combo },
+  })),
+  resetCustomShortcuts: () => set({ customShortcuts: {} }),
+  addScheduledNotification: (n) => set((s) => ({
+    scheduledNotifications: [...s.scheduledNotifications, n],
+  })),
+  updateScheduledNotification: (id, patch) => set((s) => ({
+    scheduledNotifications: s.scheduledNotifications.map((n) => n.id === id ? { ...n, ...patch } : n),
+  })),
+  deleteScheduledNotification: (id) => set((s) => ({
+    scheduledNotifications: s.scheduledNotifications.filter((n) => n.id !== id),
+  })),
+  saveInterfaceProfile: (p) => set((s) => ({
+    interfaceProfiles: [...s.interfaceProfiles.filter((x) => x.id !== p.id), p],
+  })),
+  deleteInterfaceProfile: (id) => set((s) => ({
+    interfaceProfiles: s.interfaceProfiles.filter((p) => p.id !== id),
+  })),
+  applyInterfaceProfile: (id) => {
+    const profile = get().interfaceProfiles.find((p) => p.id === id);
+    if (!profile) return;
+    get().setTheme(profile.theme);
+    get().setDarkMode(profile.darkMode);
+    get().setNavLayout(profile.navLayout as "horizontal" | "vertical" | "right" | "bottom");
+    get().persistSettings();
+  },
 
   applyProxy: async (url: string) => {
     await apiSetProxy(url.trim() || null);
@@ -496,6 +541,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         visibleKpis: s.visibleKpis ?? ["matches", "wins", "draws", "losses", "winRate", "goals"],
         navLayout: (s.navLayout as "horizontal" | "vertical" | "right" | "bottom") ?? "horizontal",
         sessionTemplates: (s.sessionTemplates as SessionTemplate[]) ?? [],
+        streamingMode: ((s as unknown as Record<string, unknown>).streamingMode as boolean) ?? false,
+        customShortcuts: ((s as unknown as Record<string, unknown>).customShortcuts as Record<string, string>) ?? {},
+        scheduledNotifications: ((s as unknown as Record<string, unknown>).scheduledNotifications as { id: string; time: string; days: number[]; message: string; enabled: boolean }[]) ?? [],
+        interfaceProfiles: ((s as unknown as Record<string, unknown>).interfaceProfiles as { id: string; name: string; theme: string; navLayout: string; darkMode: boolean }[]) ?? [],
         settingsLoaded: true,
       });
     } catch { /* first launch */ } finally {
@@ -506,7 +555,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   persistSettings: async () => {
     const { history, favs, tactics, sessions, compareHistory, eaProfile, eaProfiles, syncHistory,
       theme, darkMode, proxyUrl,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, customBg, customSurface, customCard, language, onboarded, matchCache, cacheTimestamps, cacheOwners, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout, sessionTemplates } = get();
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, customBg, customSurface, customCard, language, onboarded, matchCache, cacheTimestamps, cacheOwners, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout, sessionTemplates,
+      streamingMode, customShortcuts, scheduledNotifications, interfaceProfiles } = get();
     const payload = {
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -531,6 +581,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       visibleKpis,
       navLayout,
       sessionTemplates,
+      streamingMode,
+      customShortcuts,
+      scheduledNotifications,
+      interfaceProfiles,
     };
     // Skip the I/O write if nothing changed
     const json = JSON.stringify(payload);

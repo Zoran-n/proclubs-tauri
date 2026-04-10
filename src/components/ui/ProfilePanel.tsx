@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { Link, User, Unlink, Send, Database, Plus, ChevronRight, Download, Upload, Image, Clock, Trash2, FileDown, FileUp } from "lucide-react";
+import { Link, User, Unlink, Send, Database, Plus, ChevronRight, Download, Upload, Image, Clock, Trash2, FileDown, FileUp, EyeOff } from "lucide-react";
 import { searchClub, getMembers, saveSettings as apiSave } from "../../api/tauri";
 import { sendDiscordWebhook } from "../../api/discord";
 import { useAppStore } from "../../store/useAppStore";
@@ -67,7 +67,12 @@ export function ProfilePanel() {
     loadSettings,
     cacheTimestamps, cacheOwners,
     clearMatchCacheKey, clearAllMatchCache, clearMatchCacheForPeriod, clearMatchCacheForProfile,
+    streamingMode,
   } = useAppStore();
+
+  // Helper to mask sensitive info in streaming mode
+  const mask = (value: string, chars = 4) =>
+    streamingMode ? value.slice(0, chars) + "••••••" : value;
   const { load } = useClub();
 
   const [gamertag, setGamertag] = useState(eaProfile?.gamertag ?? "");
@@ -457,6 +462,15 @@ export function ProfilePanel() {
   return (
     <div style={{ flex: 1, overflow: "auto", maxWidth: 500, margin: "0 auto", width: "100%", padding: "24px 20px" }}>
 
+      {/* ── Streaming mode banner ── */}
+      {streamingMode && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(245,158,11,0.1)",
+          border: "1px solid rgba(245,158,11,0.3)", borderRadius: 6, padding: "6px 10px", marginBottom: 14,
+          fontSize: 11, color: "var(--gold)" }}>
+          <EyeOff size={12} /> Mode streaming — infos sensibles masquées
+        </div>
+      )}
+
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
         <div style={{
@@ -474,10 +488,10 @@ export function ProfilePanel() {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--text)", letterSpacing: "0.04em" }}>
-            {eaProfile?.gamertag || "Mon profil"}
+            {eaProfile?.gamertag ? mask(eaProfile.gamertag) : "Mon profil"}
           </div>
           <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-            {eaProfile?.clubName ? `${eaProfile.clubName} · ${eaProfile.platform}` : "Aucun profil EA lié"}
+            {eaProfile?.clubName ? `${eaProfile.clubName} · ${streamingMode ? "••••" : eaProfile.platform}` : "Aucun profil EA lié"}
           </div>
         </div>
         {division && (
@@ -946,7 +960,9 @@ export function ProfilePanel() {
           Serveur Discord → Paramètres du salon → Intégrations → Webhooks
         </p>
         <label style={labelStyle}>URL DU WEBHOOK</label>
-        <textarea value={webhookDraft} onChange={(e) => setWebhookDraft(e.target.value)}
+        <textarea value={streamingMode && webhookDraft ? webhookDraft.slice(0, 30) + "••••••" : webhookDraft}
+          onChange={(e) => { if (!streamingMode) setWebhookDraft(e.target.value); }}
+          readOnly={streamingMode}
           placeholder="https://discord.com/api/webhooks/…"
           rows={2}
           style={{ ...inputStyle, resize: "none", fontSize: 11, lineHeight: 1.5,

@@ -33,11 +33,15 @@
 }
 
 /* ─── Color themes ───────────────────────────────────────────────────────────── */
-[data-theme="violet"]  { --accent: #8b5cf6; }
-[data-theme="orange"]  { --accent: #ff6b35; }
-[data-theme="green"]   { --accent: #22c55e; }
-[data-theme="red"]     { --accent: #ef3355; }
-[data-theme="blurple"] { --accent: #5865f2; }
+[data-theme="violet"]   { --accent: #8b5cf6; }
+[data-theme="orange"]   { --accent: #ff6b35; }
+[data-theme="green"]    { --accent: #22c55e; }
+[data-theme="red"]      { --accent: #ef3355; }
+[data-theme="blurple"]  { --accent: #5865f2; }
+[data-theme="midnight"] { --accent: #6366f1; --bg: #0f0f14; --surface: #1a1a2e; --card: #16213e; --border: #2a2a4a; }
+[data-theme="gold"]     { --accent: #f59e0b; }
+[data-theme="matrix"]   { --accent: #00ff41; --bg: #0d1100; --surface: #111a00; --card: #162200; --border: #1e3300; }
+[data-theme="rose"]     { --accent: #f43f5e; }
 /* custom theme: --accent set via JS inline style */
 
 /* ─── Font family ─────────────────────────────────────────────────────────────── */
