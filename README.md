@@ -24,6 +24,8 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Tri score composite** : classement pondéré (buts×3 + PD×2 + MOTM×5 + note×10) via l'option "🏆 Score"
 - Filtrage par nom en temps réel + **filtrage multi-critères** (par poste, note min, matchs min)
 - **Filtre alertes** : afficher uniquement les joueurs dont la note moyenne récente est < 6.5
+- **Filtre "Partants habituels"** : slider de présence minimum (0–100%) calculé sur les 20 derniers matchs — affiche le % de présence sur chaque carte quand activé
+- **Filtre période custom** : champs Du / Au pour recalculer les stats joueurs depuis le cache matchs sur une plage de dates précise
 - **Sparkline inline** : mini courbe des dernières notes par match visible directement sur chaque carte
 - **Alerte de performance** : indicateur ⚠️ sur les joueurs en baisse (avg note < 6.5 sur les 5 derniers matchs)
 - **Avatar initiales colorées** (style Discord) pour chaque joueur
@@ -31,8 +33,11 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Badge de position (GK, ST, CM…)
 - Badge de note coloré (or, vert, jaune, rouge)
 - Modale détail joueur : stats de base + **statistiques avancées** (tirs cadrés, interceptions, fautes, cartons jaunes/rouges, clean sheets, arrêts GK) — affichées uniquement si disponibles via l'API EA
-- **Graphique d'évolution** par joueur : line chart note/buts/PD par match avec toggle
-- **Export PDF fiche joueur** : PDF individuel avec stats + évolution de la note match par match
+- **Graphique d'évolution par match** : line chart note/buts/PD par match avec toggle
+- **Vue mensuelle** : BarChart buts/PD/note par mois (tous types de matchs depuis le cache) dans la modale joueur
+- **Tendance prédictive** : régression linéaire sur la note — ligne de tendance (tirets violets) + 5 points projetés + résumé direction/pente/projection dans la modale joueur
+- **Classement cross-clubs** : bouton "🌐 Cross-clubs" — charge les joueurs de plusieurs clubs favoris via l'API et les compare dans un tableau trié unifié
+- **Export PDF fiche joueur enrichi** : PDF avec radar 6 axes dessiné (buts, PD, passes, tacles, MOTM, note) + courbe de note + tableau mensuel + annotation tendance (pente + projection)
 - Export **PNG** (capture avec prévisualisation) et **CSV** (tableau complet)
 - **Comparaison de joueurs** : mode COMPARER, sélection de **2 à 4 joueurs**, radar chart normalisé + tableau face-à-face + **partage Discord**
 
@@ -248,14 +253,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Fiche survol** : tooltip avec stats résumées au hover sur un club en historique ou favori
 - **Historique étendu** : passer de 8 à 20+ clubs récents avec recherche dans l'historique
 - **Export de la liste** : exporter les favoris en CSV / JSON pour backup ou partage
-
-### Joueurs & stats
-- **Historique multi-saisons** : courbe des stats du joueur sur plusieurs saisons (MJ, buts, note)
-- **Tendance prédictive** : régression linéaire pour estimer l'évolution de la note sur les prochains matchs
-- **Classement cross-clubs** : comparer les joueurs de différents clubs favoris sur le même tableau
-- **Stats sur période custom** : filtrer les stats joueurs sur une plage de dates choisie
-- **Filtre "Partants habituels"** : afficher uniquement les joueurs présents dans X% des matchs récents
-- **Fiche imprimable** : PDF enrichi avec graphiques visuels (radar + courbe note) intégrés
 
 ### Comparaison de clubs
 - **Comparaison multi-saisons** : choisir la saison pour chaque club et comparer d'une saison à l'autre
