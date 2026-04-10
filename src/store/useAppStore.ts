@@ -83,6 +83,8 @@ interface AppState {
   customShortcuts: Record<string, string>;  // action → key combo, e.g. "search" → "ctrl+f"
   scheduledNotifications: { id: string; time: string; days: number[]; message: string; enabled: boolean }[];
   interfaceProfiles: { id: string; name: string; theme: string; navLayout: string; darkMode: boolean }[];
+  favFolders: { id: string; name: string; clubIds: string[] }[];
+  srAlerts: string[];  // clubIds with SR monitoring
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -160,6 +162,11 @@ interface AppState {
   saveInterfaceProfile: (p: { id: string; name: string; theme: string; navLayout: string; darkMode: boolean }) => void;
   deleteInterfaceProfile: (id: string) => void;
   applyInterfaceProfile: (id: string) => void;
+  addFavFolder: (name: string) => void;
+  deleteFavFolder: (id: string) => void;
+  renameFavFolder: (id: string, name: string) => void;
+  setClubFolder: (clubId: string, folderId: string | null) => void;
+  toggleSrAlert: (clubId: string) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
@@ -210,20 +217,41 @@ export const useAppStore = create<AppState>((set, get) => ({
   customShortcuts: {},
   scheduledNotifications: [],
   interfaceProfiles: [],
+  favFolders: [],
+  srAlerts: [],
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
   })),
   deleteCompareEntry: (id) => set((s) => ({ compareHistory: s.compareHistory.filter((e) => e.id !== id) })),
   setClub: (club, players, matches) => set({ currentClub: club, players, matches, error: null }),
-  addHistory: (club) => set((s) => ({
-    history: [club, ...s.history.filter((c) => c.id !== club.id)].slice(0, 8),
-  })),
-  toggleFav: (club) => set((s) => ({
-    favs: s.favs.some((c) => c.id === club.id)
-      ? s.favs.filter((c) => c.id !== club.id)
-      : [...s.favs, club],
-  })),
+  addHistory: (club) => {
+    const s = get();
+    let newFavs = s.favs;
+    // SR alert: notify if tracked fav's SR changed
+    if (s.srAlerts.includes(club.id) && club.skillRating) {
+      const fav = s.favs.find((f) => f.id === club.id);
+      if (fav && fav.skillRating && fav.skillRating !== club.skillRating) {
+        get().addToast(`📊 SR mis à jour — ${club.name}: ${fav.skillRating} → ${club.skillRating}`, "info");
+      }
+      if (fav) newFavs = s.favs.map((f) => f.id === club.id ? { ...f, skillRating: club.skillRating } : f);
+    }
+    set({
+      history: [club, ...s.history.filter((c) => c.id !== club.id)].slice(0, 25),
+      favs: newFavs,
+    });
+  },
+  toggleFav: (club) => set((s) => {
+    const isFav = s.favs.some((c) => c.id === club.id);
+    if (isFav) {
+      return {
+        favs: s.favs.filter((c) => c.id !== club.id),
+        favFolders: s.favFolders.map((f) => ({ ...f, clubIds: f.clubIds.filter((id) => id !== club.id) })),
+        srAlerts: s.srAlerts.filter((id) => id !== club.id),
+      };
+    }
+    return { favs: [...s.favs, club] };
+  }),
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
   setActiveTab: (activeTab) => set({ activeTab }),
@@ -450,6 +478,28 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleGlobalSearch: () => set((s) => ({ showGlobalSearch: !s.showGlobalSearch })),
   setNavLayout: (navLayout) => set({ navLayout }),
   reorderFavs: (favs) => set({ favs }),
+  addFavFolder: (name) => set((s) => ({
+    favFolders: [...s.favFolders, { id: Date.now().toString(), name, clubIds: [] }],
+  })),
+  deleteFavFolder: (id) => set((s) => ({
+    favFolders: s.favFolders.filter((f) => f.id !== id),
+  })),
+  renameFavFolder: (id, name) => set((s) => ({
+    favFolders: s.favFolders.map((f) => f.id === id ? { ...f, name } : f),
+  })),
+  setClubFolder: (clubId, folderId) => set((s) => ({
+    favFolders: s.favFolders.map((f) => ({
+      ...f,
+      clubIds: f.id === folderId
+        ? (f.clubIds.includes(clubId) ? f.clubIds : [...f.clubIds, clubId])
+        : f.clubIds.filter((id) => id !== clubId),
+    })),
+  })),
+  toggleSrAlert: (clubId) => set((s) => ({
+    srAlerts: s.srAlerts.includes(clubId)
+      ? s.srAlerts.filter((id) => id !== clubId)
+      : [...s.srAlerts, clubId],
+  })),
   setStreamingMode: (streamingMode) => set({ streamingMode }),
   setCustomShortcut: (action, combo) => set((s) => ({
     customShortcuts: { ...s.customShortcuts, [action]: combo },
@@ -545,6 +595,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         customShortcuts: ((s as unknown as Record<string, unknown>).customShortcuts as Record<string, string>) ?? {},
         scheduledNotifications: ((s as unknown as Record<string, unknown>).scheduledNotifications as { id: string; time: string; days: number[]; message: string; enabled: boolean }[]) ?? [],
         interfaceProfiles: ((s as unknown as Record<string, unknown>).interfaceProfiles as { id: string; name: string; theme: string; navLayout: string; darkMode: boolean }[]) ?? [],
+        favFolders: ((s as unknown as Record<string, unknown>).favFolders as { id: string; name: string; clubIds: string[] }[]) ?? [],
+        srAlerts: ((s as unknown as Record<string, unknown>).srAlerts as string[]) ?? [],
         settingsLoaded: true,
       });
     } catch { /* first launch */ } finally {
@@ -556,7 +608,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { history, favs, tactics, sessions, compareHistory, eaProfile, eaProfiles, syncHistory,
       theme, darkMode, proxyUrl,
       showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, customBg, customSurface, customCard, language, onboarded, matchCache, cacheTimestamps, cacheOwners, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout, sessionTemplates,
-      streamingMode, customShortcuts, scheduledNotifications, interfaceProfiles } = get();
+      streamingMode, customShortcuts, scheduledNotifications, interfaceProfiles,
+      favFolders, srAlerts } = get();
     const payload = {
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -585,6 +638,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       customShortcuts,
       scheduledNotifications,
       interfaceProfiles,
+      favFolders,
+      srAlerts,
     };
     // Skip the I/O write if nothing changed
     const json = JSON.stringify(payload);

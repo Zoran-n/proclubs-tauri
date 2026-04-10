@@ -195,6 +195,8 @@ export interface Settings {
   visibleKpis?: string[];
   navLayout?: "horizontal" | "vertical" | "right" | "bottom";
   sessionTemplates?: SessionTemplate[];
+  favFolders?: { id: string; name: string; clubIds: string[] }[];
+  srAlerts?: string[];
 }
 
 export interface ClubData {
