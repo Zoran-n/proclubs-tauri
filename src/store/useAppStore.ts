@@ -66,6 +66,8 @@ interface AppState {
   showSearchModal: boolean;
   toasts: ToastMessage[];
   matchCache: Record<string, Match[]>;
+  cacheTimestamps: Record<string, number>;   // epoch ms quand chaque clé a été mise à jour
+  cacheOwners: Record<string, string>;       // gamertag du profil qui a peuplé chaque clé
   discordWebhook: string;
   autoUpdate: boolean;
   updateAvailable: boolean;
@@ -133,6 +135,8 @@ interface AppState {
   clearMatchCacheKey: (key: string) => void;
   clearAllMatchCache: () => void;
   clearMatchCacheStaleFor: (clubId: string, platform: string) => void;
+  clearMatchCacheForPeriod: (key: string, fromMs: number, toMs: number) => void;
+  clearMatchCacheForProfile: (gamertag: string) => void;
   setDiscordWebhook: (v: string) => void;
   setAutoUpdate: (v: boolean) => void;
   setUpdateAvailable: (v: boolean) => void;
@@ -176,6 +180,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   showSearchModal: false,
   toasts: [],
   matchCache: {},
+  cacheTimestamps: {},
+  cacheOwners: {},
   discordWebhook: "",
   autoUpdate: false,
   updateAvailable: false,
@@ -362,22 +368,53 @@ export const useAppStore = create<AppState>((set, get) => ({
     toasts: [...s.toasts, { id: `${Date.now()}-${Math.random()}`, message, type }],
   })),
   removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
-  setMatchCache: (key, matches) => set((s) => ({ matchCache: { ...s.matchCache, [key]: matches } })),
+  setMatchCache: (key, matches) => set((s) => ({
+    matchCache: { ...s.matchCache, [key]: matches },
+    cacheTimestamps: { ...s.cacheTimestamps, [key]: Date.now() },
+    cacheOwners: { ...s.cacheOwners, [key]: s.eaProfile?.gamertag ?? "" },
+  })),
   clearMatchCacheKey: (key) => set((s) => {
-    const next = { ...s.matchCache };
-    delete next[key];
-    return { matchCache: next };
+    const nextCache = { ...s.matchCache };
+    const nextTs = { ...s.cacheTimestamps };
+    const nextOwners = { ...s.cacheOwners };
+    delete nextCache[key]; delete nextTs[key]; delete nextOwners[key];
+    return { matchCache: nextCache, cacheTimestamps: nextTs, cacheOwners: nextOwners };
   }),
-  clearAllMatchCache: () => set({ matchCache: {} }),
+  clearAllMatchCache: () => set({ matchCache: {}, cacheTimestamps: {}, cacheOwners: {} }),
   clearMatchCacheStaleFor: (clubId, platform) => set((s) => {
     const next: Record<string, Match[]> = {};
+    const nextTs: Record<string, number> = {};
+    const nextOwners: Record<string, string> = {};
     for (const [key, val] of Object.entries(s.matchCache)) {
-      // Keep only entries that belong to this club+platform, or to other clubs entirely
       if (!key.startsWith(`${clubId}_`) || key.startsWith(`${clubId}_${platform}_`)) {
         next[key] = val;
+        if (s.cacheTimestamps[key] !== undefined) nextTs[key] = s.cacheTimestamps[key];
+        if (s.cacheOwners[key] !== undefined) nextOwners[key] = s.cacheOwners[key];
       }
     }
-    return { matchCache: next };
+    return { matchCache: next, cacheTimestamps: nextTs, cacheOwners: nextOwners };
+  }),
+  clearMatchCacheForPeriod: (key, fromMs, toMs) => set((s) => {
+    const existing = s.matchCache[key] ?? [];
+    const filtered = existing.filter((m) => {
+      const ts = Number(m.timestamp);
+      const t = ts > 1e12 ? ts : ts * 1000;
+      return t < fromMs || t > toMs;
+    });
+    return { matchCache: { ...s.matchCache, [key]: filtered } };
+  }),
+  clearMatchCacheForProfile: (gamertag) => set((s) => {
+    const next: Record<string, Match[]> = {};
+    const nextTs: Record<string, number> = {};
+    const nextOwners: Record<string, string> = {};
+    for (const [key, val] of Object.entries(s.matchCache)) {
+      if ((s.cacheOwners[key] ?? "") !== gamertag) {
+        next[key] = val;
+        if (s.cacheTimestamps[key] !== undefined) nextTs[key] = s.cacheTimestamps[key];
+        if (s.cacheOwners[key] !== undefined) nextOwners[key] = s.cacheOwners[key];
+      }
+    }
+    return { matchCache: next, cacheTimestamps: nextTs, cacheOwners: nextOwners };
   }),
   setDiscordWebhook: (discordWebhook) => set({ discordWebhook }),
   setAutoUpdate: (autoUpdate) => set({ autoUpdate }),
@@ -451,6 +488,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         onboarded: s.onboarded ?? false,
         proxyUrl: s.proxyUrl ?? "",
         matchCache: s.matchCache ?? {},
+        cacheTimestamps: (s.cacheTimestamps as Record<string, number>) ?? {},
+        cacheOwners: (s.cacheOwners as Record<string, string>) ?? {},
         discordWebhook: s.discordWebhook ?? "",
         autoUpdate: s.autoUpdate ?? false,
         matchAnnotations: s.matchAnnotations ?? {},
@@ -467,7 +506,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   persistSettings: async () => {
     const { history, favs, tactics, sessions, compareHistory, eaProfile, eaProfiles, syncHistory,
       theme, darkMode, proxyUrl,
-      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, customBg, customSurface, customCard, language, onboarded, matchCache, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout, sessionTemplates } = get();
+      showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, customBg, customSurface, customCard, language, onboarded, matchCache, cacheTimestamps, cacheOwners, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout, sessionTemplates } = get();
     const payload = {
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -484,6 +523,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       language,
       onboarded,
       matchCache,
+      cacheTimestamps,
+      cacheOwners,
       discordWebhook: discordWebhook.trim() || undefined,
       autoUpdate,
       matchAnnotations,

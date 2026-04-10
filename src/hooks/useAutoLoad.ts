@@ -15,6 +15,10 @@ function oldestTimestamp(matches: { timestamp: string }[]): string | null {
  * Handles two automatic behaviours when an EA profile is linked:
  * 1. Load the linked club at startup (once, right after settings are restored).
  * 2. Silently load every match type in the background so the calendar is fully populated.
+ *
+ * Synchronisation incrémentale : when the cache already has entries, only the
+ * newest page is fetched and new matches are prepended — avoiding a full re-download.
+ * Full backward pagination only happens on the very first load (empty cache).
  */
 export function useAutoLoad() {
   const { settingsLoaded, eaProfile, currentClub, matchCache, setMatchCache, persistSettings } = useAppStore();
@@ -31,53 +35,64 @@ export function useAutoLoad() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoaded, eaProfile?.clubId]);
 
-  // ── 2. Background full-match loader ──────────────────────────────────────
-  // Runs whenever the loaded club changes. Loads all 3 match types page by page
-  // and stores them in matchCache so the calendar and H2H views have full data.
+  // ── 2. Background full-match loader with incremental sync ─────────────────
+  // Runs whenever the loaded club changes.
+  // • Cache empty → full backward pagination (initial load)
+  // • Cache has entries → fetch newest page only, prepend new matches (incremental)
   useEffect(() => {
     if (!currentClub || !eaProfile?.clubId) return;
 
     let cancelled = false;
     const club = currentClub;
 
-    async function loadTypeAll(matchType: typeof MATCH_TYPES[number]) {
+    async function loadTypeIncremental(matchType: typeof MATCH_TYPES[number]) {
       const key = `${club.id}_${club.platform}_${matchType}`;
       const cached = matchCache[key] ?? [];
-
       let accumulated = [...cached];
+      const existingIds = new Set(accumulated.map((m) => m.matchId));
 
-      // First page (only if nothing cached yet)
-      if (accumulated.length === 0) {
-        if (!navigator.onLine) return; // Offline: keep existing cache
-        try {
-          const data = await getMatches(club.id, club.platform, matchType);
-          if (cancelled) return;
-          accumulated = data;
-          setMatchCache(key, accumulated);
-          if (data.length < 10) return; // No more pages
-        } catch {
-          return;
-        }
-        await sleep(600);
+      if (!navigator.onLine) return;
+
+      // ── Always fetch the newest page first ──────────────────────────────
+      // This provides incremental sync when cache already has data, and
+      // starts the initial load when cache is empty.
+      let firstPage: typeof accumulated;
+      try {
+        firstPage = await getMatches(club.id, club.platform, matchType);
+        if (cancelled) return;
+      } catch {
+        return;
       }
 
-      // Paginate until exhausted or CACHE_LIMIT reached
-      let cursor = oldestTimestamp(accumulated);
-      while (cursor && !cancelled && accumulated.length < CACHE_LIMIT) {
-        if (!navigator.onLine) break; // Offline: keep what we have
-        try {
-          const data = await getMatches(club.id, club.platform, matchType, cursor);
-          if (cancelled) return;
-          const existingIds = new Set(accumulated.map((m) => m.matchId));
-          const fresh = data.filter((m) => !existingIds.has(m.matchId));
-          if (fresh.length === 0) break;
-          accumulated = [...accumulated, ...fresh].slice(0, CACHE_LIMIT);
-          setMatchCache(key, accumulated);
-          if (data.length < 10 || accumulated.length >= CACHE_LIMIT) break;
-          cursor = oldestTimestamp(data);
-          await sleep(800);
-        } catch {
-          break;
+      const freshFromFirst = firstPage.filter((m) => !existingIds.has(m.matchId));
+
+      if (freshFromFirst.length > 0) {
+        // New matches found — prepend to existing cache (newest at front)
+        accumulated = [...freshFromFirst, ...accumulated].slice(0, CACHE_LIMIT);
+        setMatchCache(key, accumulated);
+        freshFromFirst.forEach((m) => existingIds.add(m.matchId));
+      }
+
+      // ── If cache was empty, paginate backwards to load full history ──────
+      if (cached.length === 0 && firstPage.length >= 10) {
+        await sleep(600);
+        let cursor = oldestTimestamp(firstPage);
+        while (cursor && !cancelled && accumulated.length < CACHE_LIMIT) {
+          if (!navigator.onLine) break;
+          try {
+            const page = await getMatches(club.id, club.platform, matchType, cursor);
+            if (cancelled) return;
+            const fresh = page.filter((m) => !existingIds.has(m.matchId));
+            if (fresh.length === 0) break;
+            accumulated = [...accumulated, ...fresh].slice(0, CACHE_LIMIT);
+            setMatchCache(key, accumulated);
+            fresh.forEach((m) => existingIds.add(m.matchId));
+            if (page.length < 10 || accumulated.length >= CACHE_LIMIT) break;
+            cursor = oldestTimestamp(page);
+            await sleep(800);
+          } catch {
+            break;
+          }
         }
       }
     }
@@ -85,7 +100,7 @@ export function useAutoLoad() {
     async function run() {
       for (const matchType of MATCH_TYPES) {
         if (cancelled) break;
-        await loadTypeAll(matchType);
+        await loadTypeIncremental(matchType);
         // Persist after each type so partial progress survives app close
         if (!cancelled) await persistSettings();
         await sleep(500);

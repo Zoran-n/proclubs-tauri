@@ -119,6 +119,9 @@ pub struct Settings {
     #[serde(default = "default_font_size")] pub font_size: String,
     #[serde(default = "default_font_family")] pub font_family: String,
     #[serde(default)] pub custom_accent: Option<String>,
+    #[serde(default)] pub custom_bg: Option<String>,
+    #[serde(default)] pub custom_surface: Option<String>,
+    #[serde(default)] pub custom_card: Option<String>,
     #[serde(default = "default_language")] pub language: String,
     #[serde(default)] pub onboarded: bool,
     #[serde(default)] pub match_cache: HashMap<String, Vec<Match>>,
@@ -127,6 +130,9 @@ pub struct Settings {
     #[serde(default)] pub match_annotations: HashMap<String, String>,
     #[serde(default)] pub visible_kpis: Vec<String>,
     #[serde(default)] pub session_templates: Vec<serde_json::Value>,
+    #[serde(default)] pub nav_layout: Option<String>,
+    #[serde(default)] pub cache_timestamps: HashMap<String, u64>,
+    #[serde(default)] pub cache_owners: HashMap<String, String>,
 }
 
 fn default_theme() -> String { "cyan".to_string() }
@@ -146,6 +152,7 @@ impl Default for Settings {
             show_id_search: false, font_size: "medium".to_string(),
             font_family: "barlow".to_string(),
             custom_accent: None,
+            custom_bg: None, custom_surface: None, custom_card: None,
             language: "fr".to_string(),
             onboarded: false,
             match_cache: HashMap::new(),
@@ -154,6 +161,9 @@ impl Default for Settings {
             match_annotations: HashMap::new(),
             visible_kpis: vec![],
             session_templates: vec![],
+            nav_layout: None,
+            cache_timestamps: HashMap::new(),
+            cache_owners: HashMap::new(),
         }
     }
 }

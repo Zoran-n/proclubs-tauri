@@ -187,6 +187,8 @@ export interface Settings {
   language?: string;
   onboarded?: boolean;
   matchCache?: Record<string, Match[]>;
+  cacheTimestamps?: Record<string, number>;
+  cacheOwners?: Record<string, string>;
   discordWebhook?: string;
   autoUpdate?: boolean;
   matchAnnotations?: Record<string, string>;

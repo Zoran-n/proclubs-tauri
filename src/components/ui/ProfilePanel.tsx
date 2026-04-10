@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { Link, User, Unlink, Send, Database, Plus, ChevronRight, Download, Upload, Image, Clock } from "lucide-react";
+import { Link, User, Unlink, Send, Database, Plus, ChevronRight, Download, Upload, Image, Clock, Trash2, FileDown, FileUp } from "lucide-react";
 import { searchClub, getMembers, saveSettings as apiSave } from "../../api/tauri";
 import { sendDiscordWebhook } from "../../api/discord";
 import { useAppStore } from "../../store/useAppStore";
@@ -65,6 +65,8 @@ export function ProfilePanel() {
     discordWebhook, setDiscordWebhook, addToast,
     matchCache, sessions, matches, currentClub,
     loadSettings,
+    cacheTimestamps, cacheOwners,
+    clearMatchCacheKey, clearAllMatchCache, clearMatchCacheForPeriod, clearMatchCacheForProfile,
   } = useAppStore();
   const { load } = useClub();
 
@@ -77,7 +79,11 @@ export function ProfilePanel() {
   const [webhookDraft, setWebhookDraft] = useState(discordWebhook);
   const [testing, setTesting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showPeriodDelete, setShowPeriodDelete] = useState<string | null>(null);
+  const [periodFrom, setPeriodFrom] = useState("");
+  const [periodTo, setPeriodTo] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
+  const cacheImportRef = useRef<HTMLInputElement>(null);
 
   // ── SR / division from current club (if matches profile) ──────────────────
   const srNum = useMemo(() => {
@@ -185,6 +191,73 @@ export function ProfilePanel() {
       note: "Chargement manuel",
     });
     persistSettings();
+  };
+
+  // ── Cache helpers ─────────────────────────────────────────────────────────
+  function freshness(key: string): string {
+    const ts = cacheTimestamps[key];
+    if (!ts) return "jamais";
+    const diffMin = Math.round((Date.now() - ts) / 60000);
+    if (diffMin < 1) return "à l'instant";
+    if (diffMin < 60) return `il y a ${diffMin} min`;
+    const diffH = Math.round(diffMin / 60);
+    if (diffH < 24) return `il y a ${diffH}h`;
+    return `il y a ${Math.round(diffH / 24)}j`;
+  }
+
+  const exportCacheJson = () => {
+    try {
+      const blob = new Blob([JSON.stringify(matchCache, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `prostats_cache_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      addToast("Cache exporté !", "success");
+    } catch (e) {
+      addToast(`Export cache échoué: ${String(e)}`, "error");
+    }
+  };
+
+  const importCacheJson = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string) as Record<string, unknown>;
+        // Merge into existing settings: load current, merge cache keys, save
+        const s = useAppStore.getState();
+        const merged = { ...s.matchCache };
+        for (const [key, value] of Object.entries(data)) {
+          if (Array.isArray(value)) merged[key] = value as never;
+        }
+        const payload = {
+          history: s.history, favs: s.favs, tactics: s.tactics, sessions: s.sessions,
+          compareHistory: s.compareHistory,
+          eaProfile: s.eaProfile ?? undefined, eaProfiles: s.eaProfiles,
+          syncHistory: s.syncHistory,
+          theme: s.theme, darkMode: s.darkMode,
+          proxyUrl: s.proxyUrl || undefined,
+          showGrid: s.showGrid, showAnimations: s.showAnimations,
+          showLogs: s.showLogs, showIdSearch: s.showIdSearch,
+          fontSize: String(s.fontSize), fontFamily: s.fontFamily,
+          customAccent: s.customAccent || undefined,
+          language: s.language, onboarded: s.onboarded,
+          matchCache: merged,
+          cacheTimestamps: s.cacheTimestamps, cacheOwners: s.cacheOwners,
+          discordWebhook: s.discordWebhook || undefined,
+          autoUpdate: s.autoUpdate,
+          matchAnnotations: s.matchAnnotations,
+          visibleKpis: s.visibleKpis, navLayout: s.navLayout,
+        };
+        await apiSave(payload);
+        await loadSettings();
+        addToast("Cache importé et fusionné !", "success");
+      } catch {
+        addToast("Fichier cache invalide", "error");
+      }
+    };
+    reader.readAsText(file);
   };
 
   // ── Backup / Restore ──────────────────────────────────────────────────────
@@ -638,31 +711,174 @@ export function ProfilePanel() {
         const total = types.reduce((acc, t) => acc + (matchCache[t.key]?.length ?? 0), 0);
         return (
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginBottom: 20 }}>
-            <div style={sectionHeadStyle}>
-              <Database size={11} /> CACHE MATCHS ({total} / 6000)
+            <div style={{ ...sectionHeadStyle, justifyContent: "space-between" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Database size={11} /> GESTION DU CACHE ({total} / 6000)
+              </span>
+              <button onClick={() => { clearAllMatchCache(); persistSettings(); }}
+                title="Vider tout le cache"
+                style={{
+                  padding: "2px 7px", background: "transparent",
+                  border: "1px solid var(--border)", borderRadius: 4,
+                  color: "var(--red)", fontSize: 10, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 3,
+                  fontFamily: "'Bebas Neue', sans-serif",
+                }}>
+                <Trash2 size={9} /> TOUT VIDER
+              </button>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {types.map(({ key, label }) => {
                 const count = matchCache[key]?.length ?? 0;
                 const pct = Math.min(100, Math.round((count / 2000) * 100));
+                const owner = cacheOwners[key];
+                const isPeriodOpen = showPeriodDelete === key;
                 return (
-                  <div key={key}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 }}>
-                      <span style={{ color: "var(--muted)" }}>{label}</span>
-                      <span style={{ color: count > 0 ? "var(--accent)" : "var(--muted)", fontWeight: 600 }}>
-                        {count} / 2000
-                      </span>
+                  <div key={key} style={{ background: "var(--hover)", borderRadius: 6, padding: "10px 12px",
+                    border: "1px solid var(--border)" }}>
+                    {/* Row header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 }}>
+                          <span style={{ color: "var(--text)", fontWeight: 600 }}>{label}</span>
+                          <span style={{ color: count > 0 ? "var(--accent)" : "var(--muted)", fontWeight: 600 }}>
+                            {count} / 2000
+                          </span>
+                        </div>
+                        <div style={{ height: 3, background: "var(--surface)", borderRadius: 2, overflow: "hidden", marginBottom: 5 }}>
+                          <div style={{
+                            height: "100%", width: `${pct}%`,
+                            background: pct >= 100 ? "var(--green)" : "var(--accent)",
+                            borderRadius: 2, transition: "width 0.3s ease",
+                          }} />
+                        </div>
+                        {/* Freshness + owner */}
+                        <div style={{ display: "flex", gap: 10, fontSize: 10, color: "var(--muted)" }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                            <Clock size={9} /> {freshness(key)}
+                          </span>
+                          {owner && (
+                            <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                              <User size={9} /> {owner}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Action buttons */}
+                      <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                        <button onClick={() => setShowPeriodDelete(isPeriodOpen ? null : key)}
+                          title="Supprimer par période"
+                          style={{
+                            padding: "4px 7px", background: "transparent",
+                            border: "1px solid var(--border)", borderRadius: 4,
+                            color: "var(--muted)", fontSize: 10, cursor: "pointer",
+                          }}>
+                          📅
+                        </button>
+                        <button onClick={() => { clearMatchCacheKey(key); persistSettings(); }}
+                          title="Supprimer ce cache"
+                          disabled={count === 0}
+                          style={{
+                            padding: "4px 7px", background: "transparent",
+                            border: "1px solid var(--border)", borderRadius: 4,
+                            color: count > 0 ? "var(--red)" : "var(--muted)",
+                            fontSize: 10, cursor: count > 0 ? "pointer" : "default",
+                            opacity: count > 0 ? 1 : 0.4,
+                            display: "flex", alignItems: "center",
+                          }}>
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ height: 4, background: "var(--hover)", borderRadius: 2, overflow: "hidden" }}>
-                      <div style={{
-                        height: "100%", width: `${pct}%`,
-                        background: pct >= 100 ? "var(--green)" : "var(--accent)",
-                        borderRadius: 2, transition: "width 0.3s ease",
-                      }} />
-                    </div>
+
+                    {/* Period delete panel */}
+                    {isPeriodOpen && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+                        <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 6 }}>
+                          Supprimer les matchs hors de cette période :
+                        </div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                          <input type="date" value={periodFrom} onChange={(e) => setPeriodFrom(e.target.value)}
+                            style={{ ...inputStyle, width: "auto", flex: 1, minWidth: 110, fontSize: 11 }} />
+                          <span style={{ color: "var(--muted)", fontSize: 11 }}>→</span>
+                          <input type="date" value={periodTo} onChange={(e) => setPeriodTo(e.target.value)}
+                            style={{ ...inputStyle, width: "auto", flex: 1, minWidth: 110, fontSize: 11 }} />
+                          <button
+                            disabled={!periodFrom || !periodTo}
+                            onClick={() => {
+                              if (!periodFrom || !periodTo) return;
+                              clearMatchCacheForPeriod(
+                                key,
+                                new Date(periodFrom).getTime(),
+                                new Date(periodTo + "T23:59:59").getTime(),
+                              );
+                              persistSettings();
+                              setShowPeriodDelete(null);
+                              setPeriodFrom(""); setPeriodTo("");
+                              addToast("Matchs hors période supprimés", "success");
+                            }}
+                            style={{
+                              padding: "5px 10px", background: "var(--red)", color: "#fff",
+                              border: "none", borderRadius: 4, fontSize: 11, cursor: "pointer",
+                              opacity: periodFrom && periodTo ? 1 : 0.4,
+                              fontFamily: "'Bebas Neue', sans-serif",
+                            }}>
+                            APPLIQUER
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
+            </div>
+
+            {/* Delete by profile */}
+            {eaProfiles.length > 1 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 6 }}>
+                  Supprimer le cache d'un profil spécifique :
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {eaProfiles.map((p) => (
+                    <button key={p.gamertag}
+                      onClick={() => { clearMatchCacheForProfile(p.gamertag); persistSettings(); addToast(`Cache de ${p.gamertag} supprimé`, "success"); }}
+                      style={{
+                        padding: "4px 8px", background: "transparent",
+                        border: "1px solid var(--border)", borderRadius: 4,
+                        color: "var(--muted)", fontSize: 10, cursor: "pointer",
+                        display: "flex", alignItems: "center", gap: 4,
+                      }}>
+                      <Trash2 size={9} /> {p.gamertag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Export / Import cache */}
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button onClick={exportCacheJson} style={{
+                flex: 1, padding: "7px", background: "var(--surface)",
+                border: "1px solid var(--border)", borderRadius: 6,
+                color: "var(--text)", fontSize: 11, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                fontFamily: "'Bebas Neue', sans-serif",
+              }}>
+                <FileDown size={11} /> EXPORTER CACHE
+              </button>
+              <button onClick={() => cacheImportRef.current?.click()} style={{
+                flex: 1, padding: "7px", background: "var(--surface)",
+                border: "1px solid var(--border)", borderRadius: 6,
+                color: "var(--text)", fontSize: 11, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                fontFamily: "'Bebas Neue', sans-serif",
+              }}>
+                <FileUp size={11} /> IMPORTER CACHE
+              </button>
+              <input ref={cacheImportRef} type="file" accept=".json" style={{ display: "none" }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) importCacheJson(f); e.target.value = ""; }} />
             </div>
           </div>
         );
