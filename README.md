@@ -198,7 +198,16 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 
 ### Cache matchs
 - **Capacité 2000 matchs par type** (Championnat / Playoff / Amical) — soit jusqu'à 6000 matchs stockés pour le club lié
-- Indicateur de progression dans **Mon Profil** : barre par type avec compteur X / 2000
+- **Section « Gestion du cache »** dans Mon Profil : barre de progression par type avec compteur X / 2000
+- **Indicateur de fraîcheur** : « il y a X min / X h / X j » affiché sous chaque type de cache — horodatage persisté
+- **Propriété par profil** : chaque entrée de cache affiche le gamertag du profil qui l'a peuplée (`cacheOwners`)
+- **Suppression manuelle** : bouton Corbeille par type pour vider une entrée de cache individuelle, bouton « TOUT VIDER » global
+- **Suppression par période** : panneau inline avec sélecteur de dates (Du / Au) pour ne garder que les matchs d'une plage précise
+- **Suppression par profil** : boutons par gamertag pour supprimer toutes les entrées appartenant à un profil spécifique (multi-profils)
+- **Export cache JSON** : export séparé du `matchCache` uniquement (distinct du backup complet)
+- **Import cache JSON** : fusion d'un fichier cache exporté dans le cache existant
+- **Synchronisation incrémentale** : au démarrage, seule la première page (10 matchs les plus récents) est rechargée — la pagination complète n'a lieu qu'au tout premier chargement (cache vide) — évite de re-télécharger l'historique complet à chaque ouverture
+- **Compression gzip** : le fichier `settings.json` est compressé via flate2 (Rust) à chaque sauvegarde — rétrocompatible avec les anciennes sauvegardes JSON non compressées
 - Le chargement en arrière-plan s'arrête proprement à la limite — aucun téléchargement inutile
 
 ### Proxy & réseau
@@ -269,14 +278,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Mode streaming** : profil interface dédié masquant les infos sensibles (ID, webhook, gamertag)
 - **Notifications planifiées** : rappel configurable ("Lance une session ce soir à 21h")
 - **Profils d'interface** : plusieurs configs de layout/thème switchables en un clic (ex : PC, Tablette, Projecteur)
-
-### Cache & mode hors-ligne
-- **Gestion manuelle du cache** : supprimer les matchs d'un type ou d'une période depuis l'interface
-- **Export / import du cache** : sauvegarder et restaurer le cache complet (backup JSON)
-- **Indicateur de fraîcheur** : afficher "dernière MAJ il y a X min" sur les données chargées
-- **Synchronisation incrémentale** : ne recharger que les matchs nouveaux depuis la dernière synchro
-- **Compression du cache** : réduire l'espace disque via compression gzip côté Rust
-- **Cache par profil** : isoler les caches si plusieurs profils EA sont liés
 
 ### Technique
 - **Tests unitaires** : couverture des fonctions de calcul de stats (score composite, résultats, agrégats)
