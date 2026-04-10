@@ -86,9 +86,10 @@ export function useAutoLoad() {
       for (const matchType of MATCH_TYPES) {
         if (cancelled) break;
         await loadTypeAll(matchType);
+        // Persist after each type so partial progress survives app close
+        if (!cancelled) await persistSettings();
         await sleep(500);
       }
-      if (!cancelled) persistSettings();
     }
 
     run();
