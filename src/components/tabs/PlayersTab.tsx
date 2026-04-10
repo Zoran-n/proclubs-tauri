@@ -1,12 +1,13 @@
 import { useState, useMemo, useCallback } from "react";
 import { List, useListRef } from "react-window";
-import { Search, Download, ChevronUp, ChevronDown, Users, Filter, AlertTriangle, LayoutGrid, Trophy } from "lucide-react";
+import { Search, Download, ChevronUp, ChevronDown, Users, Filter, AlertTriangle, LayoutGrid, Trophy, Globe } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { ExportModal } from "../ui/ExportModal";
 import { useT } from "../../i18n";
-import type { Player } from "../../types";
+import type { Player, Match } from "../../types";
 import { PlayerModal, POS_LABELS, PlayerAvatar, ratingColor } from "../modals/PlayerModal";
 import { CompareModal } from "../modals/CompareModal";
+import { CrossClubsModal } from "../modals/CrossClubsModal";
 import { useDebounce } from "../../hooks/useDebounce";
 
 type SortKey = keyof Player | "score";
@@ -60,7 +61,7 @@ const BTN: React.CSSProperties = {
 
 const COMPARE_COLORS = ["var(--accent)", "#8b5cf6", "#ff6b35", "#57f287"];
 
-// ─── Row props passed via rowProps ────────────────────────────────────────────
+// ─── Row props ────────────────────────────────────────────────────────────────
 interface PlayerRowProps {
   sorted: Player[];
   compactMode: boolean;
@@ -71,13 +72,15 @@ interface PlayerRowProps {
   sparklineFor: (name: string) => number[];
   isUnderperforming: (name: string) => boolean;
   handleCardClick: (p: Player) => void;
+  presenceFor: (name: string) => number;
+  showPresence: boolean;
 }
 
-// ─── Row component (react-window v2 API) ─────────────────────────────────────
+// ─── Row component ────────────────────────────────────────────────────────────
 function PlayerRow({
   index, style, ariaAttributes,
   sorted, compactMode, compareMode, compareSelected, sortKey, t,
-  sparklineFor, isUnderperforming, handleCardClick,
+  sparklineFor, isUnderperforming, handleCardClick, presenceFor, showPresence,
 }: {
   index: number;
   style: React.CSSProperties;
@@ -92,6 +95,7 @@ function PlayerRow({
   const sparkline = sparklineFor(p.name);
   const alert     = isUnderperforming(p.name);
   const score     = compositeScore(p);
+  const presence  = presenceFor(p.name);
 
   return (
     <div style={{ ...style, paddingLeft: 16, paddingRight: 16, paddingTop: 3, paddingBottom: 3,
@@ -123,14 +127,20 @@ function PlayerRow({
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
             {alert && <span title="Note moyenne récente < 6.5"><AlertTriangle size={11} style={{ color: "var(--red)", flexShrink: 0 }} /></span>}
           </div>
-          <span style={{ display: "inline-block", marginTop: 3, padding: "1px 6px", borderRadius: 3,
-            background: "var(--bg)", border: "1px solid var(--border)",
-            fontSize: 9, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif",
-            letterSpacing: "0.04em" }}>{posLabel}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
+            <span style={{ padding: "1px 6px", borderRadius: 3, background: "var(--bg)",
+              border: "1px solid var(--border)", fontSize: 9, color: "var(--muted)",
+              fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}>{posLabel}</span>
+            {showPresence && presence > 0 && (
+              <span style={{ fontSize: 9, color: presence >= 70 ? "var(--green)" : presence >= 40 ? "#eab308" : "var(--muted)" }}>
+                {presence}% présence
+              </span>
+            )}
+          </div>
         </div>
 
         {sparkline.length >= 2 && (
-          <div style={{ flexShrink: 0 }} title={`Dernières notes: ${sparkline.map((v) => v.toFixed(1)).join(", ")}`}>
+          <div style={{ flexShrink: 0 }} title={`Dernières notes: ${sparkline.map(v => v.toFixed(1)).join(", ")}`}>
             <MiniSparkline values={sparkline} />
           </div>
         )}
@@ -160,7 +170,7 @@ function PlayerRow({
   );
 }
 
-// ─── Heatmap de présence ─────────────────────────────────────────────────────
+// ─── Heatmap de présence ──────────────────────────────────────────────────────
 
 function HeatmapView({ players, matchCache, currentClub }: {
   players: Player[];
@@ -168,13 +178,16 @@ function HeatmapView({ players, matchCache, currentClub }: {
   currentClub: { id: string; platform: string };
 }) {
   const key = `${currentClub.id}_${currentClub.platform}_leagueMatch`;
-  const allMatches = (matchCache[key] ?? []) as { timestamp: string; clubs: Record<string, unknown>; players: Record<string, Record<string, { name?: string; playername?: string; playerName?: string }>> }[];
+  const allMatches = (matchCache[key] ?? []) as {
+    timestamp: string;
+    clubs: Record<string, unknown>;
+    players: Record<string, Record<string, { name?: string; playername?: string; playerName?: string }>>;
+  }[];
 
-  // Sort matches newest → oldest, keep last 20
   const recent = [...allMatches]
     .sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
     .slice(0, 20)
-    .reverse(); // oldest → newest for display left→right
+    .reverse();
 
   if (recent.length === 0) return (
     <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
@@ -182,7 +195,6 @@ function HeatmapView({ players, matchCache, currentClub }: {
     </div>
   );
 
-  // Build set of player names per match
   const matchPlayerSets: Set<string>[] = recent.map((m) => {
     const clubPlayers = m.players[currentClub.id] ?? {};
     const names = new Set<string>();
@@ -193,7 +205,6 @@ function HeatmapView({ players, matchCache, currentClub }: {
     return names;
   });
 
-  // Match results for column header color
   const matchResults = recent.map((m) => {
     const c = m.clubs[currentClub.id] as Record<string, string> | undefined;
     if (!c) return "D";
@@ -202,16 +213,13 @@ function HeatmapView({ players, matchCache, currentClub }: {
     return "D";
   });
 
-  // Sort players by games played desc
   const sorted = [...players].sort((a, b) => b.gamesPlayed - a.gamesPlayed);
-
   const CELL = 16;
   const resultColor = (r: string) => r === "W" ? "var(--green)" : r === "L" ? "var(--red)" : "#eab308";
 
   return (
     <div style={{ flex: 1, overflow: "auto", padding: "12px 16px" }}>
       <div style={{ display: "inline-block", minWidth: "100%" }}>
-        {/* Header row — match columns */}
         <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 4, paddingLeft: 148 }}>
           {recent.map((m, i) => (
             <div key={m.timestamp} style={{ width: CELL + 4, flexShrink: 0, textAlign: "center" }}>
@@ -219,66 +227,53 @@ function HeatmapView({ players, matchCache, currentClub }: {
                 background: resultColor(matchResults[i]) }} title={matchResults[i]} />
             </div>
           ))}
-          <div style={{ fontSize: 9, color: "var(--muted)", paddingLeft: 6 }}>
-            {recent.length} matchs
-          </div>
+          <div style={{ fontSize: 9, color: "var(--muted)", paddingLeft: 6 }}>{recent.length} matchs</div>
         </div>
-        {/* Player rows */}
         {sorted.map((player) => {
           const nameLower = player.name.toLowerCase();
           const presenceCount = matchPlayerSets.filter((s) => s.has(nameLower)).length;
           const pct = recent.length > 0 ? Math.round((presenceCount / recent.length) * 100) : 0;
           return (
             <div key={player.name} style={{ display: "flex", alignItems: "center", marginBottom: 3 }}>
-              {/* Player label */}
               <div style={{ width: 120, fontSize: 11, color: "var(--text)", overflow: "hidden",
                 textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0, paddingRight: 8 }}
-                title={player.name}>
-                {player.name}
-              </div>
-              {/* Presence pct */}
+                title={player.name}>{player.name}</div>
               <div style={{ width: 28, fontSize: 9, color: pct >= 70 ? "var(--green)" : pct >= 40 ? "#eab308" : "var(--muted)",
-                textAlign: "right", paddingRight: 8, flexShrink: 0 }}>
-                {pct}%
-              </div>
-              {/* Cells */}
+                textAlign: "right", paddingRight: 8, flexShrink: 0 }}>{pct}%</div>
               {matchPlayerSets.map((s, i) => {
                 const played = s.has(nameLower);
                 return (
                   <div key={i} style={{
                     width: CELL, height: CELL, borderRadius: 2, margin: "0 2px", flexShrink: 0,
                     background: played ? resultColor(matchResults[i]) : "var(--border)",
-                    opacity: played ? 0.85 : 0.3,
-                    transition: "opacity 0.1s",
+                    opacity: played ? 0.85 : 0.3, transition: "opacity 0.1s",
                   }} title={played ? `Présent — ${matchResults[i]}` : "Absent"} />
                 );
               })}
             </div>
           );
         })}
-        {/* Legend */}
         <div style={{ display: "flex", gap: 12, marginTop: 12, fontSize: 9, color: "var(--muted)", paddingLeft: 148 }}>
-          {[{ color: "var(--green)", label: "Victoire" }, { color: "#eab308", label: "Nul" }, { color: "var(--red)", label: "Défaite" }, { color: "var(--border)", label: "Absent" }].map(({ color, label }) => (
-            <span key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: "inline-block" }} />
-              {label}
-            </span>
-          ))}
+          {[{ color: "var(--green)", label: "Victoire" }, { color: "#eab308", label: "Nul" }, { color: "var(--red)", label: "Défaite" }, { color: "var(--border)", label: "Absent" }]
+            .map(({ color, label }) => (
+              <span key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: "inline-block" }} />
+                {label}
+              </span>
+            ))}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Classement interne (Podium) ─────────────────────────────────────────────
+// ─── Podium ───────────────────────────────────────────────────────────────────
 
 const MEDAL = ["#f59e0b", "#94a3b8", "#cd7c3b"];
 const MEDAL_LABEL = ["🥇", "🥈", "🥉"];
 
 function PodiumCategory({ title, entries, valueLabel }: {
-  title: string;
-  entries: { name: string; value: number }[];
-  valueLabel: string;
+  title: string; entries: { name: string; value: number }[]; valueLabel: string;
 }) {
   const top3 = entries.slice(0, 3);
   return (
@@ -287,8 +282,7 @@ function PodiumCategory({ title, entries, valueLabel }: {
         fontFamily: "'Bebas Neue', sans-serif", marginBottom: 10 }}>{title}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {top3.map((e, i) => (
-          <div key={e.name} style={{ display: "flex", alignItems: "center", gap: 8,
-            padding: "7px 10px", borderRadius: 6,
+          <div key={e.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 6,
             background: i === 0 ? "rgba(245,158,11,0.08)" : "var(--bg)",
             border: `1px solid ${i === 0 ? "rgba(245,158,11,0.25)" : "var(--border)"}` }}>
             <span style={{ fontSize: 14, flexShrink: 0 }}>{MEDAL_LABEL[i]}</span>
@@ -312,35 +306,30 @@ function PodiumCategory({ title, entries, valueLabel }: {
 
 function PodiumView({ players }: { players: Player[] }) {
   const sorted = (key: keyof Player) =>
-    [...players]
-      .filter((p) => Number(p[key]) > 0)
-      .sort((a, b) => Number(b[key]) - Number(a[key]))
+    [...players].filter((p) => Number(p[key]) > 0).sort((a, b) => Number(b[key]) - Number(a[key]))
       .map((p) => ({ name: p.name, value: Number(p[key]) }));
-
-  const ratingEntries = [...players]
-    .filter((p) => p.gamesPlayed >= 3 && p.rating > 0)
-    .sort((a, b) => b.rating - a.rating)
-    .map((p) => ({ name: p.name, value: Number(p.rating.toFixed(2)) }));
-
+  const ratingEntries = [...players].filter((p) => p.gamesPlayed >= 3 && p.rating > 0)
+    .sort((a, b) => b.rating - a.rating).map((p) => ({ name: p.name, value: Number(p.rating.toFixed(2)) }));
   return (
     <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
-        <PodiumCategory title="⚽ BUTEURS" entries={sorted("goals")} valueLabel="BUTS" />
-        <PodiumCategory title="🎯 PASSEURS" entries={sorted("assists")} valueLabel="PD" />
+        <PodiumCategory title="⚽ BUTEURS"    entries={sorted("goals")}       valueLabel="BUTS" />
+        <PodiumCategory title="🎯 PASSEURS"   entries={sorted("assists")}     valueLabel="PD" />
         <PodiumCategory title="🛡️ DÉFENSEURS" entries={sorted("tacklesMade")} valueLabel="TACLES" />
-        <PodiumCategory title="⭐ MOTM" entries={sorted("motm")} valueLabel="MOTM" />
-        <PodiumCategory title="📊 MOYENNE" entries={ratingEntries} valueLabel="NOTE" />
-        <PodiumCategory title="🎮 PRÉSENCE" entries={sorted("gamesPlayed")} valueLabel="MATCHS" />
+        <PodiumCategory title="⭐ MOTM"        entries={sorted("motm")}        valueLabel="MOTM" />
+        <PodiumCategory title="📊 MOYENNE"    entries={ratingEntries}         valueLabel="NOTE" />
+        <PodiumCategory title="🎮 PRÉSENCE"   entries={sorted("gamesPlayed")} valueLabel="MATCHS" />
       </div>
     </div>
   );
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export function PlayersTab() {
   const t = useT();
-  const players    = useAppStore((s) => s.players);
-  const matchCache = useAppStore((s) => s.matchCache);
+  const players     = useAppStore((s) => s.players);
+  const matchCache  = useAppStore((s) => s.matchCache);
   const currentClub = useAppStore((s) => s.currentClub);
   const compactMode = useAppStore((s) => s.compactMode);
 
@@ -352,15 +341,19 @@ export function PlayersTab() {
   const [filter, setFilter]       = useState("");
   const debouncedFilter           = useDebounce(filter, 200);
   const [filterPos, setFilterPos] = useState<string>("all");
-  const [filterMinRating, setFilterMinRating] = useState<number>(0);
-  const [filterMinGames, setFilterMinGames]   = useState<number>(0);
+  const [filterMinRating, setFilterMinRating]   = useState<number>(0);
+  const [filterMinGames, setFilterMinGames]     = useState<number>(0);
   const [filterAlertsOnly, setFilterAlertsOnly] = useState(false);
+  const [filterMinPresence, setFilterMinPresence] = useState<number>(0);
+  const [fromDate, setFromDate]   = useState("");
+  const [toDate, setToDate]       = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
   const [compareMode, setCompareMode] = useState(false);
   const [compareSelected, setCompareSelected] = useState<Player[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "heatmap" | "podium">("list");
+  const [showCrossClubs, setShowCrossClubs] = useState(false);
+  const [viewMode, setViewMode]   = useState<"list" | "heatmap" | "podium">("list");
 
   const ITEM_HEIGHT = compactMode ? 50 : 80;
 
@@ -380,6 +373,7 @@ export function PlayersTab() {
     return Array.from(set).sort();
   }, [players]);
 
+  // ── Recent ratings per player (sparkline + underperf detection) ────────────
   const playerRecentRatings = useMemo(() => {
     if (!currentClub) return new Map<string, number[]>();
     const key = `${currentClub.id}_${currentClub.platform}_leagueMatch`;
@@ -402,6 +396,83 @@ export function PlayersTab() {
     return map;
   }, [matchCache, currentClub?.id]);
 
+  // ── Presence map (last 20 league matches) ─────────────────────────────────
+  const playerPresenceMap = useMemo(() => {
+    if (!currentClub) return new Map<string, number>();
+    const key = `${currentClub.id}_${currentClub.platform}_leagueMatch`;
+    const cached = (matchCache[key] ?? []) as Match[];
+    const recent = [...cached]
+      .sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
+      .slice(0, 20);
+    if (recent.length === 0) return new Map<string, number>();
+    const countMap = new Map<string, number>();
+    for (const m of recent) {
+      const clubPlayers = m.players[currentClub.id] as Record<string, Record<string, unknown>> | undefined;
+      if (!clubPlayers) continue;
+      for (const p of Object.values(clubPlayers)) {
+        const name = String(p["name"] ?? p["playername"] ?? p["playerName"] ?? "");
+        if (!name) continue;
+        countMap.set(name, (countMap.get(name) ?? 0) + 1);
+      }
+    }
+    const pctMap = new Map<string, number>();
+    countMap.forEach((count, name) => pctMap.set(name, Math.round((count / recent.length) * 100)));
+    return pctMap;
+  }, [matchCache, currentClub?.id]);
+
+  // ── Players computed from match cache for date-range filter ───────────────
+  const periodFilteredPlayers = useMemo((): Player[] | null => {
+    if (!fromDate && !toDate) return null;
+    if (!currentClub) return null;
+    const allMatches: Match[] = [];
+    for (const type of ["leagueMatch", "playoffMatch", "friendlyMatch"]) {
+      const key = `${currentClub.id}_${currentClub.platform}_${type}`;
+      allMatches.push(...(matchCache[key] ?? []));
+    }
+    const from = fromDate ? new Date(fromDate).getTime() : 0;
+    const to   = toDate   ? new Date(toDate).getTime() + 86_400_000 : Infinity;
+    const filtered = allMatches.filter((m) => {
+      const ts = Number(m.timestamp);
+      const t  = ts > 1e12 ? ts : ts * 1000;
+      return t >= from && t <= to;
+    });
+    if (filtered.length === 0) return [];
+    const playerMap = new Map<string, Player & { _ratingSum: number; _ratingCount: number }>();
+    for (const m of filtered) {
+      const clubPlayers = m.players[currentClub.id] as Record<string, Record<string, unknown>> | undefined;
+      if (!clubPlayers) continue;
+      for (const p of Object.values(clubPlayers)) {
+        const name = String(p["name"] ?? p["playername"] ?? p["playerName"] ?? "");
+        if (!name) continue;
+        if (!playerMap.has(name)) {
+          playerMap.set(name, {
+            name,
+            position: String(p["position"] ?? ""),
+            goals: 0, assists: 0, passesMade: 0, tacklesMade: 0,
+            motm: 0, rating: 0, gamesPlayed: 0,
+            _ratingSum: 0, _ratingCount: 0,
+          });
+        }
+        const pl = playerMap.get(name)!;
+        pl.goals       += Number(p["goals"] ?? 0);
+        pl.assists     += Number(p["assists"] ?? 0);
+        pl.passesMade  += Number(p["passesMade"] ?? p["passesmade"] ?? 0);
+        pl.tacklesMade += Number(p["tacklesMade"] ?? p["tacklesmade"] ?? 0);
+        if (p["mom"] === "1" || p["manofthematch"] === "1") pl.motm += 1;
+        const r = Number(p["rating"] ?? p["ratingAve"] ?? 0);
+        if (r > 0) { pl._ratingSum += r; pl._ratingCount += 1; }
+        pl.gamesPlayed += 1;
+      }
+    }
+    return Array.from(playerMap.values()).map((pl) => ({
+      ...pl,
+      rating: pl._ratingCount > 0 ? Math.round((pl._ratingSum / pl._ratingCount) * 10) / 10 : 0,
+    }));
+  }, [matchCache, currentClub?.id, fromDate, toDate]);
+
+  const activePlayers = periodFilteredPlayers ?? players;
+  const isPeriodActive = !!(fromDate || toDate);
+
   const sparklineFor = useCallback((name: string): number[] =>
     [...(playerRecentRatings.get(name) ?? [])].reverse(),
   [playerRecentRatings]);
@@ -413,13 +484,18 @@ export function PlayersTab() {
     return avg < 6.5;
   }, [playerRecentRatings]);
 
-  const sorted = useMemo(() => [...players]
+  const presenceFor = useCallback((name: string): number =>
+    playerPresenceMap.get(name) ?? 0,
+  [playerPresenceMap]);
+
+  const sorted = useMemo(() => [...activePlayers]
     .filter((p) => {
       if (!p.name.toLowerCase().includes(debouncedFilter.toLowerCase())) return false;
       if (filterPos !== "all" && (POS_LABELS[p.position] || p.position || "—") !== filterPos) return false;
       if (filterMinRating > 0 && p.rating < filterMinRating) return false;
       if (filterMinGames > 0 && p.gamesPlayed < filterMinGames) return false;
       if (filterAlertsOnly && !isUnderperforming(p.name)) return false;
+      if (filterMinPresence > 0 && presenceFor(p.name) < filterMinPresence) return false;
       return true;
     })
     .sort((a, b) => {
@@ -431,7 +507,8 @@ export function PlayersTab() {
       if (typeof av === "number" && typeof bv === "number") return sortDir === "desc" ? bv - av : av - bv;
       return sortDir === "desc" ? String(bv).localeCompare(String(av)) : String(av).localeCompare(String(bv));
     }),
-  [players, sortKey, sortDir, debouncedFilter, filterPos, filterMinRating, filterMinGames, filterAlertsOnly, playerRecentRatings]);
+  [activePlayers, sortKey, sortDir, debouncedFilter, filterPos, filterMinRating, filterMinGames,
+   filterAlertsOnly, filterMinPresence, isUnderperforming, presenceFor]);
 
   const csvHeaders = [t("players.playerCount"), t("players.pos"), t("players.gp"), t("players.goals"), t("players.assistsShort"), t("players.passes"), t("players.tackles"), t("session.motm"), t("players.rating"), "Score"];
   const csvRows    = sorted.map((p) => [
@@ -453,11 +530,14 @@ export function PlayersTab() {
     }
   }, [compareMode]);
 
+  const hasFilters = filterPos !== "all" || filterMinRating > 0 || filterMinGames > 0 || filterAlertsOnly || filterMinPresence > 0 || isPeriodActive;
+
   const rowProps: PlayerRowProps = useMemo(() => ({
     sorted, compactMode, compareMode, compareSelected, sortKey, t,
-    sparklineFor, isUnderperforming, handleCardClick,
+    sparklineFor, isUnderperforming, handleCardClick, presenceFor,
+    showPresence: filterMinPresence > 0,
   }), [sorted, compactMode, compareMode, compareSelected, sortKey, t,
-      sparklineFor, isUnderperforming, handleCardClick]);
+      sparklineFor, isUnderperforming, handleCardClick, presenceFor, filterMinPresence]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -479,6 +559,9 @@ export function PlayersTab() {
 
         <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>
           {sorted.length} {t("players.playerCount")}
+          {isPeriodActive && (
+            <span style={{ marginLeft: 4, color: "var(--accent)", fontWeight: 700 }}>· Période</span>
+          )}
         </span>
 
         <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
@@ -492,9 +575,14 @@ export function PlayersTab() {
         </button>
 
         <button onClick={() => setShowFilters((v) => !v)}
-          style={{ ...BTN, color: showFilters || filterPos !== "all" || filterMinRating > 0 || filterMinGames > 0 || filterAlertsOnly ? "var(--accent)" : "var(--muted)",
-            borderColor: showFilters ? "var(--accent)" : "var(--border)" }}>
+          style={{ ...BTN,
+            color: hasFilters || showFilters ? "var(--accent)" : "var(--muted)",
+            borderColor: hasFilters || showFilters ? "var(--accent)" : "var(--border)" }}>
           <Filter size={11} /> {t("players.filter")}
+          {hasFilters && <span style={{ background: "var(--accent)", color: "#000", borderRadius: "50%",
+            width: 14, height: 14, fontSize: 8, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+            {[filterPos !== "all", filterMinRating > 0, filterMinGames > 0, filterAlertsOnly, filterMinPresence > 0, isPeriodActive].filter(Boolean).length}
+          </span>}
         </button>
 
         <button onClick={() => { setCompareMode(!compareMode); setCompareSelected([]); setShowCompareModal(false); }}
@@ -504,21 +592,27 @@ export function PlayersTab() {
           <Users size={11} /> {t("players.compare")}
         </button>
 
+        <button onClick={() => setShowCrossClubs(true)}
+          title="Classement cross-clubs"
+          style={{ ...BTN, color: "var(--muted)" }}>
+          <Globe size={11} /> Cross-clubs
+        </button>
+
         <button onClick={() => setExportModal("png")} style={BTN}><Download size={11} /> PNG</button>
         <button onClick={() => setExportModal("csv")} style={BTN}><Download size={11} /> CSV</button>
 
-        {/* View mode toggles */}
-        <div style={{ display: "flex", gap: 2, marginLeft: "auto", flexShrink: 0, background: "var(--bg)", borderRadius: 6, padding: 2 }}>
+        {/* View mode */}
+        <div style={{ display: "flex", gap: 2, marginLeft: "auto", flexShrink: 0,
+          background: "var(--bg)", borderRadius: 6, padding: 2 }}>
           {([
-            { mode: "list",    icon: <ChevronDown size={11} />,  title: "Liste" },
-            { mode: "heatmap", icon: <LayoutGrid size={11} />,   title: "Heatmap présence" },
-            { mode: "podium",  icon: <Trophy size={11} />,       title: "Classement interne" },
+            { mode: "list",    icon: <ChevronDown size={11} />, title: "Liste" },
+            { mode: "heatmap", icon: <LayoutGrid size={11} />,  title: "Heatmap présence" },
+            { mode: "podium",  icon: <Trophy size={11} />,      title: "Classement interne" },
           ] as const).map(({ mode, icon, title }) => (
             <button key={mode} onClick={() => setViewMode(mode)} title={title}
               style={{ ...BTN, padding: "5px 8px", borderRadius: 4,
                 background: viewMode === mode ? "var(--accent)" : "none",
-                color: viewMode === mode ? "#000" : "var(--muted)",
-                border: "none" }}>
+                color: viewMode === mode ? "#000" : "var(--muted)", border: "none" }}>
               {icon}
             </button>
           ))}
@@ -532,11 +626,9 @@ export function PlayersTab() {
           <Users size={11} style={{ color: "var(--accent)", flexShrink: 0 }} />
           {compareSelected.length === 0 && <span style={{ color: "var(--muted)" }}>Sélectionne 2 à 4 joueurs à comparer</span>}
           {compareSelected.map((p, i) => (
-            <span key={p.name} style={{
-              padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700,
+            <span key={p.name} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700,
               background: `${COMPARE_COLORS[i]}18`, border: `1px solid ${COMPARE_COLORS[i]}55`,
-              color: COMPARE_COLORS[i],
-            }}>{p.name}</span>
+              color: COMPARE_COLORS[i] }}>{p.name}</span>
           ))}
           {compareSelected.length >= 2 && (
             <button onClick={() => setShowCompareModal(true)}
@@ -548,10 +640,12 @@ export function PlayersTab() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Filters panel */}
       {showFilters && (
-        <div style={{ padding: "8px 16px", background: "var(--card)", borderBottom: "1px solid var(--border)",
-          display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ padding: "10px 16px", background: "var(--card)", borderBottom: "1px solid var(--border)",
+          display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+
+          {/* Poste */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ fontSize: 10, color: "var(--muted)" }}>{t("players.pos")}</span>
             <select value={filterPos} onChange={(e) => setFilterPos(e.target.value)}
@@ -561,6 +655,8 @@ export function PlayersTab() {
               {positions.map((pos) => <option key={pos} value={pos}>{pos}</option>)}
             </select>
           </div>
+
+          {/* Note min */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ fontSize: 10, color: "var(--muted)" }}>{t("players.minRating")}</span>
             <input type="number" min={0} max={10} step={0.5} value={filterMinRating || ""} placeholder="0"
@@ -568,6 +664,8 @@ export function PlayersTab() {
               style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)",
                 padding: "4px 6px", borderRadius: 4, fontSize: 11, outline: "none", width: 50 }} />
           </div>
+
+          {/* MJ min */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ fontSize: 10, color: "var(--muted)" }}>{t("players.minGames")}</span>
             <input type="number" min={0} step={1} value={filterMinGames || ""} placeholder="0"
@@ -575,6 +673,67 @@ export function PlayersTab() {
               style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)",
                 padding: "4px 6px", borderRadius: 4, fontSize: 11, outline: "none", width: 50 }} />
           </div>
+
+          {/* Présence min */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 10, color: "var(--muted)" }}>Présence min (%)</span>
+              <span style={{ fontSize: 10, fontWeight: 700,
+                color: filterMinPresence > 0 ? "var(--accent)" : "var(--muted)" }}>
+                {filterMinPresence > 0 ? `${filterMinPresence}%` : "—"}
+              </span>
+            </div>
+            <input type="range" min={0} max={100} step={5} value={filterMinPresence}
+              onChange={(e) => setFilterMinPresence(Number(e.target.value))}
+              style={{ width: 100, accentColor: "var(--accent)", cursor: "pointer" }} />
+            <span style={{ fontSize: 9, color: "var(--muted)" }}>20 derniers matchs</span>
+          </div>
+
+          {/* Période custom */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 10, color: isPeriodActive ? "var(--accent)" : "var(--muted)",
+              fontWeight: isPeriodActive ? 700 : 400 }}>
+              Période {isPeriodActive && "— stats calculées depuis le cache"}
+            </span>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 9, color: "var(--muted)" }}>Du</span>
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+                style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)",
+                  padding: "3px 6px", borderRadius: 4, fontSize: 10, outline: "none", cursor: "pointer" }} />
+              <span style={{ fontSize: 9, color: "var(--muted)" }}>Au</span>
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+                style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)",
+                  padding: "3px 6px", borderRadius: 4, fontSize: 10, outline: "none", cursor: "pointer" }} />
+              {isPeriodActive && (
+                <button onClick={() => { setFromDate(""); setToDate(""); }}
+                  style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: 11 }}>✕</button>
+              )}
+            </div>
+            {isPeriodActive && periodFilteredPlayers !== null && (
+              <span style={{ fontSize: 9, color: "var(--muted)" }}>
+                {periodFilteredPlayers.length} joueurs · stats calculées sur {
+                  (() => {
+                    let count = 0;
+                    for (const type of ["leagueMatch", "playoffMatch", "friendlyMatch"]) {
+                      if (!currentClub) break;
+                      const key = `${currentClub.id}_${currentClub.platform}_${type}`;
+                      const matches = (matchCache[key] ?? []) as Match[];
+                      const from2 = fromDate ? new Date(fromDate).getTime() : 0;
+                      const to2   = toDate   ? new Date(toDate).getTime() + 86_400_000 : Infinity;
+                      count += matches.filter((m) => {
+                        const ts = Number(m.timestamp);
+                        const t2 = ts > 1e12 ? ts : ts * 1000;
+                        return t2 >= from2 && t2 <= to2;
+                      }).length;
+                    }
+                    return count;
+                  })()
+                } matchs
+              </span>
+            )}
+          </div>
+
+          {/* Alertes */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <AlertTriangle size={11} style={{ color: "var(--red)" }} />
             <span style={{ fontSize: 10, color: "var(--muted)" }}>Alertes seulement</span>
@@ -587,9 +746,14 @@ export function PlayersTab() {
                 width: 14, height: 14, borderRadius: "50%", background: "#fff", transition: "left 0.15s" }} />
             </div>
           </div>
-          {(filterPos !== "all" || filterMinRating > 0 || filterMinGames > 0 || filterAlertsOnly) && (
-            <button onClick={() => { setFilterPos("all"); setFilterMinRating(0); setFilterMinGames(0); setFilterAlertsOnly(false); }}
-              style={{ ...BTN, fontSize: 10, color: "var(--red)" }}>{t("players.reset")}</button>
+
+          {/* Reset */}
+          {hasFilters && (
+            <button onClick={() => {
+              setFilterPos("all"); setFilterMinRating(0); setFilterMinGames(0);
+              setFilterAlertsOnly(false); setFilterMinPresence(0);
+              setFromDate(""); setToDate("");
+            }} style={{ ...BTN, fontSize: 10, color: "var(--red)" }}>{t("players.reset")}</button>
           )}
         </div>
       )}
@@ -598,11 +762,9 @@ export function PlayersTab() {
       {viewMode === "heatmap" && currentClub && (
         <HeatmapView players={players} matchCache={matchCache} currentClub={currentClub} />
       )}
-      {viewMode === "podium" && (
-        <PodiumView players={players} />
-      )}
+      {viewMode === "podium" && <PodiumView players={activePlayers} />}
 
-      {/* Virtualized list (fills remaining height) */}
+      {/* Virtualized list */}
       <div style={{ flex: 1, overflow: "hidden", display: viewMode === "list" ? undefined : "none" }}>
         {sorted.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
@@ -624,6 +786,7 @@ export function PlayersTab() {
       {showCompareModal && compareSelected.length >= 2 && (
         <CompareModal players={compareSelected} allPlayers={players} onClose={() => setShowCompareModal(false)} />
       )}
+      {showCrossClubs && <CrossClubsModal onClose={() => setShowCrossClubs(false)} />}
       {exportModal === "png" && (
         <ExportModal type="png" pngSourceEl={listRef.current?.element ?? null}
           defaultFilename={`joueurs-${dateStr}`} onClose={() => setExportModal(null)} />
