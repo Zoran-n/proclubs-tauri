@@ -134,8 +134,13 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Section Discord masquée si aucun club sélectionné
 
 ### Paramètres
-- 6 thèmes de couleur accent : Cyan, Violet, Orange, Vert, Rouge, Discord
+- **10 thèmes de couleur accent** : Cyan, Violet, Orange, Vert, Rouge, Discord, **Midnight** (fond noir bleuté), **Gold** (ambre), **Matrix** (fond vert terminal), **Rose** — Midnight et Matrix modifient aussi le fond et les surfaces
 - **Thème personnalisé complet** : color pickers pour Accent, Background, Surface et Card — bouton "Tout réinitialiser" + reset individuel par couleur — changer de thème efface les couleurs custom
+- **Import / export des paramètres** : exporte uniquement les paramètres (thème, raccourcis, tactiques, favoris, profils EA) sans matchCache ni sessions — fusion à l'import
+- **Raccourcis clavier personnalisables** : Ctrl+F (recherche), Ctrl+E (export), Ctrl+K (recherche globale) remappables — clic sur le bouton → appuyez sur la nouvelle combinaison → sauvegarde automatique — bouton « Réinitialiser »
+- **Mode streaming** : toggle dans Paramètres → masque gamertag, plateforme et webhook Discord dans Mon Profil (bannière orange indicatrice)
+- **Rappels planifiés** : ajouter des notifications à une heure HH:MM précise sur des jours de semaine sélectionnés — vérifiés toutes les minutes, affichés en toast in-app
+- **Profils d'interface** : sauvegarder la config actuelle (thème + disposition + mode clair/sombre) sous un nom personnalisé, appliquer en un clic — plusieurs profils stockés
 - Mode clair / sombre
 - Taille de police ajustable (slider 10–20px)
 - 4 polices : Barlow, Inter, Roboto, Système
@@ -270,14 +275,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Mode Battle** : vote sur chaque stat — quel club est supérieur ? — avec résultat global
 - **Alerte changement SR** : notifier quand un des clubs comparés change de Skill Rating
 - **Comparaison joueurs cross-clubs** : tableau par poste mettant en face les meilleurs joueurs de chaque club
-
-### Paramètres & Interface
-- **Thèmes supplémentaires** : Midnight (noir pur), Gold, Matrix (vert terminal), Rose
-- **Import / export des paramètres** : sauvegarder et restaurer toute la configuration en JSON
-- **Raccourcis clavier personnalisables** : réassigner les raccourcis depuis les paramètres
-- **Mode streaming** : profil interface dédié masquant les infos sensibles (ID, webhook, gamertag)
-- **Notifications planifiées** : rappel configurable ("Lance une session ce soir à 21h")
-- **Profils d'interface** : plusieurs configs de layout/thème switchables en un clic (ex : PC, Tablette, Projecteur)
 
 ### Technique
 - **Tests unitaires** : couverture des fonctions de calcul de stats (score composite, résultats, agrégats)
