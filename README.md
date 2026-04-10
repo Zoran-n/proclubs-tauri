@@ -14,8 +14,13 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Recherche par nom sur toutes les plateformes en parallèle (PS5/Xbox Series X, PS4/Xbox One, PC)
 - Recherche directe par ID de club
 - Détection automatique de plateforme
-- Historique des 8 derniers clubs consultés
+- **Autocomplete** : suggestions en temps réel pendant la saisie (debounce 400ms, min 3 chars, 6 résultats) — clic sur une suggestion charge le club directement
+- **Historique étendu** : jusqu'à 25 clubs récents (contre 8 auparavant) + champ de filtrage rapide pour retrouver un club dans l'historique
 - Gestion des clubs favoris (épinglés)
+- **Dossiers de favoris** : organiser les clubs favoris en groupes nommés (Rivaux, Amis, Suivis…) — dossiers collapsibles, suppression, sélecteur par club
+- **Alerte SR** : icône 🔔 par favori — notification toast quand le Skill Rating change au rechargement, mise à jour automatique du SR stocké
+- **Fiche survol** : tooltip fixe avec SR, MJ, V/N/D, buts au survol de chaque club dans l'historique et les favoris
+- **Export favoris** : boutons CSV et JSON dans l'onglet Favoris — exporte la liste complète avec dossiers, SR, bilan V/N/D, buts
 - Logo du club affiché (crest EA)
 
 ### Joueurs
@@ -259,14 +264,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ---
 
 ## Axes d'amélioration possibles
-
-### Recherche de club
-- **Autocomplete** : suggestions de noms en temps réel pendant la saisie
-- **Dossiers de favoris** : organiser les clubs favoris en groupes nommés (ex : Rivaux, Amis, Suivis)
-- **Alerte SR** : notification quand le Skill Rating d'un club favori évolue
-- **Fiche survol** : tooltip avec stats résumées au hover sur un club en historique ou favori
-- **Historique étendu** : passer de 8 à 20+ clubs récents avec recherche dans l'historique
-- **Export de la liste** : exporter les favoris en CSV / JSON pour backup ou partage
 
 ### Comparaison de clubs
 - **Comparaison multi-saisons** : choisir la saison pour chaque club et comparer d'une saison à l'autre
