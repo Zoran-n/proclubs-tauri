@@ -285,7 +285,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Tests unitaires** : couverture des fonctions de calcul de stats (score composite, résultats, agrégats)
 - **Web Worker** : délocaliser les calculs lourds (agrégats, recharts data) hors du thread UI
 - **Plugin Tauri dédié** : déplacer la logique de fetch EA dans un plugin Rust réutilisable
-- **CI automatisée** : build + `tsc --noEmit` + lint à chaque push via GitHub Actions
 - **Logs structurés** : remplacer les `console.log` par un système de log niveaux (debug/info/warn/error) exportable
 - **Mise à jour delta** : télécharger uniquement le diff binaire lors des mises à jour (réduire la taille du patch)
 
