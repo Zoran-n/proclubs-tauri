@@ -270,14 +270,6 @@ source ~/.cargo/env && npm run tauri build -- --debug
 
 ## Axes d'amélioration possibles
 
-### Comparaison de clubs
-- ~~**Comparaison multi-saisons**~~ ✅ Implémenté
-- ~~**Export PDF rapport**~~ ✅ Implémenté
-- ~~**Comparaisons nommées**~~ ✅ Implémenté
-- ~~**Mode Battle**~~ ✅ Implémenté
-- ~~**Alerte changement SR**~~ ✅ Implémenté
-- ~~**Comparaison joueurs cross-clubs**~~ ✅ Implémenté
-
 ---
 
 ## 💡 Prochaines idées (6 par thème)
