@@ -11,6 +11,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 ## Fonctionnalités
 
 ### Recherche de club
+
 - Recherche par nom sur toutes les plateformes en parallèle (PS5/Xbox Series X, PS4/Xbox One, PC)
 - Recherche directe par ID de club
 - Détection automatique de plateforme
@@ -24,6 +25,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Logo du club affiché (crest EA)
 
 ### Joueurs
+
 - Liste des membres du club avec leurs statistiques saison
 - Tri par n'importe quelle colonne : matchs joués, buts, passes décisives, passes, tacles, MOTM, note
 - **Tri score composite** : classement pondéré (buts×3 + PD×2 + MOTM×5 + note×10) via l'option "🏆 Score"
@@ -44,9 +46,12 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Classement cross-clubs** : bouton "🌐 Cross-clubs" — charge les joueurs de plusieurs clubs favoris via l'API et les compare dans un tableau trié unifié
 - **Export PDF fiche joueur enrichi** : PDF avec radar 6 axes dessiné (buts, PD, passes, tacles, MOTM, note) + courbe de note + tableau mensuel + annotation tendance (pente + projection)
 - Export **PNG** (capture avec prévisualisation) et **CSV** (tableau complet)
+- **Carte FIFA-style** : bouton Carte (⬛ or/argent/bronze) dans la modale joueur — canvas 300×420 avec gradient tier selon OVR, avatar initiales + glow coloré, 6 stats en grille, footer club — téléchargeable en PNG ou envoyée directement sur Discord en image
+- **Comparaison de périodes** : panneau COMPARER 2 PÉRIODES dans la modale joueur — deux sélecteurs De/Au indépendants, comparaison MJ / Buts / PD / MOTM / Note côte-à-côte avec indicateurs ↑ ↓ = colorés
 - **Comparaison de joueurs** : mode COMPARER, sélection de **2 à 4 joueurs**, radar chart normalisé + tableau face-à-face + **partage Discord**
 
 ### Matchs
+
 - Trois types de matchs : Championnat, Playoff, Amical
 - Cache intelligent par type — pas de rechargement inutile
 - Carte par match : score, adversaire, date, résultat (VICTOIRE / NUL / DEFAITE)
@@ -70,6 +75,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Export **PNG** et **CSV** avec prévisualisation
 
 ### Graphiques
+
 - Donut victoires / nuls / défaites
 - Bar chart top buteurs
 - Bar chart top passeurs décisifs
@@ -84,6 +90,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Heatmap jour × heure** : grille 7 jours × 6 créneaux horaires affichant le taux de victoire par tranche
 
 ### Session live
+
 - Démarrage / arrêt de session de suivi
 - Polling automatique toutes les 30 secondes (3 types de matchs en parallèle)
 - KPIs live : matchs joués, victoires, nuls, défaites, buts marqués/encaissés
@@ -111,6 +118,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Fusion de sessions** : regroupez plusieurs sessions en une session "tournoi" avec bilan global — sélection par checkbox, nom personnalisable
 
 ### Comparaison de clubs
+
 - Recherche et sélection de **2 à 4 clubs** simultanément (bouton + / × par slot)
 - Logo affiché pour chaque club
 - **Onglets de section** : Stats | Radar | H2H | Battle | Joueurs
@@ -127,12 +135,14 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Export **PNG** et **CSV** du tableau comparatif
 
 ### Export
+
 - Modale d'export avec **prévisualisation** avant téléchargement
 - Champ nom de fichier éditable
 - Format **PNG** : capture html2canvas (scale ×2, fond correct)
 - Format **CSV** : encodage UTF-8 BOM, compatible Excel
 
 ### Intégration Discord
+
 - **Webhook personnel** configuré dans **Mon Profil** (URL privée, non partagée)
 - Badge violet sur l'icône profil quand le webhook est actif
 - **Partage par onglet** : bouton Discord dans le header de chaque onglet (Joueurs / Matchs / Graphiques) — embed formaté avec les données de la vue courante
@@ -140,11 +150,16 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Partage de session** : bouton dans le modal Détails — embed enrichi avec bilan V/N/D, liste des matchs (🟢/🟡/🔴 + score), stats joueurs top 5, couleur dynamique
 - **Partage profil joueur** : bouton Discord dans la modale joueur — embed avec toutes ses stats + évolution note/buts/PD match par match
 - **Stats générales club** : embed format OurProClub — Games Played, Skill Rating, Record W/D/L, Goals F/A/D, Win Rate, top joueurs (Most Appearances, MOTM, Buteur, Passeur, Passes, Tacles), résultats récents par type (🟢🔴🟡)
+- **Rapport hebdomadaire** : bouton "Rapport semaine" dans l'historique des sessions — exporte un PDF résumant la semaine en cours (V/N/D, meilleur buteur, meilleur passeur, stats agrégées)
+- **Thread Discord de saison** : bouton dédié (icône livre) dans la barre d'outils Discord — modal avec bilan saison, top buteur, copie au presse-papier ou envoi webhook en embed structuré
+- **Carte joueur sur Discord** : bouton Discord dans la préview de carte FIFA — envoie l'image PNG via multipart/form-data (fichier brut, pas d'embed texte)
 - Embeds colorés dynamiquement : vert (victoire dominante), jaune (équilibré), rouge (défaites dominantes)
 - Section Discord masquée si aucun club sélectionné
 
 ### Paramètres
+
 - **10 thèmes de couleur accent** : Cyan, Violet, Orange, Vert, Rouge, Discord, **Midnight** (fond noir bleuté), **Gold** (ambre), **Matrix** (fond vert terminal), **Rose** — Midnight et Matrix modifient aussi le fond et les surfaces
+- **Palettes complètes** : 5 presets (EA FC, Blood, Ocean, Forest, Classic) — modifient accent + fond + surface + card + bordures en un clic, aperçu 3 couleurs — sélectionner une palette désactive le thème accent et inversement
 - **Thème personnalisé complet** : color pickers pour Accent, Background, Surface et Card — bouton "Tout réinitialiser" + reset individuel par couleur — changer de thème efface les couleurs custom
 - **Import / export des paramètres** : exporte uniquement les paramètres (thème, raccourcis, tactiques, favoris, profils EA) sans matchCache ni sessions — fusion à l'import
 - **Raccourcis clavier personnalisables** : Ctrl+F (recherche), Ctrl+E (export), Ctrl+K (recherche globale) remappables — clic sur le bouton → appuyez sur la nouvelle combinaison → sauvegarde automatique — bouton « Réinitialiser »
@@ -163,6 +178,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Modal de mise à jour** : affiche la version disponible, les notes de release, et propose "Installer maintenant" ou "Plus tard"
 
 ### Mon Profil
+
 - **Liaison gamertag EA** : entre ton pseudo EA + le nom de ton club — l'app vérifie que le gamertag est bien membre du club via `getMembers()`, puis lie le profil
 - **Chargement automatique au démarrage** : si un profil EA est lié, le club est chargé automatiquement à l'ouverture de l'app sans aucune action requise
 - **Chargement complet des matchs en arrière-plan** : dès que le club est chargé, les 3 types de matchs (Championnat, Playoff, Amical) sont récupérés page par page en silent, pour que la vue Calendrier soit entièrement remplie
@@ -186,13 +202,14 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
   - Indicateur "X matchs (Y analysés)" distinguant totaux saison et matchs en cache
 
 ### Interface
+
 - Fenêtre frameless avec barre de titre draggable (minimize / maximize / close)
 - Interface style Discord : guild bar, sidebar canaux, panel principal
 - Animations de transition entre onglets
 - Overlay de grille activable/désactivable
 - Spinner de chargement
 - Gestion des erreurs réseau avec message utilisateur
-- **Raccourcis clavier globaux** : F11 plein écran, Ctrl+F recherche sidebar, Ctrl+K recherche globale, Ctrl+E export, Ctrl+1–5 navigation, Ctrl+Shift+D panel dev
+- **Raccourcis clavier globaux** : F11 plein écran, Ctrl+F recherche sidebar, Ctrl+K recherche globale, Ctrl+E export, Ctrl+1–5 navigation, Ctrl+Shift+D panel dev, **R** refresh du club, **S** toggle session live
 - **Recherche globale (Ctrl+K)** : modal searchable avec navigation clavier (↑↓ Entrée ESC), résultats groupés Clubs / Joueurs / Sessions, badge favori et indicateur club actif
 - **Mode compact** : bouton toggle dans le header — densifie l'affichage des cartes joueurs
 - **Drag & drop favoris** : icône grip dans la sidebar Favoris pour réordonner les clubs par glisser-déposer (ordre persisté)
@@ -201,17 +218,20 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Accessibilité** : focus-visible, skip-link, reduced-motion, forced-colors, attributs ARIA
 - **KPIs personnalisables** : bouton ÉDITER sur la barre KPI — choisir quels indicateurs afficher parmi 8 disponibles (Matchs, Victoires, Nuls, Défaites, % Victoires, Buts, Buts/Match, Points) — sélection persistée
 - **Disposition de la navigation configurable** : 4 positions — Haut, Bas, Gauche, Droite — sélecteur avec prévisualisations dans Paramètres → Interface, persisté entre les sessions
+- **Dashboard personnalisable** : bouton tableau de bord dans le header principal — vue avec 6 widgets activables/désactivables (KPIs, graphique de forme, derniers matchs, top buteurs, effectif, radar collectif) — disposition en grille
 - **Heatmap de présence** : grille joueurs × matchs récents (20 derniers), cellules colorées par résultat (victoire/nul/défaite/absent), pourcentage de présence par joueur — accessible via l'icône grille dans l'onglet Joueurs
 - **Classement interne (Podium)** : vue podium dynamique (or/argent/bronze) par catégorie — Buteurs, Passeurs, Défenseurs (tacles), MOTM, Moyenne, Présence — accessible via l'icône trophée dans l'onglet Joueurs
 - **Évolution du Skill Rating** : courbe SR par saison dans l'onglet Graphiques, avec min/max/actuel — chargement à la demande via le bouton CHARGER dans la section historique
 
 ### Mode hors-ligne
+
 - Bannière **MODE HORS-LIGNE** affichée automatiquement quand il n'y a pas de connexion réseau
 - Toutes les données du cache (matchs, joueurs, sessions) restent accessibles
 - Le chargement automatique en arrière-plan et la pagination sont suspendus quand offline, reprennent dès reconnexion
 - Aucune perte de données : les matchs déjà chargés restent en mémoire et sur disque
 
 ### Cache matchs
+
 - **Capacité 2000 matchs par type** (Championnat / Playoff / Amical) — soit jusqu'à 6000 matchs stockés pour le club lié
 - **Section « Gestion du cache »** dans Mon Profil : barre de progression par type avec compteur X / 2000
 - **Indicateur de fraîcheur** : « il y a X min / X h / X j » affiché sous chaque type de cache — horodatage persisté
@@ -226,6 +246,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Le chargement en arrière-plan s'arrête proprement à la limite — aucun téléchargement inutile
 
 ### Proxy & réseau
+
 - Support proxy configurable (HTTP/HTTPS)
 - Détection du proxy système (variables d'environnement)
 - Logs détaillés des requêtes API (URL, statut, aperçu réponse)
@@ -247,7 +268,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 | Icônes | lucide-react |
 | Police | Bebas Neue + Barlow (Google Fonts) |
 | Persistance | JSON local (`~/.local/share/com.codespace.proclubs-tauri/settings.json`) |
-| Discord | Webhook API (fetch natif, embeds formatés) |
+| Discord | Webhook API (fetch natif, embeds formatés + upload fichier multipart) |
 | Virtualisation | react-window (FixedSizeList joueurs) |
 
 ---
@@ -275,6 +296,7 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ## 💡 Prochaines idées (6 par thème)
 
 ### 🎮 Compétition
+
 - **Tournois internes** : bracket élimination directe ou poule avec des joueurs du club, résultats saisis manuellement
 - **Classement saison perso** : tableau de bord de saison — points, diff buts, podium joueurs, matchs restants
 - **Défis hebdomadaires** : objectifs auto générés chaque semaine (ex: "5 clean sheets", "gagner 3 en row") avec badge récompense
@@ -283,30 +305,24 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **MVP vote après match** : voter pour le MVP de la session depuis l'app, résultat affiché sur Discord et enregistré en stats
 
 ### 📊 Données & Analyse
+
 - **Heatmap de forme** : calendrier GitHub-style (vert/rouge) montrant les résultats match par match sur 3 mois glissants
-- **Rapport hebdomadaire auto** : générer chaque lundi un PDF/Discord résumant la semaine (MJ, V, N, D, meilleur joueur)
-- **Score de forme équipe** : indice calculé sur les 10 derniers matchs (comme le "form" FIFA) affiché sur le dashboard
+- **Score de forme équipe** : indice calculé sur les 10 derniers matchs (comme le "form" FIFA) affiché en temps réel
 - **Analyse des horaires** : stats regroupées par tranche horaire (19h-21h, week-end...) pour trouver les meilleurs créneaux
 - **Détection de séries** : mise en valeur automatique des séries en cours (invincibilité, victoires consécutives, buteur)
-- **Comparaison avant/après** : comparer les stats d'un joueur sur deux périodes définies (ex: "mois 1 vs mois 2")
 
 ### 🤝 Social & Discord
-- **Galerie moments forts** : capturer un score / stat remarquable et l'envoyer sur Discord en image stylisée (carte)
+
+- **Galerie moments forts** : capturer un score / stat remarquable et l'envoyer sur Discord en image stylisée (ex: carte personnalisée du match)
 - **Sondage Discord intégré** : proposer un vote de compo ou de système de jeu directement via webhook Discord
 - **Annonce de match auto** : bot Discord qui poste une annonce pré-match (heure, adversaire, compo prévue) en un clic
-- **Récap post-session Discord** : envoyer le résumé complet de session (résultats, MOTM, buts/assists top 3) en embed Discord
-- **Profil joueur partageable** : générer un lien ou une image de profil joueur (stats, avatar, note, forme) à poster n'importe où
-- **Thread Discord par saison** : créer automatiquement un thread Discord pour chaque nouvelle saison avec le bilan running
 
 ### 🎨 UX & Interface
-- **Thèmes de couleur** : choix de palette (Discord sombre, Discord clair, EA FC bleu, rouge sang, or champion…)
-- **Dashboard personnalisable** : widgets glissables/redimensionnables sur la page d'accueil (stats, derniers matchs, forme…)
-- **Mode compact** : affichage ultra-dense pour petits écrans ou multi-fenêtres (police réduite, marges minimales)
-- **Raccourcis clavier globaux** : navigation rapide entre onglets, refresh, recherche globale sans souris
-- **Onboarding amélioré** : wizard de configuration au 1er lancement (plateforme, club, Discord webhook, langue)
-- **Animations de performance** : micro-animations sur les KPIs (compteur qui monte, barre de progression animée)
+
+- **Animations de performance** : micro-animations plus poussées sur les KPIs (transitions fluides, effets de particules sur records)
 
 ### ⚙️ Technique
+
 - **Tests unitaires** : couverture des fonctions de calcul de stats (score composite, agrégats, ranking)
 - **Web Worker** : délocaliser les calculs lourds (agrégats recharts, CSV export) hors du thread UI
 - **Cache intelligent** : invalidation sélective du cache EA par match type + TTL configurable dans Settings
@@ -315,6 +331,7 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Raccourci tray** : icône dans la barre système Windows avec menu rapide (refresh, ouvrir, dernier club chargé)
 
 ### 🤖 IA & Prédiction
+
 - **Prédiction résultat** : modèle simple (régression logistique sur SR, forme, domicile/ext.) pour estimer les chances de victoire
 - **Recommandation position optimale** : analyser les stats d'un joueur et suggérer le poste où il performe le mieux
 - **Détection anomalie** : alerter quand un joueur sort de sa norme de performance (note très basse ou très haute)
@@ -323,9 +340,10 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - **Objectifs intelligents** : proposer des objectifs réalistes pour la prochaine semaine basés sur les tendances actuelles
 
 ### ⭐ Fonctionnalité phare proposée — Tableau de bord Coach
+
 Onglet dédié au coach/manager du club :
+
 - Vue synthèse temps réel : forme de l'équipe, joueurs en progression/en baisse, absents potentiels (inactivité détectée)
 - Meilleur XI auto basé sur les notes des 10 derniers matchs, avec export image Discord
 - Objectifs de saison configurables ("50 victoires", "100 buts") avec barre de progression et alertes seuil
 - Export PDF bilan coach mensuel (résultats, top joueurs, forme, objectifs atteints)
-
