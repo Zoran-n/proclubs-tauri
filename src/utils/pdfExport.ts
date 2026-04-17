@@ -1,4 +1,5 @@
-import type { Session, Match, Player } from "../types";
+import type { Session, Match, Player, ClubData } from "../types";
+
 
 export function getSessionPdfFilename(session: Session): string {
   return `session-${session.clubName.replace(/\s+/g, "_")}-${new Date(session.date).toISOString().slice(0, 10)}.pdf`;
@@ -469,4 +470,330 @@ export async function generatePlayerPdf(
   }
 
   doc.save(`${player.name.replace(/\s+/g, "_")}_fiche.pdf`);
+}
+
+// ─── Club Comparison PDF ───────────────────────────────────────────────────────
+
+interface CompareH2H {
+  date: string;
+  scoreA: number;
+  scoreB: number;
+}
+
+export async function generateComparePdf(
+  clubs: ClubData[],
+  h2hMatches?: CompareH2H[],
+  saveAs?: string,
+) {
+  const { default: jsPDF } = await import("jspdf");
+  await import("jspdf-autotable");
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const accent: [number, number, number] = [0, 180, 220];
+  const dark: [number, number, number] = [30, 35, 45];
+  const CLUB_COLORS_HEX = ["#00d4ff", "#8b5cf6", "#ff6b35", "#57f287"];
+
+  const dateStr = new Date().toLocaleDateString();
+  const names = clubs.map(c => c.club.name || `Club #${c.club.id}`);
+
+  // ── Header band ──────────────────────────────────────────────────────────────
+  doc.setFillColor(...dark);
+  doc.rect(0, 0, 210, 38, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.text("COMPARAISON DE CLUBS", 14, 18);
+  doc.setFontSize(10);
+  doc.setTextColor(...accent);
+  doc.text(names.join("  vs  "), 14, 29);
+  doc.setFontSize(8);
+  doc.setTextColor(160, 180, 200);
+  doc.text(`Rapport généré le ${dateStr}`, 196, 34, { align: "right" });
+
+  // ── Club color legend ────────────────────────────────────────────────────────
+  let y = 46;
+  clubs.forEach((c, i) => {
+    const hex = CLUB_COLORS_HEX[i % CLUB_COLORS_HEX.length];
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    doc.setFillColor(r, g, b);
+    doc.rect(14 + i * 52, y, 10, 3, "F");
+    doc.setFontSize(8);
+    doc.setTextColor(...dark);
+    doc.text(c.club.name || `Club #${c.club.id}`, 26 + i * 52, y + 2.5);
+  });
+  y += 10;
+
+  // ── Stats table ──────────────────────────────────────────────────────────────
+  doc.setFontSize(12);
+  doc.setTextColor(...dark);
+  doc.text("Statistiques comparées", 14, y);
+  y += 4;
+
+  type StatRow = { label: string; values: string[]; lowerBetter?: boolean };
+  const statRows: StatRow[] = clubs[0] ? [
+    {
+      label: "Skill Rating",
+      values: clubs.map(c => c.club.skillRating ?? "—"),
+    },
+    {
+      label: "Victoires",
+      values: clubs.map(c => String(c.club.wins)),
+    },
+    {
+      label: "Nuls",
+      values: clubs.map(c => String(c.club.ties)),
+    },
+    {
+      label: "Défaites",
+      values: clubs.map(c => String(c.club.losses)),
+      lowerBetter: true,
+    },
+    {
+      label: "% Victoires",
+      values: clubs.map(c => {
+        const t = c.club.wins + c.club.losses + c.club.ties;
+        return t > 0 ? ((c.club.wins / t) * 100).toFixed(1) + "%" : "—";
+      }),
+    },
+    {
+      label: "Buts",
+      values: clubs.map(c => String(c.club.goals)),
+    },
+    {
+      label: "Buts/Match",
+      values: clubs.map(c => {
+        const t = c.club.wins + c.club.losses + c.club.ties;
+        return t > 0 ? (c.club.goals / t).toFixed(2) : "—";
+      }),
+    },
+    {
+      label: "Joueurs",
+      values: clubs.map(c => String(c.players.length)),
+    },
+    {
+      label: "Note moy. joueurs",
+      values: clubs.map(c => {
+        const n = c.players.length;
+        if (!n) return "—";
+        const avg = c.players.reduce((s, p) => s + p.rating, 0) / n;
+        return avg > 0 ? avg.toFixed(2) : "—";
+      }),
+    },
+    {
+      label: "MOTM total",
+      values: clubs.map(c => String(c.players.reduce((s, p) => s + p.motm, 0))),
+    },
+  ] : [];
+
+  const tableHead = [["Statistique", ...names]];
+  const tableBody = statRows.map(row => {
+    const nums = row.values.map(v => parseFloat(v.replace("%", "")));
+    const allNum = nums.every(n => !isNaN(n));
+    const maxV = allNum ? Math.max(...nums) : null;
+    const minV = allNum ? Math.min(...nums) : null;
+    return [
+      row.label,
+      ...row.values.map((v, i) => {
+        const n = nums[i];
+        const wins = allNum && !isNaN(n) && maxV !== minV &&
+          (row.lowerBetter ? n === minV : n === maxV);
+        return wins ? `★ ${v}` : v;
+      }),
+    ];
+  });
+
+  (doc as unknown as { autoTable: (opts: unknown) => void }).autoTable({
+    startY: y,
+    margin: { left: 14, right: 14 },
+    head: tableHead,
+    body: tableBody,
+    styles: { fontSize: 9, cellPadding: 2.5 },
+    headStyles: { fillColor: accent, textColor: [255, 255, 255], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    columnStyles: { 0: { fontStyle: "bold" as const } },
+  });
+
+  const afterStats = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 10;
+
+  // ── Radar chart ──────────────────────────────────────────────────────────────
+  const radarY = afterStats + 12;
+  const pageH = doc.internal.pageSize.getHeight();
+
+  if (radarY + 70 < pageH - 20) {
+    doc.setFontSize(12);
+    doc.setTextColor(...dark);
+    doc.text("Radar des performances", 14, radarY);
+
+    // Compute radar stats per club
+    const radarStatsList = clubs.map(c => {
+      const t = c.club.wins + c.club.losses + c.club.ties;
+      const n = c.players.length;
+      return {
+        winPct: t > 0 ? (c.club.wins / t) * 100 : 0,
+        goalsPerGame: t > 0 ? c.club.goals / t : 0,
+        avgRating: n > 0 ? c.players.reduce((s, p) => s + p.rating, 0) / n : 0,
+        totalMotm: c.players.reduce((s, p) => s + p.motm, 0),
+        avgTackles: n > 0 ? c.players.reduce((s, p) => s + p.tacklesMade, 0) / n : 0,
+      };
+    });
+
+    const radarKeys: { key: keyof typeof radarStatsList[0]; label: string }[] = [
+      { key: "winPct", label: "V%" },
+      { key: "goalsPerGame", label: "Buts/M" },
+      { key: "avgRating", label: "Note" },
+      { key: "totalMotm", label: "MOTM" },
+      { key: "avgTackles", label: "Tacles" },
+    ];
+
+    // Draw one radar per club (overlaid)
+    const cx = 105;
+    const cy = radarY + 40;
+    const radius = 32;
+    const n = radarKeys.length;
+    const angle = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / n;
+    const pt = (i: number, r: number): [number, number] => [
+      cx + r * Math.cos(angle(i)),
+      cy + r * Math.sin(angle(i)),
+    ];
+
+    // Grid rings
+    for (let lvl = 1; lvl <= 4; lvl++) {
+      const r = (radius * lvl) / 4;
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.15);
+      for (let i = 0; i < n; i++) {
+        const [x1, y1] = pt(i, r);
+        const [x2, y2] = pt((i + 1) % n, r);
+        doc.line(x1, y1, x2, y2);
+      }
+    }
+
+    // Axis labels
+    radarKeys.forEach(({ label }, i) => {
+      const [x, y2] = pt(i, radius + 8);
+      doc.setDrawColor(150, 150, 150);
+      doc.setLineWidth(0.2);
+      const [lx, ly] = pt(i, radius);
+      doc.line(cx, cy, lx, ly);
+      doc.setFontSize(6.5);
+      doc.setTextColor(80, 80, 80);
+      doc.text(label, x, y2, { align: "center" });
+    });
+
+    // Club data polygons
+    clubs.forEach((_, ci) => {
+      const clubStats = radarStatsList[ci];
+      const maxVals = radarKeys.map(({ key }) =>
+        Math.max(...radarStatsList.map(s => s[key] as number), 1)
+      );
+      const hex = CLUB_COLORS_HEX[ci % CLUB_COLORS_HEX.length];
+      const cr = parseInt(hex.slice(1, 3), 16);
+      const cg = parseInt(hex.slice(3, 5), 16);
+      const cb = parseInt(hex.slice(5, 7), 16);
+
+      const dataPts: [number, number][] = radarKeys.map(({ key }, i) => {
+        const ratio = maxVals[i] > 0 ? Math.min((clubStats[key] as number) / maxVals[i], 1) : 0;
+        return pt(i, radius * ratio);
+      });
+
+      doc.setDrawColor(cr, cg, cb);
+      doc.setLineWidth(0.8);
+      for (let i = 0; i < n; i++) {
+        const [x1, y1] = dataPts[i];
+        const [x2, y2] = dataPts[(i + 1) % n];
+        doc.line(x1, y1, x2, y2);
+      }
+      doc.setFillColor(cr, cg, cb);
+      for (const [x, y2] of dataPts) {
+        doc.circle(x, y2, 1.2, "F");
+      }
+    });
+
+    // Radar legend
+    clubs.forEach((c, ci) => {
+      const hex = CLUB_COLORS_HEX[ci % CLUB_COLORS_HEX.length];
+      const cr = parseInt(hex.slice(1, 3), 16);
+      const cg = parseInt(hex.slice(3, 5), 16);
+      const cb = parseInt(hex.slice(5, 7), 16);
+      doc.setFillColor(cr, cg, cb);
+      doc.rect(14 + ci * 50, cy + radius + 14, 8, 2.5, "F");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...dark);
+      doc.text(c.club.name || `Club #${c.club.id}`, 24 + ci * 50, cy + radius + 16);
+    });
+  } else {
+    // New page for radar
+    (doc as unknown as { addPage: () => void }).addPage();
+    doc.setFontSize(12);
+    doc.setTextColor(...dark);
+    doc.text("Radar des performances", 14, 20);
+  }
+
+  // ── H2H section ──────────────────────────────────────────────────────────────
+  if (h2hMatches && h2hMatches.length > 0 && clubs.length >= 2) {
+    (doc as unknown as { addPage: () => void }).addPage();
+    doc.setFillColor(...dark);
+    doc.rect(0, 0, 210, 20, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.text(`H2H — ${clubs[0].club.name} vs ${clubs[1].club.name}`, 14, 13);
+
+    let wins = 0, losses = 0, draws = 0;
+    h2hMatches.forEach(m => {
+      if (m.scoreA > m.scoreB) wins++;
+      else if (m.scoreA < m.scoreB) losses++;
+      else draws++;
+    });
+
+    const kpiH2H = [
+      { label: "Victoires", val: wins, color: accent },
+      { label: "Nuls", val: draws, color: [140, 140, 140] as [number, number, number] },
+      { label: "Défaites", val: losses, color: [218, 55, 60] as [number, number, number] },
+      { label: "Total matchs", val: h2hMatches.length, color: [80, 80, 80] as [number, number, number] },
+    ];
+
+    const kpiW = 182 / kpiH2H.length;
+    doc.setFillColor(240, 242, 245);
+    doc.rect(14, 24, 182, 18, "F");
+    kpiH2H.forEach(({ label, val, color }, i) => {
+      const kx = 14 + i * kpiW + kpiW / 2;
+      doc.setFontSize(16);
+      doc.setTextColor(...color);
+      doc.text(String(val), kx, 34, { align: "center" });
+      doc.setFontSize(7);
+      doc.setTextColor(100, 100, 100);
+      doc.text(label, kx, 39, { align: "center" });
+    });
+
+    (doc as unknown as { autoTable: (opts: unknown) => void }).autoTable({
+      startY: 50,
+      margin: { left: 14, right: 14 },
+      head: [[clubs[0].club.name, "Score", clubs[1].club.name, "Date"]],
+      body: h2hMatches.map(m => [
+        m.scoreA > m.scoreB ? `★ ${clubs[0].club.name}` : clubs[0].club.name,
+        `${m.scoreA} – ${m.scoreB}`,
+        m.scoreA < m.scoreB ? `★ ${clubs[1].club.name}` : clubs[1].club.name,
+        m.date,
+      ]),
+      styles: { fontSize: 8.5, cellPadding: 2 },
+      headStyles: { fillColor: dark, textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: { 1: { halign: "center" as const, fontStyle: "bold" as const } },
+    });
+  }
+
+  // ── Footer on all pages ───────────────────────────────────────────────────────
+  const totalPages = (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    (doc as unknown as { setPage: (n: number) => void }).setPage(i);
+    const ph = doc.internal.pageSize.getHeight();
+    doc.setFontSize(7);
+    doc.setTextColor(160, 160, 160);
+    doc.text(`ProClubs Stats — Comparaison de clubs · Page ${i}/${totalPages}`, 105, ph - 7, { align: "center" });
+  }
+
+  const filename = saveAs ||
+    `comparaison_${clubs.map(c => c.club.name.replace(/\s+/g, "_")).join("_vs_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
+  doc.save(filename);
 }

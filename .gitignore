@@ -12,8 +12,18 @@ dist
 dist-ssr
 *.local
 
-# Claude Code instructions (privé, ne pas publier)
+# IA & Assistants IA (privé, ne pas publier sur GitHub)
 CLAUDE.md
+AGENTS.md
+GEMINI.md
+COPILOT.md
+.claude/
+.agent/
+.cursor/
+.copilot/
+.aider*
+graphify-out/
+.graphifyignore
 
 # Editor directories and files
 .vscode/*

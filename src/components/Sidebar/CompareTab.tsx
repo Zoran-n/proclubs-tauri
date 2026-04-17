@@ -1,15 +1,19 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Search, Download, Trash2, Clock, Users, Plus, X, BarChart3, GitCompare, Activity } from "lucide-react";
+import {
+  Search, Download, Trash2, Clock, Users, Plus, X, BarChart3,
+  GitCompare, Activity, Swords, Save, BookOpen, FileText, Bell, BellOff, Pencil, Check,
+} from "lucide-react";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   Legend, ResponsiveContainer,
 } from "recharts";
-import { searchClub, loadClub, getLogo, getMatches } from "../../api/tauri";
+import { searchClub, loadClub, getLogo, getMatches, getSeasonHistory } from "../../api/tauri";
 import { useAppStore } from "../../store/useAppStore";
 import { ExportModal } from "../ui/ExportModal";
+import { generateComparePdf } from "../../utils/pdfExport";
 import type { Club, ClubData, Player, Match } from "../../types";
 
-// Position helpers
+// ─── Position helpers ─────────────────────────────────────────────────────────
 const POS_LABELS: Record<string, string> = {
   "0":"GK","1":"RB","2":"RB","3":"CB","4":"CB","5":"LB","6":"LB",
   "7":"CDM","8":"CM","9":"CM","10":"CAM","11":"RM","12":"LM",
@@ -24,12 +28,22 @@ const POS_GROUPS: Record<string, string[]> = {
 };
 const GROUP_LABELS: Record<string, string> = { GK:"Gardien", DEF:"Défenseur", MIL:"Milieu", ATT:"Attaquant" };
 
-// Per-slot colors (var + hex for Recharts)
 const COLORS     = ["var(--accent)", "#8b5cf6", "#ff6b35", "#57f287"] as const;
 const COLORS_HEX = ["#00d4ff",       "#8b5cf6", "#ff6b35", "#57f287"] as const;
 const MAX_CLUBS = 4;
 
-// ─── ClubLogo ────────────────────────────────────────────────────────────────
+// ─── Season shape ─────────────────────────────────────────────────────────────
+interface SeasonData {
+  seasonId: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  goals: number;
+  goalsAgainst?: number;
+  skillRating?: string;
+}
+
+// ─── ClubLogo ─────────────────────────────────────────────────────────────────
 function ClubLogo({ club, size = 32 }: { club: Club; size?: number }) {
   const [logo, setLogo] = useState<string | null>(null);
   useEffect(() => {
@@ -48,10 +62,17 @@ function ClubLogo({ club, size = 32 }: { club: Club; size?: number }) {
   );
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface ClubSlot { query: string; results: Club[]; data: ClubData | null; loading: boolean; }
-const initSlot = (): ClubSlot => ({ query: "", results: [], data: null, loading: false });
-type Section = "stats" | "radar" | "h2h" | "players";
+// ─── Types ───────────────────────────────────────────────────────────────────
+interface ClubSlot {
+  query: string;
+  results: Club[];
+  data: ClubData | null;
+  loading: boolean;
+  seasons: SeasonData[];
+  selectedSeasonId: string | null; // null = current
+}
+const initSlot = (): ClubSlot => ({ query: "", results: [], data: null, loading: false, seasons: [], selectedSeasonId: null });
+type Section = "stats" | "radar" | "h2h" | "players" | "battle";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getPlayerPos(p: Player) { return POS_LABELS[p.position] || p.position || "—"; }
@@ -63,16 +84,26 @@ function getPlayerGroup(p: Player): string {
   return "ATT";
 }
 
-function computeClubRadarStats(data: ClubData) {
-  const totalGames = data.club.wins + data.club.losses + data.club.ties;
-  const n = data.players.length;
+function getClubStatsForSlot(slot: ClubSlot): { wins: number; losses: number; ties: number; goals: number; skillRating?: string } | null {
+  if (!slot.data) return null;
+  if (!slot.selectedSeasonId) return slot.data.club;
+  const s = slot.seasons.find(s => s.seasonId === slot.selectedSeasonId);
+  if (!s) return slot.data.club;
+  return { wins: s.wins, losses: s.losses, ties: s.ties, goals: s.goals, skillRating: s.skillRating };
+}
+
+function computeClubRadarStats(slot: ClubSlot) {
+  const stats = getClubStatsForSlot(slot);
+  if (!stats || !slot.data) return { winPct: 0, goalsPerGame: 0, avgAssists: 0, avgTackles: 0, avgRating: 0, totalMotm: 0 };
+  const totalGames = stats.wins + stats.losses + stats.ties;
+  const n = slot.data.players.length;
   return {
-    winPct:       totalGames > 0 ? (data.club.wins / totalGames) * 100 : 0,
-    goalsPerGame: totalGames > 0 ? data.club.goals / totalGames : 0,
-    avgAssists:   n > 0 ? data.players.reduce((s, p) => s + p.assists,     0) / n : 0,
-    avgTackles:   n > 0 ? data.players.reduce((s, p) => s + p.tacklesMade, 0) / n : 0,
-    avgRating:    n > 0 ? data.players.reduce((s, p) => s + p.rating,      0) / n : 0,
-    totalMotm:         data.players.reduce((s, p) => s + p.motm, 0),
+    winPct:       totalGames > 0 ? (stats.wins / totalGames) * 100 : 0,
+    goalsPerGame: totalGames > 0 ? stats.goals / totalGames : 0,
+    avgAssists:   n > 0 ? slot.data.players.reduce((s, p) => s + p.assists,     0) / n : 0,
+    avgTackles:   n > 0 ? slot.data.players.reduce((s, p) => s + p.tacklesMade, 0) / n : 0,
+    avgRating:    n > 0 ? slot.data.players.reduce((s, p) => s + p.rating,      0) / n : 0,
+    totalMotm:         slot.data.players.reduce((s, p) => s + p.motm, 0),
   };
 }
 
@@ -82,19 +113,34 @@ const BTN: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: 4,
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Component ───────────────────────────────────────────────────────────────
 export function CompareTab() {
-  const { compareHistory, addCompareEntry, deleteCompareEntry, persistSettings } = useAppStore();
+  const {
+    compareHistory, addCompareEntry, deleteCompareEntry,
+    savedComparisons, saveComparison, deleteSavedComparison, renameSavedComparison,
+    srAlerts, toggleSrAlert,
+    persistSettings, addToast,
+  } = useAppStore();
+
   const [slots, setSlots]       = useState<ClubSlot[]>([initSlot(), initSlot()]);
   const [section, setSection]   = useState<Section>("stats");
   const [h2hMatches, setH2h]    = useState<Match[] | null>(null);
   const [h2hLoading, setH2hLoading] = useState(false);
   const [exportModal, setExportModal] = useState<"png" | "csv" | null>(null);
+  const [pdfLoading, setPdfLoading]   = useState(false);
+  const [savePrompt, setSavePrompt]   = useState(false);
+  const [saveName, setSaveName]       = useState("");
+  const [showSaved, setShowSaved]     = useState(false);
+  const [renamingId, setRenamingId]   = useState<string | null>(null);
+  const [renameVal, setRenameVal]     = useState("");
+  // Battle votes: stat label → club index voted as winner
+  const [battleVotes, setBattleVotes] = useState<Record<string, number>>({});
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Derived: loaded slots
-  const loadedData = slots.filter(s => s.data).map(s => s.data!);
-  const loadedIds  = loadedData.map(d => d.club.id).join(",");
+  const loadedSlots   = slots.filter(s => s.data);
+  const loadedData    = loadedSlots.map(s => s.data!);
+  const loadedIds     = loadedData.map(d => d.club.id).join(",");
 
   // ── Slot mutations ──────────────────────────────────────────────────────────
   const updateSlot = (idx: number, patch: Partial<ClubSlot>) =>
@@ -111,7 +157,26 @@ export function CompareTab() {
   const pick = async (club: Club, idx: number) => {
     updateSlot(idx, { results: [], loading: true });
     const data = await loadClub(club.id, club.platform).catch(() => null);
-    updateSlot(idx, { data, loading: false });
+
+    // ── SR Alert check ──────────────────────────────────────────────────────
+    if (data && srAlerts.includes(club.id) && data.club.skillRating) {
+      const favs = useAppStore.getState().favs;
+      const fav = favs.find(f => f.id === club.id);
+      if (fav?.skillRating && fav.skillRating !== data.club.skillRating) {
+        addToast(`📊 SR mis à jour — ${club.name}: ${fav.skillRating} → ${data.club.skillRating}`, "info");
+      }
+    }
+
+    // Load season history
+    let seasons: SeasonData[] = [];
+    if (data) {
+      try {
+        const raw = await getSeasonHistory(data.club.id, data.club.platform);
+        if (Array.isArray(raw)) seasons = raw as SeasonData[];
+      } catch { /* season history unavailable */ }
+    }
+
+    updateSlot(idx, { data, loading: false, seasons, selectedSeasonId: null });
   };
 
   const resetSlot  = (idx: number) => updateSlot(idx, initSlot());
@@ -129,10 +194,11 @@ export function CompareTab() {
       clubB: { id: dB.club.id, name: dB.club.name, platform: dB.club.platform },
     });
     persistSettings();
+    setBattleVotes({});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadedIds]);
 
-  // ── H2H: load matches when exactly 2 clubs ────────────────────────────────
+  // ── H2H ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (loadedData.length !== 2) { setH2h(null); return; }
     const [dA, dB] = loadedData;
@@ -145,10 +211,10 @@ export function CompareTab() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadedIds]);
 
-  // ── Radar data (normalized 0-100 per stat) ────────────────────────────────
+  // ── Radar data ────────────────────────────────────────────────────────────
   const radarData = useMemo(() => {
-    if (loadedData.length < 2) return null;
-    const statsList = loadedData.map(computeClubRadarStats);
+    if (loadedSlots.length < 2) return null;
+    const statsList = loadedSlots.map(computeClubRadarStats);
     const STAT_KEYS: { key: keyof ReturnType<typeof computeClubRadarStats>; label: string }[] = [
       { key: "winPct",       label: "V%" },
       { key: "goalsPerGame", label: "Buts/Match" },
@@ -161,13 +227,13 @@ export function CompareTab() {
       const rawVals = statsList.map(s => s[key] as number);
       const maxVal  = Math.max(...rawVals);
       const row: Record<string, unknown> = { stat: label };
-      loadedData.forEach((_, i) => { row[`c${i}`] = maxVal > 0 ? Math.round((rawVals[i] / maxVal) * 100) : 0; });
+      loadedSlots.forEach((_, i) => { row[`c${i}`] = maxVal > 0 ? Math.round((rawVals[i] / maxVal) * 100) : 0; });
       return row;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadedIds]);
+  }, [loadedIds, slots.map(s => s.selectedSeasonId).join(",")]);
 
-  // ── Best players by position group ────────────────────────────────────────
+  // ── Best players by position ──────────────────────────────────────────────
   const bestByPosition = useMemo(() => {
     if (loadedData.length < 2) return null;
     const groups: Record<string, (Player | null)[]> = {};
@@ -181,7 +247,39 @@ export function CompareTab() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadedIds]);
 
-  // ── Load from history ─────────────────────────────────────────────────────
+  // ── Stat table rows ────────────────────────────────────────────────────────
+  type StatRowDef = [string, (slot: ClubSlot) => string | number, boolean?];
+  const statRowDefs: StatRowDef[] = [
+    ["SR",        slot => getClubStatsForSlot(slot)?.skillRating ?? "—"],
+    ["VICTOIRES", slot => getClubStatsForSlot(slot)?.wins ?? "—"],
+    ["NULS",      slot => getClubStatsForSlot(slot)?.ties ?? "—"],
+    ["DÉFAITES",  slot => getClubStatsForSlot(slot)?.losses ?? "—", true],
+    ["V%",        slot => {
+      const s = getClubStatsForSlot(slot);
+      if (!s) return "—";
+      const t = s.wins + s.losses + s.ties;
+      return t > 0 ? ((s.wins / t) * 100).toFixed(1) + "%" : "—";
+    }],
+    ["BUTS",      slot => getClubStatsForSlot(slot)?.goals ?? "—"],
+    ["JOUEURS",   slot => slot.data?.players.length ?? "—"],
+  ];
+
+  // ── Battle stat rows ───────────────────────────────────────────────────────
+  const battleRows: { label: string; values: number[] }[] = loadedSlots.length >= 2 ? [
+    { label: "V%",         values: loadedSlots.map(slot => { const s = getClubStatsForSlot(slot); if (!s) return 0; const t = s.wins+s.losses+s.ties; return t > 0 ? (s.wins/t)*100 : 0; }) },
+    { label: "Victoires",  values: loadedSlots.map(slot => getClubStatsForSlot(slot)?.wins ?? 0) },
+    { label: "Buts",       values: loadedSlots.map(slot => getClubStatsForSlot(slot)?.goals ?? 0) },
+    { label: "Buts/Match", values: loadedSlots.map(slot => { const s = getClubStatsForSlot(slot); if (!s) return 0; const t = s.wins+s.losses+s.ties; return t > 0 ? s.goals/t : 0; }) },
+    { label: "Joueurs",    values: loadedSlots.map(slot => slot.data?.players.length ?? 0) },
+    { label: "Note moy.",  values: loadedSlots.map(slot => { if (!slot.data) return 0; const n = slot.data.players.length; return n > 0 ? slot.data.players.reduce((s,p)=>s+p.rating,0)/n : 0; }) },
+    { label: "MOTM",       values: loadedSlots.map(slot => slot.data?.players.reduce((s,p)=>s+p.motm,0) ?? 0) },
+  ] : [];
+
+  const battleScores = loadedSlots.map((_, ci) =>
+    Object.values(battleVotes).filter(v => v === ci).length
+  );
+
+  // ── Load from history / saved ──────────────────────────────────────────────
   const loadFromHistory = async (entry: typeof compareHistory[0]) => {
     setSlots([initSlot(), initSlot()].map(s => ({ ...s, loading: true })));
     const [dataA, dataB] = await Promise.all([
@@ -189,47 +287,79 @@ export function CompareTab() {
       loadClub(entry.clubB.id, entry.clubB.platform).catch(() => null),
     ]);
     setSlots([
-      { query: "", results: [], data: dataA, loading: false },
-      { query: "", results: [], data: dataB, loading: false },
+      { query: "", results: [], data: dataA, loading: false, seasons: [], selectedSeasonId: null },
+      { query: "", results: [], data: dataB, loading: false, seasons: [], selectedSeasonId: null },
     ]);
   };
 
-  // ── CSV ───────────────────────────────────────────────────────────────────
+  const loadFromSaved = async (saved: typeof savedComparisons[0]) => {
+    const newSlots = saved.clubs.map(() => ({ ...initSlot(), loading: true }));
+    setSlots(newSlots);
+    const results = await Promise.all(
+      saved.clubs.map(c => loadClub(c.id, c.platform).catch(() => null))
+    );
+    setSlots(results.map(data => ({
+      query: "", results: [], data, loading: false, seasons: [], selectedSeasonId: null,
+    })));
+    setShowSaved(false);
+  };
+
+  // ── PDF ────────────────────────────────────────────────────────────────────
+  const handlePdf = async () => {
+    if (loadedData.length < 2) return;
+    setPdfLoading(true);
+    try {
+      const h2hForPdf = h2hMatches?.map(m => {
+        const aId = loadedData[0].club.id;
+        const bId = loadedData[1].club.id;
+        const gA = parseInt((m.clubs[aId]?.goals as string) ?? "0") || 0;
+        const gB = parseInt((m.clubs[bId]?.goals as string) ?? "0") || 0;
+        const ts = parseInt(m.timestamp);
+        return {
+          scoreA: gA,
+          scoreB: gB,
+          date: !isNaN(ts) ? new Date(ts * 1000).toLocaleDateString() : "—",
+        };
+      });
+      await generateComparePdf(loadedData, h2hForPdf);
+    } catch (e) {
+      addToast(`PDF: ${String(e)}`, "error");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  // ── Save named comparison ──────────────────────────────────────────────────
+  const handleSave = () => {
+    if (!saveName.trim() || loadedData.length < 2) return;
+    saveComparison(saveName.trim(), loadedData.map(d => ({
+      id: d.club.id, name: d.club.name, platform: d.club.platform,
+    })));
+    persistSettings();
+    setSavePrompt(false);
+    setSaveName("");
+    addToast(`✅ Comparaison "${saveName.trim()}" sauvegardée`, "success");
+  };
+
+  // ── CSV ────────────────────────────────────────────────────────────────────
   const dateStr    = new Date().toISOString().slice(0, 10);
   const csvHeaders = ["Stat", ...loadedData.map(d => d.club.name)];
-  const csvRows    = loadedData.length >= 2 ? [
-    ["SR",        ...loadedData.map(d => d.club.skillRating ?? "—")],
-    ["Victoires", ...loadedData.map(d => d.club.wins)],
-    ["Nuls",      ...loadedData.map(d => d.club.ties)],
-    ["Défaites",  ...loadedData.map(d => d.club.losses)],
-    ["V%",        ...loadedData.map(d => {
-      const t = d.club.wins + d.club.losses + d.club.ties;
-      return t > 0 ? ((d.club.wins / t) * 100).toFixed(1) + "%" : "—";
-    })],
-    ["Buts",      ...loadedData.map(d => d.club.goals)],
-    ["Joueurs",   ...loadedData.map(d => d.players.length)],
+  const csvRows    = loadedSlots.length >= 2 ? [
+    ["SR",        ...loadedSlots.map(s => getClubStatsForSlot(s)?.skillRating ?? "—")],
+    ["Victoires", ...loadedSlots.map(s => String(getClubStatsForSlot(s)?.wins ?? "—"))],
+    ["Nuls",      ...loadedSlots.map(s => String(getClubStatsForSlot(s)?.ties ?? "—"))],
+    ["Défaites",  ...loadedSlots.map(s => String(getClubStatsForSlot(s)?.losses ?? "—"))],
+    ["V%",        ...loadedSlots.map(s => { const st = getClubStatsForSlot(s); if (!st) return "—"; const t = st.wins+st.losses+st.ties; return t > 0 ? ((st.wins/t)*100).toFixed(1)+"%" : "—"; })],
+    ["Buts",      ...loadedSlots.map(s => String(getClubStatsForSlot(s)?.goals ?? "—"))],
+    ["Joueurs",   ...loadedSlots.map(s => String(s.data?.players.length ?? "—"))],
   ] : [];
 
-  // ── Stat table rows definition ────────────────────────────────────────────
-  type StatRowDef = [string, (d: ClubData) => string | number, boolean?];
-  const statRowDefs: StatRowDef[] = [
-    ["SR",        d => d.club.skillRating ?? "—"],
-    ["VICTOIRES", d => d.club.wins],
-    ["NULS",      d => d.club.ties],
-    ["DÉFAITES",  d => d.club.losses, true],
-    ["V%",        d => {
-      const t = d.club.wins + d.club.losses + d.club.ties;
-      return t > 0 ? ((d.club.wins / t) * 100).toFixed(1) + "%" : "—";
-    }],
-    ["BUTS",      d => d.club.goals],
-    ["JOUEURS",   d => d.players.length],
-  ];
-
-  // ── Section tab config ────────────────────────────────────────────────────
+  // ── Section tabs ───────────────────────────────────────────────────────────
   const sectionTabs: { id: Section; label: string; icon: React.ReactNode; disabled?: boolean }[] = [
     { id: "stats",   label: "Stats",   icon: <BarChart3   size={11} /> },
     { id: "radar",   label: "Radar",   icon: <Activity    size={11} /> },
     { id: "h2h",     label: "H2H",     icon: <GitCompare  size={11} />, disabled: loadedData.length !== 2 },
+    { id: "battle",  label: "Battle",  icon: <Swords      size={11} />, disabled: loadedData.length < 2 },
     { id: "players", label: "Joueurs", icon: <Users       size={11} />, disabled: loadedData.length < 2 },
   ];
 
@@ -261,9 +391,8 @@ export function CompareTab() {
             </div>
 
             {slot.data ? (
-              /* Club loaded */
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   <ClubLogo club={slot.data.club} size={32} />
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", margin: 0,
@@ -274,7 +403,36 @@ export function CompareTab() {
                       SR {slot.data.club.skillRating ?? "—"}
                     </p>
                   </div>
+                  {/* SR alert toggle */}
+                  <button
+                    onClick={() => { toggleSrAlert(slot.data!.club.id); persistSettings(); }}
+                    title={srAlerts.includes(slot.data.club.id) ? "Désactiver alerte SR" : "Activer alerte SR"}
+                    style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer",
+                      color: srAlerts.includes(slot.data.club.id) ? "var(--gold)" : "var(--muted)",
+                      padding: 2, flexShrink: 0 }}>
+                    {srAlerts.includes(slot.data.club.id) ? <Bell size={12} /> : <BellOff size={12} />}
+                  </button>
                 </div>
+
+                {/* Season selector */}
+                {slot.seasons.length > 0 && (
+                  <select
+                    value={slot.selectedSeasonId ?? ""}
+                    onChange={e => updateSlot(idx, { selectedSeasonId: e.target.value || null })}
+                    style={{
+                      width: "100%", background: "var(--bg)", border: "1px solid var(--border)",
+                      color: "var(--text)", padding: "4px 6px", borderRadius: 5,
+                      fontSize: 10, outline: "none", cursor: "pointer", marginBottom: 4,
+                    }}>
+                    <option value="">Saison actuelle</option>
+                    {slot.seasons.map(s => (
+                      <option key={s.seasonId} value={s.seasonId}>
+                        Saison {s.seasonId}{s.skillRating ? ` · SR ${s.skillRating}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
                 <button onClick={() => resetSlot(idx)} style={{ fontSize: 10, color: "var(--muted)",
                   background: "none", border: "1px solid var(--border)", borderRadius: 4,
                   cursor: "pointer", padding: "2px 7px" }}>Changer</button>
@@ -282,7 +440,6 @@ export function CompareTab() {
             ) : slot.loading ? (
               <p style={{ fontSize: 11, color: "var(--muted)" }}>Chargement…</p>
             ) : (
-              /* Search form */
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <input value={slot.query}
                   onChange={e => updateSlot(idx, { query: e.target.value })}
@@ -340,8 +497,8 @@ export function CompareTab() {
       {/* ── Sections (2+ clubs loaded) ── */}
       {loadedData.length >= 2 && (
         <>
-          {/* Section tab bar + export */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          {/* Section tab bar + actions */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 2, background: "var(--surface)",
               borderRadius: 8, padding: 3, border: "1px solid var(--border)" }}>
               {sectionTabs.map(tab => (
@@ -357,14 +514,132 @@ export function CompareTab() {
                     boxShadow: section === tab.id ? "0 1px 3px rgba(0,0,0,0.2)" : "none",
                     transition: "all 0.12s ease" }}>
                   {tab.icon} {tab.label}
+                  {tab.id === "battle" && Object.keys(battleVotes).length > 0 && (
+                    <span style={{ marginLeft: 2, fontSize: 9, background: "var(--accent)",
+                      color: "#000", borderRadius: 8, padding: "0 4px" }}>
+                      {Object.keys(battleVotes).length}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {/* Save named comparison */}
+              <button
+                onClick={() => setSavePrompt(v => !v)}
+                title="Sauvegarder cette comparaison"
+                style={{ ...BTN, color: savePrompt ? "var(--accent)" : "var(--muted)",
+                  borderColor: savePrompt ? "var(--accent)" : "var(--border)" }}>
+                <Save size={11} /> Sauvegarder
+              </button>
+              {/* Show saved */}
+              <button
+                onClick={() => setShowSaved(v => !v)}
+                title="Comparaisons sauvegardées"
+                style={{ ...BTN, color: showSaved ? "var(--accent)" : "var(--muted)",
+                  borderColor: showSaved ? "var(--accent)" : "var(--border)" }}>
+                <BookOpen size={11} /> Sauvegardées {savedComparisons.length > 0 && `(${savedComparisons.length})`}
+              </button>
+              {/* PDF */}
+              <button onClick={handlePdf} disabled={pdfLoading} style={{ ...BTN }}>
+                <FileText size={11} /> {pdfLoading ? "…" : "PDF"}
+              </button>
               <button onClick={() => setExportModal("png")} style={BTN}><Download size={11} /> PNG</button>
               <button onClick={() => setExportModal("csv")} style={BTN}><Download size={11} /> CSV</button>
             </div>
           </div>
+
+          {/* ── Save prompt ── */}
+          {savePrompt && (
+            <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "8px 12px",
+              background: "var(--card)", border: "1px solid var(--accent)", borderRadius: 8 }}>
+              <Save size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
+              <input
+                autoFocus
+                value={saveName}
+                onChange={e => setSaveName(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleSave()}
+                placeholder='Nom de la comparaison…  ex: "Finale div 2"'
+                style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--border)",
+                  color: "var(--text)", padding: "5px 9px", borderRadius: 5, fontSize: 12, outline: "none" }}
+              />
+              <button onClick={handleSave} disabled={!saveName.trim()}
+                style={{ padding: "5px 12px", background: "var(--accent)", color: "#000",
+                  border: "none", borderRadius: 5, cursor: saveName.trim() ? "pointer" : "default",
+                  fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, opacity: saveName.trim() ? 1 : 0.5 }}>
+                OK
+              </button>
+              <button onClick={() => setSavePrompt(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4 }}>
+                <X size={13} />
+              </button>
+            </div>
+          )}
+
+          {/* ── Saved comparisons panel ── */}
+          {showSaved && (
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)",
+              borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: 9, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif",
+                letterSpacing: "0.12em", marginBottom: 8 }}>COMPARAISONS SAUVEGARDÉES</div>
+              {savedComparisons.length === 0 ? (
+                <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>Aucune comparaison sauvegardée</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {savedComparisons.map(saved => (
+                    <div key={saved.id} style={{ display: "flex", alignItems: "center", gap: 8,
+                      padding: "7px 10px", background: "var(--bg)", border: "1px solid var(--border)",
+                      borderRadius: 6, cursor: "pointer", transition: "border-color 0.15s" }}
+                      onClick={() => loadFromSaved(saved)}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {renamingId === saved.id ? (
+                          <input autoFocus value={renameVal}
+                            onChange={e => setRenameVal(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") { renameSavedComparison(saved.id, renameVal.trim() || saved.name); persistSettings(); setRenamingId(null); }
+                              if (e.key === "Escape") setRenamingId(null);
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            style={{ width: "100%", background: "var(--surface)", border: "1px solid var(--accent)",
+                              color: "var(--text)", padding: "2px 6px", borderRadius: 4, fontSize: 12, outline: "none" }}
+                          />
+                        ) : (
+                          <div style={{ fontSize: 12, color: "var(--text)", fontWeight: 600,
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {saved.name}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 1 }}>
+                          {saved.clubs.map(c => c.name).join(" vs ")} · {new Date(saved.date).toLocaleDateString()}
+                        </div>
+                      </div>
+                      {renamingId === saved.id ? (
+                        <button onClick={e => { e.stopPropagation(); renameSavedComparison(saved.id, renameVal.trim() || saved.name); persistSettings(); setRenamingId(null); }}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 4 }}>
+                          <Check size={12} />
+                        </button>
+                      ) : (
+                        <button onClick={e => { e.stopPropagation(); setRenamingId(saved.id); setRenameVal(saved.name); }}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4 }}
+                          onMouseEnter={e => (e.currentTarget.style.color = "var(--text)")}
+                          onMouseLeave={e => (e.currentTarget.style.color = "var(--muted)")}>
+                          <Pencil size={11} />
+                        </button>
+                      )}
+                      <button onClick={e => { e.stopPropagation(); deleteSavedComparison(saved.id); persistSettings(); }}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4 }}
+                        onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+                        onMouseLeave={e => (e.currentTarget.style.color = "var(--muted)")}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── STATS TABLE ── */}
           {section === "stats" && (
@@ -376,18 +651,21 @@ export function CompareTab() {
                     <th style={{ padding: "9px 12px", fontSize: 10, color: "var(--muted)",
                       fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em",
                       textAlign: "left", minWidth: 72 }}>STAT</th>
-                    {loadedData.map((d, i) => (
+                    {loadedSlots.map((slot, i) => (
                       <th key={i} style={{ textAlign: "center", padding: "9px 10px",
                         fontSize: 12, color: COLORS[i],
                         fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.06em" }}>
-                        {d.club.name}
+                        <div>{slot.data?.club.name}</div>
+                        {slot.selectedSeasonId && (
+                          <div style={{ fontSize: 8, opacity: 0.7 }}>Saison {slot.selectedSeasonId}</div>
+                        )}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {statRowDefs.map(([label, getter, lowerBetter]) => {
-                    const values = loadedData.map(d => getter(d));
+                    const values = loadedSlots.map(slot => getter(slot));
                     const nums   = values.map(v => parseFloat(String(v).replace("%", "")));
                     const allNum = nums.every(n => !isNaN(n));
                     const maxVal = allNum ? Math.max(...nums) : null;
@@ -428,11 +706,10 @@ export function CompareTab() {
                 <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="72%">
                   <PolarGrid stroke="var(--border)" />
                   <PolarAngleAxis dataKey="stat"
-                    tick={{ fill: "var(--muted)", fontSize: 10,
-                      fontFamily: "'Bebas Neue', sans-serif" }} />
+                    tick={{ fill: "var(--muted)", fontSize: 10, fontFamily: "'Bebas Neue', sans-serif" }} />
                   <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                  {loadedData.map((d, i) => (
-                    <Radar key={d.club.id} name={d.club.name} dataKey={`c${i}`}
+                  {loadedSlots.map((slot, i) => (
+                    <Radar key={slot.data!.club.id} name={slot.data!.club.name} dataKey={`c${i}`}
                       stroke={COLORS_HEX[i]} fill={COLORS_HEX[i]} fillOpacity={0.18} />
                   ))}
                   <Legend wrapperStyle={{ fontSize: 11, fontFamily: "'Bebas Neue', sans-serif" }}
@@ -444,7 +721,7 @@ export function CompareTab() {
             </div>
           )}
 
-          {/* ── H2H MATCHES ── */}
+          {/* ── H2H ── */}
           {section === "h2h" && loadedData.length === 2 && (
             <div style={{ background: "var(--card)", border: "1px solid var(--border)",
               borderRadius: 10, padding: 14 }}>
@@ -466,7 +743,6 @@ export function CompareTab() {
                 </p>
               ) : (
                 <>
-                  {/* Summary counters */}
                   {(() => {
                     const aId = loadedData[0].club.id;
                     const bId = loadedData[1].club.id;
@@ -495,8 +771,6 @@ export function CompareTab() {
                       </div>
                     );
                   })()}
-
-                  {/* Match list */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 4,
                     maxHeight: 300, overflowY: "auto" }}>
                     {[...h2hMatches]
@@ -509,9 +783,7 @@ export function CompareTab() {
                         const result      = gA > gB ? "V" : gA < gB ? "D" : "N";
                         const resultColor = result === "V" ? "var(--green)" : result === "D" ? "var(--red)" : "var(--muted)";
                         const ts   = parseInt(m.timestamp);
-                        const date = !isNaN(ts)
-                          ? new Date(ts * 1000).toLocaleDateString()
-                          : new Date(m.timestamp).toLocaleDateString();
+                        const date = !isNaN(ts) ? new Date(ts * 1000).toLocaleDateString() : new Date(m.timestamp).toLocaleDateString();
                         return (
                           <div key={m.matchId} style={{ display: "grid",
                             gridTemplateColumns: "1fr 60px 1fr 36px",
@@ -543,6 +815,112 @@ export function CompareTab() {
                       })}
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* ── BATTLE MODE ── */}
+          {section === "battle" && (
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)",
+              borderRadius: 10, padding: 14 }}>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                <Swords size={15} style={{ color: "var(--accent)" }} />
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14,
+                  color: "var(--accent)", letterSpacing: "0.1em" }}>MODE BATTLE</span>
+                <span style={{ fontSize: 10, color: "var(--muted)", marginLeft: 4 }}>
+                  Vote sur chaque stat — qui est supérieur ?
+                </span>
+                {Object.keys(battleVotes).length > 0 && (
+                  <button onClick={() => setBattleVotes({})}
+                    style={{ marginLeft: "auto", fontSize: 10, color: "var(--muted)",
+                      background: "none", border: "1px solid var(--border)", borderRadius: 4,
+                      cursor: "pointer", padding: "2px 7px" }}>
+                    Réinitialiser
+                  </button>
+                )}
+              </div>
+
+              {/* Battle rows */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {battleRows.map(({ label, values }) => {
+                  const voted = battleVotes[label] ?? -1;
+                  const maxV = Math.max(...values);
+                  const autoWinner = values.filter(v => v === maxV).length === 1
+                    ? values.indexOf(maxV) : -1;
+                  return (
+                    <div key={label} style={{ display: "grid",
+                      gridTemplateColumns: `repeat(${loadedSlots.length}, 1fr) 80px`,
+                      gap: 6, alignItems: "center" }}>
+                      {loadedSlots.map((slot, ci) => {
+                        const isVoted = voted === ci;
+                        const isAuto = autoWinner === ci;
+                        return (
+                          <button key={ci} onClick={() => setBattleVotes(prev => ({ ...prev, [label]: ci }))}
+                            style={{
+                              padding: "8px 6px", borderRadius: 7, cursor: "pointer",
+                              border: `2px solid ${isVoted ? COLORS[ci] : isAuto ? `${COLORS_HEX[ci]}44` : "var(--border)"}`,
+                              background: isVoted ? `${COLORS_HEX[ci]}22` : "var(--bg)",
+                              transition: "all 0.12s",
+                              display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                            }}>
+                            <div style={{ fontSize: 9, color: COLORS[ci], fontFamily: "'Bebas Neue', sans-serif",
+                              letterSpacing: "0.06em", overflow: "hidden", textOverflow: "ellipsis",
+                              whiteSpace: "nowrap", maxWidth: "100%" }}>
+                              {slot.data?.club.name}
+                            </div>
+                            <div style={{ fontSize: 16, fontFamily: "'Bebas Neue', sans-serif",
+                              color: isVoted ? COLORS[ci] : isAuto ? COLORS[ci] : "var(--text)",
+                              fontWeight: 700 }}>
+                              {typeof values[ci] === "number" && values[ci] % 1 !== 0
+                                ? values[ci].toFixed(2) : values[ci]}
+                            </div>
+                          </button>
+                        );
+                      })}
+                      <div style={{ fontSize: 10, color: "var(--muted)", textAlign: "center",
+                        fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.05em" }}>
+                        {label}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Battle result */}
+              {Object.keys(battleVotes).length > 0 && (
+                <div style={{ marginTop: 16, padding: "12px 14px",
+                  background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                  <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 12,
+                    color: "var(--muted)", letterSpacing: "0.1em", marginBottom: 8 }}>
+                    RÉSULTAT DU BATTLE
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {loadedSlots.map((slot, ci) => {
+                      const score = battleScores[ci];
+                      const isWinner = score === Math.max(...battleScores) && score > 0;
+                      return (
+                        <div key={ci} style={{
+                          flex: "1 1 100px", padding: "10px 12px", borderRadius: 8, textAlign: "center",
+                          background: isWinner ? `${COLORS_HEX[ci]}18` : "var(--bg)",
+                          border: `1px solid ${isWinner ? COLORS[ci] : "var(--border)"}`,
+                          transition: "all 0.15s",
+                        }}>
+                          <div style={{ fontSize: 11, color: COLORS[ci], fontFamily: "'Bebas Neue', sans-serif",
+                            letterSpacing: "0.06em", marginBottom: 4 }}>
+                            {isWinner ? "🏆 " : ""}{slot.data?.club.name}
+                          </div>
+                          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: COLORS[ci] }}>
+                            {score}
+                          </div>
+                          <div style={{ fontSize: 9, color: "var(--muted)" }}>
+                            stat{score > 1 ? "s" : ""} gagnée{score > 1 ? "s" : ""}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           )}

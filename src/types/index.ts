@@ -146,6 +146,13 @@ export interface CompareEntry {
   clubB: { id: string; name: string; platform: string };
 }
 
+export interface SavedComparison {
+  id: string;
+  name: string;
+  date: string;
+  clubs: { id: string; name: string; platform: string }[];
+}
+
 export interface EaProfile {
   gamertag: string;
   platform: string;
@@ -197,6 +204,7 @@ export interface Settings {
   sessionTemplates?: SessionTemplate[];
   favFolders?: { id: string; name: string; clubIds: string[] }[];
   srAlerts?: string[];
+  savedComparisons?: SavedComparison[];
 }
 
 export interface ClubData {

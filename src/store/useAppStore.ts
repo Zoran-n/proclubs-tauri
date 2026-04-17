@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Club, Player, Match, Session, Tactic, EaProfile, SyncEntry, CompareEntry, SessionTemplate } from "../types";
+import type { Club, Player, Match, Session, Tactic, EaProfile, SyncEntry, CompareEntry, SessionTemplate, SavedComparison } from "../types";
 import type { ToastMessage } from "../components/ui/Toast";
 import { saveSettings as apiSave, loadSettings as apiLoad, setProxy as apiSetProxy } from "../api/tauri";
 import type { Lang } from "../i18n";
@@ -85,6 +85,7 @@ interface AppState {
   interfaceProfiles: { id: string; name: string; theme: string; navLayout: string; darkMode: boolean }[];
   favFolders: { id: string; name: string; clubIds: string[] }[];
   srAlerts: string[];  // clubIds with SR monitoring
+  savedComparisons: SavedComparison[];
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -167,6 +168,9 @@ interface AppState {
   renameFavFolder: (id: string, name: string) => void;
   setClubFolder: (clubId: string, folderId: string | null) => void;
   toggleSrAlert: (clubId: string) => void;
+  saveComparison: (name: string, clubs: { id: string; name: string; platform: string }[]) => void;
+  deleteSavedComparison: (id: string) => void;
+  renameSavedComparison: (id: string, name: string) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
@@ -219,6 +223,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   interfaceProfiles: [],
   favFolders: [],
   srAlerts: [],
+  savedComparisons: [],
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
@@ -500,6 +505,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       ? s.srAlerts.filter((id) => id !== clubId)
       : [...s.srAlerts, clubId],
   })),
+  saveComparison: (name, clubs) => set((s) => ({
+    savedComparisons: [
+      { id: Date.now().toString(), name, date: new Date().toISOString(), clubs },
+      ...s.savedComparisons,
+    ].slice(0, 30),
+  })),
+  deleteSavedComparison: (id) => set((s) => ({
+    savedComparisons: s.savedComparisons.filter((c) => c.id !== id),
+  })),
+  renameSavedComparison: (id, name) => set((s) => ({
+    savedComparisons: s.savedComparisons.map((c) => c.id === id ? { ...c, name } : c),
+  })),
   setStreamingMode: (streamingMode) => set({ streamingMode }),
   setCustomShortcut: (action, combo) => set((s) => ({
     customShortcuts: { ...s.customShortcuts, [action]: combo },
@@ -597,6 +614,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         interfaceProfiles: ((s as unknown as Record<string, unknown>).interfaceProfiles as { id: string; name: string; theme: string; navLayout: string; darkMode: boolean }[]) ?? [],
         favFolders: ((s as unknown as Record<string, unknown>).favFolders as { id: string; name: string; clubIds: string[] }[]) ?? [],
         srAlerts: ((s as unknown as Record<string, unknown>).srAlerts as string[]) ?? [],
+        savedComparisons: ((s as unknown as Record<string, unknown>).savedComparisons as SavedComparison[]) ?? [],
         settingsLoaded: true,
       });
     } catch { /* first launch */ } finally {
@@ -609,7 +627,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       theme, darkMode, proxyUrl,
       showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, customBg, customSurface, customCard, language, onboarded, matchCache, cacheTimestamps, cacheOwners, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout, sessionTemplates,
       streamingMode, customShortcuts, scheduledNotifications, interfaceProfiles,
-      favFolders, srAlerts } = get();
+      favFolders, srAlerts, savedComparisons } = get();
     const payload = {
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -640,6 +658,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       interfaceProfiles,
       favFolders,
       srAlerts,
+      savedComparisons,
     };
     // Skip the I/O write if nothing changed
     const json = JSON.stringify(payload);
