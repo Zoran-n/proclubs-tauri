@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Club, Player, Match, Session, Tactic, EaProfile, SyncEntry, CompareEntry, SessionTemplate, SavedComparison } from "../types";
-import type { ToastMessage } from "../components/ui/Toast";
+import type { ToastMessage } from "../components/UI/Toast";
 import { saveSettings as apiSave, loadSettings as apiLoad, setProxy as apiSetProxy } from "../api/tauri";
 import type { Lang } from "../i18n";
 

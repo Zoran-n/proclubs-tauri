@@ -2,10 +2,10 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Download, ChevronDown, Search, Calendar, List, ChevronLeft, ChevronRight, PenLine, Table2 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
-import { ExportModal } from "../ui/ExportModal";
+import { ExportModal } from "../Modals/ExportModal";
 import { useT } from "../../i18n";
 import type { Match } from "../../types";
-import { MatchModal, formatDate } from "../modals/MatchModal";
+import { MatchModal, formatDate } from "../Modals/MatchModal";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useMatchData } from "../../hooks/useMatchData";
 

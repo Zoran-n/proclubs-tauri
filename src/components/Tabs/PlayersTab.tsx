@@ -2,12 +2,12 @@ import { useState, useMemo, useCallback } from "react";
 import { List, useListRef } from "react-window";
 import { Search, Download, ChevronUp, ChevronDown, Users, Filter, AlertTriangle, LayoutGrid, Trophy, Globe } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
-import { ExportModal } from "../ui/ExportModal";
+import { ExportModal } from "../Modals/ExportModal";
 import { useT } from "../../i18n";
 import type { Player, Match } from "../../types";
-import { PlayerModal, POS_LABELS, PlayerAvatar, ratingColor } from "../modals/PlayerModal";
-import { CompareModal } from "../modals/CompareModal";
-import { CrossClubsModal } from "../modals/CrossClubsModal";
+import { PlayerModal, POS_LABELS, PlayerAvatar, ratingColor } from "../Modals/PlayerModal";
+import { CompareModal } from "../Modals/CompareModal";
+import { CrossClubsModal } from "../Modals/CrossClubsModal";
 import { useDebounce } from "../../hooks/useDebounce";
 
 type SortKey = keyof Player | "score";

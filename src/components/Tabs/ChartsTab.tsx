@@ -6,7 +6,7 @@ import {
   BarChart, Bar, RadarChart, Radar, PolarGrid, PolarAngleAxis,
 } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
-import { ExportModal } from "../ui/ExportModal";
+import { ExportModal } from "../Modals/ExportModal";
 import { getSeasonHistory, getLeaderboard } from "../../api/tauri";
 import { useT } from "../../i18n";
 import type { Match, Player } from "../../types";

@@ -10,9 +10,9 @@ import {
 } from "recharts";
 import { useAppStore } from "../../store/useAppStore";
 import { useSession } from "../../hooks/useSession";
-import { Badge } from "../ui/Badge";
-import { ExportModal } from "../ui/ExportModal";
-import { PdfSaveModal } from "../ui/PdfSaveModal";
+import { Badge } from "../UI/Badge";
+import { ExportModal } from "../Modals/ExportModal";
+import { PdfSaveModal } from "../Modals/PdfSaveModal";
 import type { Match, Session as SessionType } from "../../types";
 import { generateSessionPdf, getSessionPdfFilename } from "../../utils/pdfExport";
 import { sendDiscordWebhook } from "../../api/discord";
