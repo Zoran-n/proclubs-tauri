@@ -280,24 +280,60 @@ source ~/.cargo/env && npm run tauri build -- --debug
 
 ---
 
-## 💡 Prochaines idées (à analyser)
+## 💡 Prochaines idées (6 par thème)
 
 ### 🎮 Compétition
-- **Tournois internes** : créer un bracket (élimination directe ou poule) avec des équipes de joueurs du club, résultats saisis manuellement
-- **Classements saison perso** : tableau de bord de saison personnalisée — points, diff buts, podium joueurs
+- **Tournois internes** : bracket élimination directe ou poule avec des joueurs du club, résultats saisis manuellement
+- **Classement saison perso** : tableau de bord de saison — points, diff buts, podium joueurs, matchs restants
+- **Défis hebdomadaires** : objectifs auto générés chaque semaine (ex: "5 clean sheets", "gagner 3 en row") avec badge récompense
+- **Historique H2H par club** : suivi du bilan victoires/défaites face à un club adverse précis sur toutes les saisons
+- **Ligue personnalisée** : créer une mini-ligue entre plusieurs clubs amis avec classement, résultats et PDF de fin de saison
+- **MVP vote après match** : voter pour le MVP de la session depuis l'app, résultat affiché sur Discord et enregistré en stats
 
 ### 📊 Données & Analyse
-- **Heatmap de forme** : calendrier GitHub-style coloré (vert/rouge) montrant les résultats match par match sur 3 mois
+- **Heatmap de forme** : calendrier GitHub-style (vert/rouge) montrant les résultats match par match sur 3 mois glissants
 - **Rapport hebdomadaire auto** : générer chaque lundi un PDF/Discord résumant la semaine (MJ, V, N, D, meilleur joueur)
+- **Score de forme équipe** : indice calculé sur les 10 derniers matchs (comme le "form" FIFA) affiché sur le dashboard
+- **Analyse des horaires** : stats regroupées par tranche horaire (19h-21h, week-end...) pour trouver les meilleurs créneaux
+- **Détection de séries** : mise en valeur automatique des séries en cours (invincibilité, victoires consécutives, buteur)
+- **Comparaison avant/après** : comparer les stats d'un joueur sur deux périodes définies (ex: "mois 1 vs mois 2")
 
 ### 🤝 Social & Discord
-- **Galerie de moments forts** : capturer un score ou stat marquant et l'envoyer sur Discord en image stylisée (comme une carte)
-- **Sondage Discord intégré** : proposer un vote de compo ou de système de jeu directement depuis l'app via webhook Discord
+- **Galerie moments forts** : capturer un score / stat remarquable et l'envoyer sur Discord en image stylisée (carte)
+- **Sondage Discord intégré** : proposer un vote de compo ou de système de jeu directement via webhook Discord
+- **Annonce de match auto** : bot Discord qui poste une annonce pré-match (heure, adversaire, compo prévue) en un clic
+- **Récap post-session Discord** : envoyer le résumé complet de session (résultats, MOTM, buts/assists top 3) en embed Discord
+- **Profil joueur partageable** : générer un lien ou une image de profil joueur (stats, avatar, note, forme) à poster n'importe où
+- **Thread Discord par saison** : créer automatiquement un thread Discord pour chaque nouvelle saison avec le bilan running
+
+### 🎨 UX & Interface
+- **Thèmes de couleur** : choix de palette (Discord sombre, Discord clair, EA FC bleu, rouge sang, or champion…)
+- **Dashboard personnalisable** : widgets glissables/redimensionnables sur la page d'accueil (stats, derniers matchs, forme…)
+- **Mode compact** : affichage ultra-dense pour petits écrans ou multi-fenêtres (police réduite, marges minimales)
+- **Raccourcis clavier globaux** : navigation rapide entre onglets, refresh, recherche globale sans souris
+- **Onboarding amélioré** : wizard de configuration au 1er lancement (plateforme, club, Discord webhook, langue)
+- **Animations de performance** : micro-animations sur les KPIs (compteur qui monte, barre de progression animée)
+
+### ⚙️ Technique
+- **Tests unitaires** : couverture des fonctions de calcul de stats (score composite, agrégats, ranking)
+- **Web Worker** : délocaliser les calculs lourds (agrégats recharts, CSV export) hors du thread UI
+- **Cache intelligent** : invalidation sélective du cache EA par match type + TTL configurable dans Settings
+- **Logs exportables** : système de logs niveaux (debug/info/warn/error) téléchargeable depuis l'interface
+- **Mode hors-ligne** : détecter l'absence de réseau et basculer sur les données en cache avec badge offline visible
+- **Raccourci tray** : icône dans la barre système Windows avec menu rapide (refresh, ouvrir, dernier club chargé)
+
+### 🤖 IA & Prédiction
+- **Prédiction résultat** : modèle simple (régression logistique sur SR, forme, domicile/ext.) pour estimer les chances de victoire
+- **Recommandation position optimale** : analyser les stats d'un joueur et suggérer le poste où il performe le mieux
+- **Détection anomalie** : alerter quand un joueur sort de sa norme de performance (note très basse ou très haute)
+- **Composition optimale auto** : suggérer le meilleur XI basé sur les notes moyennes des 10 derniers matchs
+- **Résumé en langage naturel** : générer automatiquement un texte narratif de la session ("Super semaine : 5V 1N, meilleur buteur…")
+- **Objectifs intelligents** : proposer des objectifs réalistes pour la prochaine semaine basés sur les tendances actuelles
 
 ### ⭐ Fonctionnalité phare proposée — Tableau de bord Coach
 Onglet dédié au coach/manager du club :
-- Vue synthèse en temps réel : forme de l'équipe, joueurs en progression / en baisse, absents potentiels (inactivité)
-- Suggestions auto de composition basée sur les stats récentes (meilleur XI des 10 derniers matchs)
-- Objectifs de saison configurables (ex: "50 victoires", "100 buts") avec barre de progression
-- Export PDF du bilan coach mensuel
+- Vue synthèse temps réel : forme de l'équipe, joueurs en progression/en baisse, absents potentiels (inactivité détectée)
+- Meilleur XI auto basé sur les notes des 10 derniers matchs, avec export image Discord
+- Objectifs de saison configurables ("50 victoires", "100 buts") avec barre de progression et alertes seuil
+- Export PDF bilan coach mensuel (résultats, top joueurs, forme, objectifs atteints)
 
