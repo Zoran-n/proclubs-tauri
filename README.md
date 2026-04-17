@@ -278,10 +278,26 @@ source ~/.cargo/env && npm run tauri build -- --debug
 - ~~**Alerte changement SR**~~ ✅ Implémenté
 - ~~**Comparaison joueurs cross-clubs**~~ ✅ Implémenté
 
-### Technique
-- **Tests unitaires** : couverture des fonctions de calcul de stats (score composite, résultats, agrégats)
-- **Web Worker** : délocaliser les calculs lourds (agrégats, recharts data) hors du thread UI
-- **Plugin Tauri dédié** : déplacer la logique de fetch EA dans un plugin Rust réutilisable
-- **Logs structurés** : remplacer les `console.log` par un système de log niveaux (debug/info/warn/error) exportable
-- **Mise à jour delta** : télécharger uniquement le diff binaire lors des mises à jour (réduire la taille du patch)
+---
+
+## 💡 Prochaines idées (à analyser)
+
+### 🎮 Compétition
+- **Tournois internes** : créer un bracket (élimination directe ou poule) avec des équipes de joueurs du club, résultats saisis manuellement
+- **Classements saison perso** : tableau de bord de saison personnalisée — points, diff buts, podium joueurs
+
+### 📊 Données & Analyse
+- **Heatmap de forme** : calendrier GitHub-style coloré (vert/rouge) montrant les résultats match par match sur 3 mois
+- **Rapport hebdomadaire auto** : générer chaque lundi un PDF/Discord résumant la semaine (MJ, V, N, D, meilleur joueur)
+
+### 🤝 Social & Discord
+- **Galerie de moments forts** : capturer un score ou stat marquant et l'envoyer sur Discord en image stylisée (comme une carte)
+- **Sondage Discord intégré** : proposer un vote de compo ou de système de jeu directement depuis l'app via webhook Discord
+
+### ⭐ Fonctionnalité phare proposée — Tableau de bord Coach
+Onglet dédié au coach/manager du club :
+- Vue synthèse en temps réel : forme de l'équipe, joueurs en progression / en baisse, absents potentiels (inactivité)
+- Suggestions auto de composition basée sur les stats récentes (meilleur XI des 10 derniers matchs)
+- Objectifs de saison configurables (ex: "50 victoires", "100 buts") avec barre de progression
+- Export PDF du bilan coach mensuel
 
