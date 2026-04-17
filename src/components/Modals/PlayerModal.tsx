@@ -1,12 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from "recharts";
-import { Send, FileText } from "lucide-react";
+import { Send, FileText, CreditCard } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useT } from "../../i18n";
-import { sendDiscordWebhook } from "../../api/discord";
+import { sendDiscordWebhook, sendDiscordFile } from "../../api/discord";
 import { generatePlayerPdf, getPlayerPdfFilename } from "../../utils/pdfExport";
 import { PdfSaveModal } from "./PdfSaveModal";
 import type { Player, Match } from "../../types";
@@ -93,6 +93,230 @@ function getMatchesFromCache(
   return all;
 }
 
+// ─── FIFA-style player card (canvas) ─────────────────────────────────────────
+
+const TIER = {
+  gold:   { bg1: "#2a1f00", bg2: "#0d0900", accent: "#F9C00C", glow: "rgba(249,192,12,0.4)" },
+  silver: { bg1: "#1f2028", bg2: "#0a0b0f", accent: "#C8C8C8", glow: "rgba(200,200,200,0.35)" },
+  bronze: { bg1: "#1f1008", bg2: "#0a0500", accent: "#CD7F32", glow: "rgba(205,127,50,0.4)" },
+} as const;
+
+function drawPlayerCard(canvas: HTMLCanvasElement, player: Player, posLabel: string, clubName: string): void {
+  canvas.width  = 300;
+  canvas.height = 420;
+  const ctx = canvas.getContext("2d")!;
+  const ovr = Math.min(99, Math.max(0, Math.round(player.rating * 10)));
+  const tc  = ovr >= 85 ? TIER.gold : ovr >= 65 ? TIER.silver : TIER.bronze;
+  const F   = "'Bebas Neue', Impact, sans-serif";
+
+  // Background
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, 420);
+  bgGrad.addColorStop(0, tc.bg1);
+  bgGrad.addColorStop(1, tc.bg2);
+  ctx.fillStyle = bgGrad;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(0, 0, 300, 420, 12);
+  else ctx.rect(0, 0, 300, 420);
+  ctx.fill();
+
+  // Top accent wash
+  const topGrad = ctx.createLinearGradient(0, 0, 300, 0);
+  topGrad.addColorStop(0,   tc.accent + "00");
+  topGrad.addColorStop(0.5, tc.accent + "18");
+  topGrad.addColorStop(1,   tc.accent + "00");
+  ctx.fillStyle = topGrad;
+  ctx.fillRect(0, 0, 300, 100);
+
+  // Border
+  ctx.strokeStyle = tc.accent;
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.45;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(1, 1, 298, 418, 11);
+  else ctx.rect(1, 1, 298, 418);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // OVR number
+  ctx.font = `bold 58px ${F}`;
+  ctx.fillStyle = tc.accent;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(String(ovr), 22, 72);
+
+  // Position label
+  ctx.font = `bold 15px ${F}`;
+  ctx.fillStyle = tc.accent;
+  ctx.fillText(posLabel, 25, 90);
+
+  // Divider 1
+  ctx.strokeStyle = tc.accent;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.3;
+  ctx.beginPath(); ctx.moveTo(20, 100); ctx.lineTo(280, 100); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Avatar glow
+  const cx = 150, cy = 182, r = 54;
+  const glowGrad = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 1.7);
+  glowGrad.addColorStop(0, tc.glow);
+  glowGrad.addColorStop(1, "transparent");
+  ctx.fillStyle = glowGrad;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 1.7, 0, Math.PI * 2); ctx.fill();
+
+  // Avatar circle
+  ctx.fillStyle = avatarColor(player.name);
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+
+  // Avatar border
+  ctx.strokeStyle = tc.accent;
+  ctx.lineWidth = 2.5;
+  ctx.globalAlpha = 0.75;
+  ctx.beginPath(); ctx.arc(cx, cy, r + 1.5, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Initials
+  const initials = player.name.split(/\s+/).map((w) => w[0]?.toUpperCase() ?? "").join("").slice(0, 2) || "?";
+  ctx.font = `bold 36px ${F}`;
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(initials, cx, cy);
+
+  // Player name
+  ctx.font = `bold 21px ${F}`;
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(player.name.toUpperCase(), 150, 256);
+
+  // Divider 2
+  ctx.strokeStyle = tc.accent;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.3;
+  ctx.beginPath(); ctx.moveTo(40, 264); ctx.lineTo(260, 264); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Stats grid (2 rows × 3 cols)
+  const stats = [
+    { label: "BUTS",   value: String(player.goals) },
+    { label: "PD",     value: String(player.assists) },
+    { label: "MJ",     value: String(player.gamesPlayed) },
+    { label: "NOTE",   value: player.rating > 0 ? player.rating.toFixed(1) : "—" },
+    { label: "MOTM",   value: String(player.motm) },
+    { label: "TACLK",  value: String(player.tacklesMade) },
+  ];
+  const colW = 100, rowH = 52, gridY = 276;
+  stats.forEach((s, i) => {
+    const col = i % 3, row = Math.floor(i / 3);
+    const sx = col * colW + 50, sy = gridY + row * rowH;
+    ctx.font = `bold 26px ${F}`;
+    ctx.fillStyle = tc.accent;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(s.value, sx, sy + 13);
+    ctx.font = `10px ${F}`;
+    ctx.fillStyle = "rgba(255,255,255,0.42)";
+    ctx.fillText(s.label, sx, sy + 31);
+  });
+  ctx.textBaseline = "alphabetic";
+
+  // Divider 3
+  ctx.strokeStyle = tc.accent;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.22;
+  ctx.beginPath(); ctx.moveTo(20, 384); ctx.lineTo(280, 384); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Club footer
+  ctx.font = `11px ${F}`;
+  ctx.fillStyle = "rgba(255,255,255,0.38)";
+  ctx.textAlign = "center";
+  ctx.fillText(clubName.toUpperCase(), 150, 407);
+}
+
+// ─── PlayerCardModal ──────────────────────────────────────────────────────────
+
+function PlayerCardModal({ player, posLabel, clubName, onClose }: {
+  player: Player;
+  posLabel: string;
+  clubName: string;
+  onClose: () => void;
+}) {
+  const { discordWebhook, addToast } = useAppStore();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    document.fonts.ready.then(() => {
+      if (canvasRef.current) drawPlayerCard(canvasRef.current, player, posLabel, clubName);
+    });
+  }, [player, posLabel, clubName]);
+
+  const handleDownload = () => {
+    if (!canvasRef.current) return;
+    const link = document.createElement("a");
+    link.download = `${player.name.replace(/\s+/g, "_")}_card.png`;
+    link.href = canvasRef.current.toDataURL("image/png");
+    link.click();
+  };
+
+  const handleSendDiscord = async () => {
+    if (!discordWebhook || !canvasRef.current) return;
+    setSending(true);
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvasRef.current!.toBlob((b) => b ? resolve(b) : reject(new Error("Canvas vide")), "image/png")
+      );
+      await sendDiscordFile(discordWebhook, blob, `${player.name.replace(/\s+/g, "_")}_card.png`);
+      addToast("Carte envoyée sur Discord !", "success");
+      onClose();
+    } catch (e) {
+      addToast(`Erreur: ${String(e)}`, "error");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 60,
+      display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+      <div style={{ background: "var(--card)", borderRadius: 14, padding: 24,
+        border: "1px solid var(--border)", animation: "fadeSlideIn 0.15s ease-out" }}
+        onClick={(e) => e.stopPropagation()}>
+        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, color: "var(--muted)",
+          letterSpacing: "0.1em", marginBottom: 14, textAlign: "center" }}>
+          CARTE JOUEUR
+        </div>
+        <canvas ref={canvasRef} width={300} height={420}
+          style={{ display: "block", borderRadius: 12, boxShadow: "0 8px 40px rgba(0,0,0,0.7)" }} />
+        <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "center" }}>
+          <button onClick={handleDownload}
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px",
+              background: "rgba(255,107,53,0.12)", border: "1px solid rgba(255,107,53,0.3)",
+              borderRadius: 6, color: "#ff6b35", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>
+            ↓ PNG
+          </button>
+          {discordWebhook && (
+            <button onClick={handleSendDiscord} disabled={sending}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px",
+                background: "rgba(88,101,242,0.15)", border: "1px solid rgba(88,101,242,0.35)",
+                borderRadius: 6, color: "#8b9cf4", fontSize: 12, fontWeight: 600,
+                cursor: sending ? "default" : "pointer", opacity: sending ? 0.5 : 1 }}>
+              <Send size={12} /> Discord
+            </button>
+          )}
+          <button onClick={onClose}
+            style={{ padding: "7px 14px", background: "var(--bg)", border: "1px solid var(--border)",
+              borderRadius: 6, color: "var(--muted)", fontSize: 12, cursor: "pointer" }}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── PlayerModal ──────────────────────────────────────────────────────────────
 
 export function PlayerModal({ player, onClose }: { player: Player; onClose: () => void }) {
@@ -107,6 +331,7 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
   const [showPeriods, setShowPeriods] = useState(false);
   const [periodA, setPeriodA] = useState({ start: "", end: "" });
   const [periodB, setPeriodB] = useState({ start: "", end: "" });
+  const [showCardModal, setShowCardModal] = useState(false);
   const posLabel = POS_LABELS[player.position] ?? player.position ?? "—";
 
   // ── Per-match evolution data (league matches only — fast) ──────────────────
@@ -344,6 +569,12 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={() => setShowCardModal(true)} title="Carte joueur FIFA"
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
+                background: "rgba(249,192,12,0.1)", border: "1px solid rgba(249,192,12,0.3)",
+                borderRadius: 6, color: "#F9C00C", fontSize: 11, cursor: "pointer" }}>
+              <CreditCard size={12} /> Carte
+            </button>
             <button onClick={() => setShowPdfModal(true)} disabled={exporting} title="Exporter en PDF"
               style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
                 background: "rgba(255,107,53,0.12)", border: "1px solid rgba(255,107,53,0.3)",
@@ -681,6 +912,14 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
           } finally { setExporting(false); }
         }}
         onCancel={() => setShowPdfModal(false)}
+      />
+    )}
+    {showCardModal && (
+      <PlayerCardModal
+        player={player}
+        posLabel={posLabel}
+        clubName={currentClub?.name ?? "ProStatClub"}
+        onClose={() => setShowCardModal(false)}
       />
     )}
     </>
