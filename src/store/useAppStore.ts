@@ -86,6 +86,7 @@ interface AppState {
   favFolders: { id: string; name: string; clubIds: string[] }[];
   srAlerts: string[];  // clubIds with SR monitoring
   savedComparisons: SavedComparison[];
+  palettePreset: string | null;
 
   addCompareEntry: (entry: CompareEntry) => void;
   deleteCompareEntry: (id: string) => void;
@@ -171,6 +172,7 @@ interface AppState {
   saveComparison: (name: string, clubs: { id: string; name: string; platform: string }[]) => void;
   deleteSavedComparison: (id: string) => void;
   renameSavedComparison: (id: string, name: string) => void;
+  setPalettePreset: (id: string | null) => void;
   applyProxy: (url: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
@@ -224,6 +226,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   favFolders: [],
   srAlerts: [],
   savedComparisons: [],
+  palettePreset: null,
 
   addCompareEntry: (entry) => set((s) => ({
     compareHistory: [entry, ...s.compareHistory.filter((e) => e.id !== entry.id)].slice(0, 20),
@@ -322,7 +325,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     return { sessions: [merged, ...s.sessions.filter((x) => !ids.includes(x.id))] };
   }),
+  setPalettePreset: (id) => {
+    const root = document.documentElement;
+    if (id) {
+      root.setAttribute("data-palette", id);
+    } else {
+      root.removeAttribute("data-palette");
+    }
+    set({ palettePreset: id });
+  },
   setTheme: (theme) => {
+    document.documentElement.removeAttribute("data-palette");
     document.documentElement.setAttribute("data-theme", theme);
     if (theme === "custom") {
       const { customAccent, customBg, customSurface, customCard } = get();
@@ -336,10 +349,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       document.documentElement.style.removeProperty("--bg");
       document.documentElement.style.removeProperty("--surface");
       document.documentElement.style.removeProperty("--card");
-      set({ theme, customBg: "", customSurface: "", customCard: "" });
+      set({ theme, palettePreset: null, customBg: "", customSurface: "", customCard: "" });
       return;
     }
-    set({ theme });
+    set({ theme, palettePreset: null });
   },
   setDarkMode: (darkMode) => {
     document.documentElement.toggleAttribute("data-light", !darkMode);
@@ -557,6 +570,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const s = await apiLoad();
       const root = document.documentElement;
       const theme = s.theme ?? "cyan";
+      const palettePreset = ((s as unknown as Record<string, unknown>).palettePreset as string | null) ?? null;
+      if (palettePreset) root.setAttribute("data-palette", palettePreset);
       root.setAttribute("data-theme", theme);
       // Convert old string values to numeric px
       const fsRaw = s.fontSize;
@@ -615,6 +630,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         favFolders: ((s as unknown as Record<string, unknown>).favFolders as { id: string; name: string; clubIds: string[] }[]) ?? [],
         srAlerts: ((s as unknown as Record<string, unknown>).srAlerts as string[]) ?? [],
         savedComparisons: ((s as unknown as Record<string, unknown>).savedComparisons as SavedComparison[]) ?? [],
+        palettePreset,
         settingsLoaded: true,
       });
     } catch { /* first launch */ } finally {
@@ -627,7 +643,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       theme, darkMode, proxyUrl,
       showGrid, showAnimations, showLogs, showIdSearch, fontSize, fontFamily, customAccent, customBg, customSurface, customCard, language, onboarded, matchCache, cacheTimestamps, cacheOwners, discordWebhook, autoUpdate, matchAnnotations, visibleKpis, navLayout, sessionTemplates,
       streamingMode, customShortcuts, scheduledNotifications, interfaceProfiles,
-      favFolders, srAlerts, savedComparisons } = get();
+      favFolders, srAlerts, savedComparisons, palettePreset } = get();
     const payload = {
       history, favs, tactics, sessions, compareHistory,
       eaProfile: eaProfile ?? undefined,
@@ -659,6 +675,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       favFolders,
       srAlerts,
       savedComparisons,
+      palettePreset: palettePreset ?? undefined,
     };
     // Skip the I/O write if nothing changed
     const json = JSON.stringify(payload);

@@ -797,3 +797,160 @@ export async function generateComparePdf(
     `comparaison_${clubs.map(c => c.club.name.replace(/\s+/g, "_")).join("_vs_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
   doc.save(filename);
 }
+
+// ─── Rapport hebdomadaire PDF ─────────────────────────────────────────────────
+
+export async function generateWeeklyReport(
+  sessions: Session[],
+  clubName: string,
+  weekStart?: Date,
+) {
+  const { default: jsPDF } = await import("jspdf");
+  await import("jspdf-autotable");
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const accent: [number, number, number] = [0, 180, 220];
+  const dark: [number, number, number] = [30, 35, 45];
+
+  // Determine week range (Mon–Sun)
+  const now = weekStart ?? new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun
+  const diffToMon = (dayOfWeek === 0 ? -6 : 1 - dayOfWeek);
+  const mon = new Date(now); mon.setDate(now.getDate() + diffToMon); mon.setHours(0, 0, 0, 0);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6); sun.setHours(23, 59, 59, 999);
+
+  // Filter sessions for the week
+  const weekSessions = sessions.filter((s) => {
+    const d = new Date(s.date);
+    return d >= mon && d <= sun;
+  });
+
+  // Aggregate
+  let totalMatches = 0, wins = 0, draws = 0, losses = 0, goals = 0, assists = 0, motmTotal = 0;
+  const playerMap = new Map<string, { goals: number; assists: number; motm: number; games: number }>();
+
+  for (const s of weekSessions) {
+    totalMatches += s.matches.length;
+    for (const m of s.matches) {
+      const cd = m.clubs[s.clubId] as Record<string, unknown> | undefined;
+      if (!cd) continue;
+      if (String(cd.matchResult) === "win")       wins++;
+      else if (String(cd.matchResult) === "loss")  losses++;
+      else                                         draws++;
+      // Player stats
+      const playersObj = m.players?.[s.clubId];
+      if (playersObj) {
+        for (const p of Object.values(playersObj)) {
+          const name = String(p.name ?? p.playername ?? p.playerName ?? "?");
+          const cur = playerMap.get(name) ?? { goals: 0, assists: 0, motm: 0, games: 0 };
+          const g = Number(p.goals ?? 0); const a = Number(p.assists ?? 0);
+          const mm = Number(p.manOfTheMatch ?? 0);
+          cur.goals += g; cur.assists += a; cur.motm += mm; cur.games += 1;
+          goals += g; assists += a; motmTotal += mm;
+          playerMap.set(name, cur);
+        }
+      }
+    }
+  }
+
+  const formScore = totalMatches > 0 ? Math.round(((wins * 3 + draws) / (totalMatches * 3)) * 100) : 0;
+  const weekLabel = `Semaine du ${mon.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} au ${sun.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`;
+
+  // ── Header
+  doc.setFillColor(...dark);
+  doc.rect(0, 0, 210, 38, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20);
+  doc.text(`RAPPORT HEBDOMADAIRE — ${clubName.toUpperCase()}`, 14, 16);
+  doc.setFontSize(10);
+  doc.setTextColor(...accent);
+  doc.text(weekLabel, 14, 28);
+  doc.setTextColor(180, 180, 180);
+  doc.text(`Généré le ${new Date().toLocaleDateString("fr-FR")}`, 14, 34);
+
+  // ── KPIs row
+  let y = 46;
+  doc.setFillColor(240, 242, 245);
+  doc.rect(10, y - 4, 190, 20, "F");
+  const kpis = [
+    { label: "Sessions", value: String(weekSessions.length) },
+    { label: "Matchs",   value: String(totalMatches) },
+    { label: "V/N/D",    value: `${wins}/${draws}/${losses}` },
+    { label: "Buts",     value: String(goals) },
+    { label: "PD",       value: String(assists) },
+    { label: "Forme",    value: `${formScore}/100` },
+  ];
+  const kpiW = 190 / kpis.length;
+  kpis.forEach(({ label, value }, i) => {
+    const x = 10 + i * kpiW + kpiW / 2;
+    doc.setFontSize(15); doc.setTextColor(...dark);
+    doc.text(value, x, y + 6, { align: "center" });
+    doc.setFontSize(7); doc.setTextColor(120, 120, 120);
+    doc.text(label, x, y + 12, { align: "center" });
+  });
+
+  // ── No sessions message
+  if (weekSessions.length === 0) {
+    y = 80;
+    doc.setFontSize(12); doc.setTextColor(120, 120, 120);
+    doc.text("Aucune session cette semaine.", 105, y, { align: "center" });
+    doc.setFontSize(8); doc.setTextColor(160, 160, 160);
+    doc.text("ProClubs Stats — Rapport hebdomadaire", 105, doc.internal.pageSize.getHeight() - 8, { align: "center" });
+    doc.save(`rapport_semaine_${mon.toISOString().slice(0, 10)}.pdf`);
+    return;
+  }
+
+  // ── Player ranking table
+  y = 76;
+  doc.setFontSize(12); doc.setTextColor(...dark);
+  doc.text("Classement joueurs (semaine)", 14, y);
+  y += 2;
+
+  const playerRows = [...playerMap.entries()]
+    .sort(([, a], [, b]) => b.goals - a.goals || b.assists - a.assists)
+    .slice(0, 10)
+    .map(([name, p]) => [name, p.games, p.goals, p.assists, p.motm]);
+
+  (doc as unknown as { autoTable: (opts: unknown) => void }).autoTable({
+    startY: y,
+    margin: { left: 14, right: 14 },
+    head: [["Joueur", "MJ", "Buts", "PD", "MOTM"]],
+    body: playerRows,
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: accent, textColor: [255, 255, 255], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+  });
+
+  // ── Sessions list
+  const afterTable = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 40;
+  let sessY = afterTable + 10;
+  doc.setFontSize(12); doc.setTextColor(...dark);
+  doc.text("Sessions de la semaine", 14, sessY);
+  sessY += 2;
+
+  const sessRows = weekSessions.map((s) => {
+    const w = s.matches.filter((m) => String((m.clubs[s.clubId] as Record<string, unknown>)?.["matchResult"]) === "win").length;
+    const l = s.matches.filter((m) => String((m.clubs[s.clubId] as Record<string, unknown>)?.["matchResult"]) === "loss").length;
+    const d = s.matches.length - w - l;
+    return [
+      new Date(s.date).toLocaleDateString("fr-FR"),
+      String(s.matches.length),
+      `${w}V ${d}N ${l}D`,
+      s.tags?.join(", ") || "—",
+    ];
+  });
+
+  (doc as unknown as { autoTable: (opts: unknown) => void }).autoTable({
+    startY: sessY,
+    margin: { left: 14, right: 14 },
+    head: [["Date", "Matchs", "Bilan", "Tags"]],
+    body: sessRows,
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: accent, textColor: [255, 255, 255], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+  });
+
+  doc.setFontSize(8); doc.setTextColor(160, 160, 160);
+  doc.text("ProClubs Stats — Rapport hebdomadaire", 105, doc.internal.pageSize.getHeight() - 8, { align: "center" });
+  doc.save(`rapport_semaine_${mon.toISOString().slice(0, 10)}.pdf`);
+}

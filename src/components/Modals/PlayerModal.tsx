@@ -104,6 +104,9 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
   const [sharing, setSharing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showPeriods, setShowPeriods] = useState(false);
+  const [periodA, setPeriodA] = useState({ start: "", end: "" });
+  const [periodB, setPeriodB] = useState({ start: "", end: "" });
   const posLabel = POS_LABELS[player.position] ?? player.position ?? "—";
 
   // ── Per-match evolution data (league matches only — fast) ──────────────────
@@ -526,6 +529,143 @@ export function PlayerModal({ player, onClose }: { player: Player; onClose: () =
             )}
           </>
         )}
+
+        {/* ── Comparaison de périodes ────────────────────────────────────── */}
+        <div style={{ marginTop: 16 }}>
+          <button onClick={() => setShowPeriods(v => !v)}
+            style={{
+              width: "100%", padding: "6px 12px", borderRadius: 6, cursor: "pointer",
+              background: showPeriods ? "rgba(0,212,255,0.08)" : "var(--bg)",
+              border: `1px solid ${showPeriods ? "var(--accent)" : "var(--border)"}`,
+              color: showPeriods ? "var(--accent)" : "var(--muted)",
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "0.08em",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+            }}>
+            <span>COMPARER 2 PÉRIODES</span>
+            <span>{showPeriods ? "▲" : "▼"}</span>
+          </button>
+
+          {showPeriods && (() => {
+            const computePeriodStats = (start: string, end: string) => {
+              if (!currentClub || !start || !end) return null;
+              const allMatches = getMatchesFromCache(matchCache, currentClub.id, currentClub.platform);
+              const startTs = new Date(start).getTime();
+              const endTs   = new Date(end).getTime() + 86399999;
+              let games = 0, goals = 0, assists = 0, motm = 0;
+              const ratings: number[] = [];
+              for (const m of allMatches) {
+                const ts = Number(m.timestamp);
+                const mTs = ts > 1e12 ? ts : ts * 1000;
+                if (mTs < startTs || mTs > endTs) continue;
+                const clubPlayers = m.players[currentClub.id] as Record<string, Record<string, unknown>> | undefined;
+                if (!clubPlayers) continue;
+                for (const p of Object.values(clubPlayers)) {
+                  const name = String(p["name"] ?? p["playername"] ?? p["playerName"] ?? "");
+                  if (name.toLowerCase() !== player.name.toLowerCase()) continue;
+                  games++;
+                  goals   += Number(p["goals"]   ?? 0);
+                  assists += Number(p["assists"]  ?? 0);
+                  const mm = Number(p["manofthematch"] ?? p["manOfTheMatch"] ?? 0);
+                  if (mm > 0) motm++;
+                  const r = Number(p["rating"] ?? p["ratingAve"] ?? 0);
+                  if (r > 0) ratings.push(r);
+                }
+              }
+              const avgRating = ratings.length > 0
+                ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+                : 0;
+              return { games, goals, assists, motm, avgRating };
+            };
+
+            const statsA = computePeriodStats(periodA.start, periodA.end);
+            const statsB = computePeriodStats(periodB.start, periodB.end);
+
+            const arrow = (a: number, b: number) => {
+              if (a === 0 && b === 0) return { icon: "→", color: "var(--muted)" };
+              if (a > b) return { icon: "↑", color: "var(--green)" };
+              if (a < b) return { icon: "↓", color: "var(--red)" };
+              return { icon: "=", color: "#eab308" };
+            };
+
+            const ROWS: { label: string; key: keyof NonNullable<typeof statsA> }[] = [
+              { label: "Matchs joués", key: "games" },
+              { label: "Buts",         key: "goals" },
+              { label: "Passes D.",    key: "assists" },
+              { label: "MOTM",         key: "motm" },
+              { label: "Note moy.",    key: "avgRating" },
+            ];
+
+            const dateInput = (label: string, field: "start" | "end", period: typeof periodA, setter: typeof setPeriodA) => (
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, color: "var(--muted)", marginBottom: 2 }}>{label}</div>
+                <input type="date" value={period[field]}
+                  onChange={e => setter(p => ({ ...p, [field]: e.target.value }))}
+                  style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--border)",
+                    borderRadius: 4, padding: "4px 6px", color: "var(--text)", fontSize: 11, outline: "none" }} />
+              </div>
+            );
+
+            return (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                  {/* Period A */}
+                  <div style={{ background: "var(--bg)", borderRadius: 6, padding: "8px 10px", border: "1px solid rgba(0,212,255,0.25)" }}>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, color: "var(--accent)", marginBottom: 6 }}>PÉRIODE A</div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {dateInput("Début", "start", periodA, setPeriodA)}
+                      {dateInput("Fin",   "end",   periodA, setPeriodA)}
+                    </div>
+                  </div>
+                  {/* Period B */}
+                  <div style={{ background: "var(--bg)", borderRadius: 6, padding: "8px 10px", border: "1px solid rgba(139,92,246,0.25)" }}>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, color: "#8b5cf6", marginBottom: 6 }}>PÉRIODE B</div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {dateInput("Début", "start", periodB, setPeriodB)}
+                      {dateInput("Fin",   "end",   periodB, setPeriodB)}
+                    </div>
+                  </div>
+                </div>
+
+                {(statsA || statsB) && (
+                  <div style={{ border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", background: "var(--surface)" }}>
+                      <div style={{ padding: "6px 10px", fontSize: 9, color: "var(--muted)", fontFamily: "'Bebas Neue', sans-serif" }}>STAT</div>
+                      <div style={{ padding: "6px 12px", fontSize: 9, color: "var(--accent)", fontFamily: "'Bebas Neue', sans-serif", textAlign: "center" }}>A</div>
+                      <div style={{ padding: "6px 8px", fontSize: 9, color: "var(--muted)", textAlign: "center" }}></div>
+                      <div style={{ padding: "6px 12px", fontSize: 9, color: "#8b5cf6", fontFamily: "'Bebas Neue', sans-serif", textAlign: "center" }}>B</div>
+                    </div>
+                    {ROWS.map(({ label, key }) => {
+                      const a = statsA?.[key] ?? 0;
+                      const b = statsB?.[key] ?? 0;
+                      const { icon, color } = arrow(Number(a), Number(b));
+                      return (
+                        <div key={key} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto",
+                          borderTop: "1px solid var(--border)", alignItems: "center" }}>
+                          <div style={{ padding: "7px 10px", fontSize: 11, color: "var(--text)" }}>{label}</div>
+                          <div style={{ padding: "7px 12px", fontSize: 13, fontFamily: "'Bebas Neue', sans-serif",
+                            color: "var(--accent)", textAlign: "center", minWidth: 48 }}>
+                            {statsA ? String(key === "avgRating" ? Number(a).toFixed(1) : a) : "—"}
+                          </div>
+                          <div style={{ padding: "7px 6px", fontSize: 13, color, fontWeight: 700, textAlign: "center" }}>{icon}</div>
+                          <div style={{ padding: "7px 12px", fontSize: 13, fontFamily: "'Bebas Neue', sans-serif",
+                            color: "#8b5cf6", textAlign: "center", minWidth: 48 }}>
+                            {statsB ? String(key === "avgRating" ? Number(b).toFixed(1) : b) : "—"}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {!statsA && !statsB && (periodA.start || periodB.start) && (
+                  <p style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", padding: "8px 0" }}>
+                    Aucune donnée trouvée pour {player.name} dans ces plages.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </div>
 
       </div>
     </div>

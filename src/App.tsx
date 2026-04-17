@@ -24,6 +24,7 @@ function App() {
     addRawLog, toggleDevPanel, showDevPanel, setProxyInfo,
     setSidebarTab, setActiveTab, onboarded, settingsLoaded, toggleGlobalSearch,
     navLayout, customShortcuts, scheduledNotifications, addToast,
+    currentClub, activeSession, startSession, stopSession,
   } = useAppStore();
 
   useAutoLoad();
@@ -105,10 +106,28 @@ function App() {
         setActiveTab(tabs[idx]);
         return;
       }
+      // R → Refresh club (dispatch event handled by search hook)
+      if (!e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("shortcut:refresh"));
+        return;
+      }
+      // S → Toggle session start/stop
+      if (!e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (activeSession) {
+          stopSession();
+          addToast("Session terminée", "success");
+        } else if (currentClub) {
+          startSession(currentClub);
+          addToast("Session démarrée", "success");
+        }
+        return;
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [toggleDevPanel, setSidebarTab, setActiveTab, toggleGlobalSearch, customShortcuts]);
+  }, [toggleDevPanel, setSidebarTab, setActiveTab, toggleGlobalSearch, customShortcuts, activeSession, currentClub, startSession, stopSession, addToast]);
 
   // ── Scheduled notifications ───────────────────────────────────────
   useEffect(() => {

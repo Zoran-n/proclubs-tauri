@@ -14,7 +14,7 @@ import { Badge } from "../UI/Badge";
 import { ExportModal } from "../Modals/ExportModal";
 import { PdfSaveModal } from "../Modals/PdfSaveModal";
 import type { Match, Session as SessionType } from "../../types";
-import { generateSessionPdf, getSessionPdfFilename } from "../../utils/pdfExport";
+import { generateSessionPdf, getSessionPdfFilename, generateWeeklyReport } from "../../utils/pdfExport";
 import { sendDiscordWebhook } from "../../api/discord";
 import { useT } from "../../i18n";
 
@@ -177,41 +177,79 @@ export function SessionTab() {
       const mvps = sessionMvpStats(s.matches, s.clubId);
       const color = wld.w > wld.l ? 0x23a559 : wld.l > wld.w ? 0xda373c : 0xfaa81a;
 
-      const matchLines = [...s.matches].reverse().map((m) => {
-        const r = matchResult(m, s.clubId);
-        const { ourGoals, oppGoals } = getMatchScore(m, s.clubId);
-        const icon = r === "W" ? "🟢" : r === "L" ? "🔴" : "🟡";
-        return `${icon} **${ourGoals} – ${oppGoals}**`;
-      });
-      const playerLines = [...mvps.all]
-        .sort((a, b) => b.goals - a.goals || b.assists - a.assists)
-        .slice(0, 5)
-        .map((p) => {
-          const avg = p.games > 0 ? (p.rating / p.games).toFixed(1) : "–";
-          return `**${p.name}** — ${p.goals}⚽ ${p.assists}🅰️${p.motm > 0 ? ` ${p.motm}★` : ""} · ${avg}`;
+      // Forme récente (last 5 matches as emoji bar)
+      const recentResults = [...s.matches]
+        .sort((a, b) => Number(a.timestamp) - Number(b.timestamp))
+        .slice(-5)
+        .map((m) => matchResult(m, s.clubId) === "W" ? "🟢" : matchResult(m, s.clubId) === "L" ? "🔴" : "🟡");
+      const formeBar = recentResults.join(" ");
+
+      // MOTM — joueur avec le plus de fois MOTM, si égalité meilleure note moyenne
+      const sortedByMOTM = [...mvps.all].sort((a, b) => b.motm - a.motm || (b.rating / Math.max(1, b.games)) - (a.rating / Math.max(1, a.games)));
+      const motmPlayer = sortedByMOTM[0];
+
+      // Top 3 buteurs
+      const top3Goals = [...mvps.all]
+        .filter(p => p.goals > 0)
+        .sort((a, b) => b.goals - a.goals)
+        .slice(0, 3)
+        .map((p) => `**${p.name}** ${p.goals}⚽`)
+        .join("  ·  ");
+
+      // Top 3 assisteurs
+      const top3Assists = [...mvps.all]
+        .filter(p => p.assists > 0)
+        .sort((a, b) => b.assists - a.assists)
+        .slice(0, 3)
+        .map((p) => `**${p.name}** ${p.assists}🅰️`)
+        .join("  ·  ");
+
+      // Score de forme session (pts / max)
+      const sessionPts = wld.w * 3 + wld.d;
+      const maxSessionPts = s.matches.length * 3;
+      const formeScore = maxSessionPts > 0 ? Math.round((sessionPts / maxSessionPts) * 100) : 0;
+
+      const matchLines = [...s.matches]
+        .sort((a, b) => Number(a.timestamp) - Number(b.timestamp))
+        .map((m) => {
+          const r = matchResult(m, s.clubId);
+          const { ourGoals, oppGoals } = getMatchScore(m, s.clubId);
+          const icon = r === "W" ? "🟢" : r === "L" ? "🔴" : "🟡";
+          return `${icon} **${ourGoals}–${oppGoals}**`;
         });
 
       const fields: { name: string; value: string; inline?: boolean }[] = [
-        { name: "📊 Bilan", value: `🟢 **${wld.w}V** · 🟡 **${wld.d}N** · 🔴 **${wld.l}D**`, inline: false },
+        {
+          name: "📊 Bilan",
+          value: `🟢 **${wld.w}V** · 🟡 **${wld.d}N** · 🔴 **${wld.l}D**  ·  Forme **${formeScore}/100**`,
+          inline: false,
+        },
         { name: "⚽ Buts", value: String(kpis.goals), inline: true },
         { name: "🅰️ Passes D.", value: String(kpis.assists), inline: true },
         { name: "★ MOTM", value: String(kpis.motm), inline: true },
       ];
+      if (recentResults.length > 0)
+        fields.push({ name: "📈 Forme récente", value: formeBar, inline: false });
+      if (motmPlayer && motmPlayer.motm > 0)
+        fields.push({ name: "🏅 Homme du match", value: `**${motmPlayer.name}** — ${motmPlayer.motm}★ MOTM · note moy. **${motmPlayer.games > 0 ? (motmPlayer.rating / motmPlayer.games).toFixed(1) : "–"}**`, inline: false });
+      if (top3Goals)
+        fields.push({ name: "🥇 Top buteurs", value: top3Goals, inline: false });
+      if (top3Assists)
+        fields.push({ name: "🥇 Top assisteurs", value: top3Assists, inline: false });
       if (matchLines.length > 0)
         fields.push({ name: "🎮 Matchs", value: matchLines.join("  ·  ").slice(0, 1024), inline: false });
-      if (playerLines.length > 0)
-        fields.push({ name: "👥 Stats joueurs", value: playerLines.join("\n").slice(0, 1024), inline: false });
       if (s.notes?.trim())
         fields.push({ name: "📝 Notes", value: s.notes.slice(0, 1024), inline: false });
       if (s.tags && s.tags.length > 0)
         fields.push({ name: "🏷️ Tags", value: s.tags.join(" · "), inline: false });
 
       await sendDiscordWebhook(discordWebhook, [{
-        title: `🏆 Session — ${s.clubName}`,
+        title: `🏆 RÉCAP SESSION — ${s.clubName.toUpperCase()}`,
         color,
-        description: `📅 ${new Date(s.date).toLocaleDateString()} · ${s.matches.length} match${s.matches.length !== 1 ? "s" : ""}`,
+        description: `📅 ${new Date(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} · **${s.matches.length} match${s.matches.length !== 1 ? "s" : ""}**`,
         fields,
-        footer: { text: "ProClubs Stats" },
+        footer: { text: "ProClubs Stats · Récap post-session" },
+        timestamp: new Date().toISOString(),
       }]);
       addToast(t("discord.sent"), "success");
     } catch (e) { addToast(`Discord: ${String(e)}`, "error"); }
@@ -1102,6 +1140,15 @@ export function SessionTab() {
             </button>
             <button onClick={() => setExportModal("csv")} style={{ ...BTN }}>
               <Download size={11} /> CSV
+            </button>
+            <button
+              onClick={() => {
+                const clubName = sessions[0]?.clubName ?? "Club";
+                generateWeeklyReport(sessions, clubName).catch(() => {});
+              }}
+              title="Télécharger le rapport de la semaine en cours (PDF)"
+              style={{ ...BTN }}>
+              <Download size={11} /> Rapport semaine
             </button>
           </div>
 

@@ -6,6 +6,7 @@ export interface DiscordEmbed {
   color?: number;
   fields?: DiscordField[];
   footer?: { text: string };
+  timestamp?: string;
 }
 
 export async function sendDiscordWebhook(webhookUrl: string, embeds: DiscordEmbed[]): Promise<void> {

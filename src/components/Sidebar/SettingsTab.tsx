@@ -6,7 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { saveSettings as apiSave } from "../../api/tauri";
 import { useAppStore } from "../../store/useAppStore";
 import { setPendingUpdate, setPendingManualUrl } from "../../utils/pendingUpdate";
-import { THEMES } from "../../types";
+import { THEMES, PALETTE_PRESETS } from "../../types";
 import { useT, LANGUAGES } from "../../i18n";
 import type { Lang } from "../../i18n";
 
@@ -22,6 +22,7 @@ export function SettingsTab() {
     customShortcuts, setCustomShortcut, resetCustomShortcuts,
     scheduledNotifications, addScheduledNotification, updateScheduledNotification, deleteScheduledNotification,
     interfaceProfiles, saveInterfaceProfile, deleteInterfaceProfile, applyInterfaceProfile,
+    palettePreset, setPalettePreset,
     addToast, loadSettings,
     persistSettings } = useAppStore();
   const t = useT();
@@ -242,6 +243,43 @@ export function SettingsTab() {
         })}
       </div>
 
+      {/* ── PALETTES COMPLÈTES ── */}
+      <Section label="PALETTES COMPLÈTES" />
+      <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+        {PALETTE_PRESETS.map((p) => {
+          const active = palettePreset === p.id;
+          return (
+            <button key={p.id} title={p.label}
+              onClick={() => {
+                setPalettePreset(active ? null : p.id);
+                persistSettings();
+              }}
+              aria-pressed={active}
+              style={{
+                flex: 1, minWidth: 64, padding: "8px 4px", borderRadius: 6, cursor: "pointer",
+                border: `2px solid ${active ? p.accent : "var(--border)"}`,
+                background: active ? `${p.accent}18` : "var(--hover)",
+                transition: "all 0.15s", display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+              }}>
+              <div style={{ display: "flex", gap: 2 }}>
+                {p.preview.map((c, i) => (
+                  <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: c, border: "1px solid rgba(255,255,255,0.15)" }} />
+                ))}
+              </div>
+              <span style={{ fontSize: 9, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em",
+                color: active ? p.accent : "var(--muted)", fontWeight: active ? 700 : 400 }}>
+                {p.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {palettePreset && (
+        <p style={{ fontSize: 10, color: "var(--muted)", marginBottom: 4, lineHeight: 1.5 }}>
+          Palette active — remplace le thème d'accent. Cliquez à nouveau pour désactiver.
+        </p>
+      )}
+
       {/* ── THEME DE COULEUR ── */}
       <Section label={t("settings.accentColor")} />
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
@@ -427,6 +465,8 @@ export function SettingsTab() {
           { keys: "F11",           label: t("shortcut.fullscreen") },
           { keys: "Ctrl+1–5",     label: t("nav.players") + " / " + t("nav.matches") + " / ..." },
           { keys: "Ctrl+Shift+D", label: t("shortcut.devPanel") },
+          { keys: "R",             label: "Rafraîchir le club" },
+          { keys: "S",             label: "Démarrer / Arrêter la session" },
         ].map((s) => (
           <div key={s.keys} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "3px 0" }}>
             <span style={{ fontSize: 11, color: "var(--text)" }}>{s.label}</span>

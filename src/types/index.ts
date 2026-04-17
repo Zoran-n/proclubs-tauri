@@ -235,4 +235,57 @@ export const THEMES = [
   { id: "rose",     color: "#f43f5e", label: "Rose" },
 ] as const;
 
+export const PALETTE_PRESETS = [
+  {
+    id: "eafc",
+    label: "EA FC",
+    accent: "#F9C00C",
+    bg: "#08090F",
+    surface: "#0F1320",
+    card: "#171D30",
+    border: "#252E48",
+    preview: ["#F9C00C", "#08090F", "#0F1320"],
+  },
+  {
+    id: "blood",
+    label: "Blood",
+    accent: "#C0392B",
+    bg: "#0D0606",
+    surface: "#1A0A0A",
+    card: "#230E0E",
+    border: "#3D1515",
+    preview: ["#C0392B", "#0D0606", "#1A0A0A"],
+  },
+  {
+    id: "ocean",
+    label: "Ocean",
+    accent: "#0EA5E9",
+    bg: "#040D1A",
+    surface: "#0B1930",
+    card: "#0F2440",
+    border: "#1A3A60",
+    preview: ["#0EA5E9", "#040D1A", "#0B1930"],
+  },
+  {
+    id: "forest",
+    label: "Forest",
+    accent: "#22C55E",
+    bg: "#060E07",
+    surface: "#0B1A0C",
+    card: "#112413",
+    border: "#1A3A1F",
+    preview: ["#22C55E", "#060E07", "#0B1A0C"],
+  },
+  {
+    id: "discord-classic",
+    label: "Classic",
+    accent: "#5865F2",
+    bg: "#1e1f22",
+    surface: "#2b2d31",
+    card: "#313338",
+    border: "#3f4147",
+    preview: ["#5865F2", "#1e1f22", "#2b2d31"],
+  },
+] as const;
+
 export type MatchType = "leagueMatch" | "playoffMatch" | "friendlyMatch";
