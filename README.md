@@ -113,11 +113,16 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 ### Comparaison de clubs
 - Recherche et sélection de **2 à 4 clubs** simultanément (bouton + / × par slot)
 - Logo affiché pour chaque club
-- **Onglets de section** : Stats | Radar | H2H | Joueurs
+- **Onglets de section** : Stats | Radar | H2H | Battle | Joueurs
 - **Tableau multi-colonnes** : SR, V%, Victoires, Nuls, Défaites, Buts, Nombre de joueurs — meilleur mis en valeur par ligne
+- **Comparaison multi-saisons** : sélecteur de saison par club — compare des saisons différentes entre clubs
 - **Radar normalisé** : radar des 6 stats clés (V%, Buts/Match, Passes/J, Tacles/J, Note Moy, MOTM) normalisées sur 100
 - **Historique H2H** : filtre automatique des matchs directs entre les 2 clubs, bilan V/N/D, liste des confrontations triées par date
+- **Mode Battle** : vote sur chaque stat — quel club est supérieur ? — avec classement final des clubs
 - **Meilleurs joueurs par poste** : GK, DEF, MIL, ATT — tableau N colonnes avec surlignage du meilleur
+- **Comparaisons nommées** : sauvegarder une comparaison sous un nom personnalisé (ex: "Finale div 2"), restaurer / renommer / supprimer
+- **Alerte SR** : icône 🔔 par club dans la comparaison — notification toast si le SR change au rechargement
+- **Export PDF** : rapport complet avec tableau stats, radar dessiné et H2H — généré via jsPDF
 - **Historique des comparaisons** : sauvegarde automatique, rechargement en un clic, suppression
 - Export **PNG** et **CSV** du tableau comparatif
 
@@ -266,12 +271,12 @@ source ~/.cargo/env && npm run tauri build -- --debug
 ## Axes d'amélioration possibles
 
 ### Comparaison de clubs
-- **Comparaison multi-saisons** : choisir la saison pour chaque club et comparer d'une saison à l'autre
-- **Export PDF rapport** : PDF complet avec tableau, radar et H2H mis en page automatiquement
-- **Comparaisons nommées** : sauvegarder une comparaison avec un nom personnalisé (ex : "Finale div 2")
-- **Mode Battle** : vote sur chaque stat — quel club est supérieur ? — avec résultat global
-- **Alerte changement SR** : notifier quand un des clubs comparés change de Skill Rating
-- **Comparaison joueurs cross-clubs** : tableau par poste mettant en face les meilleurs joueurs de chaque club
+- ~~**Comparaison multi-saisons**~~ ✅ Implémenté
+- ~~**Export PDF rapport**~~ ✅ Implémenté
+- ~~**Comparaisons nommées**~~ ✅ Implémenté
+- ~~**Mode Battle**~~ ✅ Implémenté
+- ~~**Alerte changement SR**~~ ✅ Implémenté
+- ~~**Comparaison joueurs cross-clubs**~~ ✅ Implémenté
 
 ### Technique
 - **Tests unitaires** : couverture des fonctions de calcul de stats (score composite, résultats, agrégats)

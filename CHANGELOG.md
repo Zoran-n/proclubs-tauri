@@ -1,5 +1,43 @@
 # Changelog — ProClubs Stats
 
+## v0.4.1 — 2026-04-17 (comparaison de clubs enrichie)
+
+### Comparaison multi-saisons
+- Sélecteur de saison par club dans l'onglet Stats — compare les stats d'une saison précise au lieu de la saison actuelle
+- Appel `getSeasonHistory` au chargement de chaque club — dropdown avec toutes les saisons disponibles + SR par saison
+- Le radar et le tableau reflètent dynamiquement la saison choisie
+
+### Mode Battle
+- Nouvel onglet **Battle** dans la comparaison de clubs (accessible dès 2 clubs chargés)
+- Pour chaque stat (V%, Victoires, Buts, Buts/Match, Joueurs, Note moy., MOTM) : bouton de vote par club
+- Auto-highlight du meilleur sur chaque ligne (fond coloré)
+- Classement final en temps réel : compteur de stats gagnées par club + podium visuel
+- Bouton "Réinitialiser" pour recommencer
+
+### Comparaisons nommées
+- Bouton **Sauvegarder** dans la barre d'actions — prompt inline pour nommer la comparaison
+- Panel **Sauvegardées** : liste des comparaisons nommées avec nom, clubs et date
+- Restauration en un clic (recharge les clubs), **renommage inline** (clic crayon), suppression
+- Stockées dans `Settings.savedComparisons` (max 30), persistées localement
+
+### Export PDF rapport
+- Bouton **PDF** dans la barre d'actions de la comparaison
+- Rapport complet : header coloré, tableau des 10 stats comparées (meilleur marqué ★), radar multi-clubs dessiné avec primitives jsPDF, section H2H optionnelle
+- Footer de page numérotée sur chaque page
+
+### Alertes SR dans la comparaison
+- Icône 🔔/🔕 par slot de club — active/désactive la surveillance du Skill Rating
+- Notification toast si le SR a changé depuis la dernière visite (en mémoire des favoris)
+- Cohérent avec le système `srAlerts` existant du store
+
+### Types & Store
+- Nouveau type `SavedComparison` dans `types/index.ts`
+- Champ `savedComparisons?: SavedComparison[]` dans `Settings`
+- Nouvelles actions store : `saveComparison`, `deleteSavedComparison`, `renameSavedComparison`
+- Persistance complète dans `persistSettings` / `loadSettings`
+
+---
+
 ## v0.4.1 — 2026-04-08 (post-release, offline + cache)
 
 ### Mode hors-ligne
