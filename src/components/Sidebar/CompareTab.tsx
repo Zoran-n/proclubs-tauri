@@ -9,7 +9,7 @@ import {
 } from "recharts";
 import { searchClub, loadClub, getLogo, getMatches, getSeasonHistory } from "../../api/tauri";
 import { useAppStore } from "../../store/useAppStore";
-import { ExportModal } from "../ui/ExportModal";
+import { ExportModal } from "../Modals/ExportModal";
 import { generateComparePdf } from "../../utils/pdfExport";
 import type { Club, ClubData, Player, Match } from "../../types";
 

@@ -4,7 +4,7 @@ import { useAppStore } from "../../store/useAppStore";
 import { useClub } from "../../hooks/useClub";
 import { useT } from "../../i18n";
 import type { Session } from "../../types";
-import { POS_LABELS } from "../modals/PlayerModal";
+import { POS_LABELS } from "./PlayerModal";
 
 type ResultType = "club" | "player" | "session";
 

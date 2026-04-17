@@ -8,7 +8,7 @@ import { useAppStore } from "../../store/useAppStore";
 import { useT } from "../../i18n";
 import { sendDiscordWebhook } from "../../api/discord";
 import { generatePlayerPdf, getPlayerPdfFilename } from "../../utils/pdfExport";
-import { PdfSaveModal } from "../ui/PdfSaveModal";
+import { PdfSaveModal } from "./PdfSaveModal";
 import type { Player, Match } from "../../types";
 
 export const POS_LABELS: Record<string, string> = {
