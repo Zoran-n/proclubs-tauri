@@ -137,7 +137,7 @@ impl EaClient {
         if let Some(first) = clubs.first() {
             self.emit_log(format!(
                 "[search debug] first club obj: {}",
-                first.to_string()
+                first
             ));
         }
         Ok(clubs
