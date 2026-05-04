@@ -144,9 +144,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - Champ nom de fichier éditable
 - Format **PNG** : capture html2canvas (scale ×2, fond correct)
 - Format **CSV** : encodage UTF-8 BOM, compatible Excel
-
 ### Intégration Discord
-
 - **Webhook personnel** configuré dans **Mon Profil** (URL privée, non partagée)
 - Badge violet sur l'icône profil quand le webhook est actif
 - **Partage par onglet** : bouton Discord dans le header de chaque onglet (Joueurs / Matchs / Graphiques) — embed formaté avec les données de la vue courante
@@ -159,22 +157,19 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Carte joueur sur Discord** : bouton Discord dans la préview de carte FIFA — envoie l'image PNG via multipart/form-data (fichier brut, pas d'embed texte)
 - Embeds colorés dynamiquement : vert (victoire dominante), jaune (équilibré), rouge (défaites dominantes)
 - Section Discord masquée si aucun club sélectionné
-
 ### Système
 - **Icône System Tray** : l'application tourne en arrière-plan à côté de l'horloge Windows.
 - **Background Mode** : fermer la fenêtre cache l'application sans l'arrêter (style Discord). Quitter définitivement se fait via le clic-droit sur l'icône tray.
 - **Menu contextuel Tray** : accès rapide pour afficher l'app, lancer/arrêter une session ou quitter.
 - **Démarrage avec Windows** : lancement automatique au boot (en mode réduit) pour un suivi constant sans action manuelle.
-
 ### Paramètres
-
 - **10 thèmes de couleur accent** : Cyan, Violet, Orange, Vert, Rouge, Discord, **Midnight** (fond noir bleuté), **Gold** (ambre), **Matrix** (fond vert terminal), **Rose** — Midnight et Matrix modifient aussi le fond et les surfaces
 - **Palettes complètes** : 5 presets (EA FC, Blood, Ocean, Forest, Classic) — modifient accent + fond + surface + card + bordures en un clic, aperçu 3 couleurs — sélectionner une palette désactive le thème accent et inversement
 - **Thème personnalisé complet** : color pickers pour Accent, Background, Surface et Card — bouton "Tout réinitialiser" + reset individuel par couleur — changer de thème efface les couleurs custom
 - **Import / export des paramètres** : exporte uniquement les paramètres (thème, raccourcis, tactiques, favoris, profils EA) sans matchCache ni sessions — fusion à l'import
 - **Raccourcis clavier personnalisables** : Ctrl+F (recherche), Ctrl+E (export), Ctrl+K (recherche globale) remappables — clic sur le bouton → appuyez sur la nouvelle combinaison → sauvegarde automatique — bouton « Réinitialiser »
 - **Mode streaming** : toggle dans Paramètres → masque gamertag, plateforme et webhook Discord dans Mon Profil (bannière orange indicatrice)
-- **Rappels planifiés** : ajouter des notifications à une heure HH:MM précise sur des jours de semaine sélectionnés — vérifiés toutes les minutes, affichés en toast in-app
+- **Rappels planifiés** : ajouter une notifications à une heure HH:MM précise sur des jours de semaine sélectionnés — vérifiés toutes les minutes, affichés en toast in-app
 - **Profils d'interface** : sauvegarder la config actuelle (thème + disposition + mode clair/sombre) sous un nom personnalisé, appliquer en un clic — plusieurs profils stockés
 - Mode clair / sombre
 - Taille de police ajustable (slider 10–20px)
@@ -186,9 +181,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Mise à jour automatique** : toggle ON/OFF — vérifie au démarrage et propose un modal d'installation
 - **Pastille de mise à jour** : badge rouge 🔴 pulsant sur l'icône ⚙️ quand une nouvelle version est disponible
 - **Modal de mise à jour** : affiche la version disponible, les notes de release, et propose "Installer maintenant" ou "Plus tard"
-
 ### Mon Profil
-
 - **Liaison gamertag EA** : entre ton pseudo EA + le nom de ton club — l'app vérifie que le gamertag est bien membre du club via `getMembers()`, puis lie le profil
 - **Chargement automatique au démarrage** : si un profil EA est lié, le club est chargé automatiquement à l'ouverture de l'app sans aucune action requise
 - **Chargement complet des matchs en arrière-plan** : dès que le club est chargé, les 3 types de matchs (Championnat, Playoff, Amical) sont récupérés page par page en silent, pour que la vue Calendrier soit entièrement remplie
@@ -210,9 +203,7 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
   - Répartition par poste (matchs, buts, PD, note moy)
   - Tableau des 25 dernières performances individuelles
   - Indicateur "X matchs (Y analysés)" distinguant totaux saison et matchs en cache
-
 ### Interface
-
 - Fenêtre frameless avec barre de titre draggable (minimize / maximize / close)
 - Interface style Discord : guild bar, sidebar canaux, panel principal
 - Animations de transition entre onglets
@@ -232,16 +223,12 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Heatmap de présence** : grille joueurs × matchs récents (20 derniers), cellules colorées par résultat (victoire/nul/défaite/absent), pourcentage de présence par joueur — accessible via l'icône grille dans l'onglet Joueurs
 - **Classement interne (Podium)** : vue podium dynamique (or/argent/bronze) par catégorie — Buteurs, Passeurs, Défenseurs (tacles), MOTM, Moyenne, Présence — accessible via l'icône trophée dans l'onglet Joueurs
 - **Évolution du Skill Rating** : courbe SR par saison dans l'onglet Graphiques, avec min/max/actuel — chargement à la demande via le bouton CHARGER dans la section historique
-
 ### Mode hors-ligne
-
 - Bannière **MODE HORS-LIGNE** affichée automatiquement quand il n'y a pas de connexion réseau
 - Toutes les données du cache (matchs, joueurs, sessions) restent accessibles
 - Le chargement automatique en arrière-plan et la pagination sont suspendus quand offline, reprennent dès reconnexion
 - Aucune perte de données : les matchs déjà chargés restent en mémoire et sur disque
-
 ### Cache matchs
-
 - **Capacité 2000 matchs par type** (Championnat / Playoff / Amical) — soit jusqu'à 6000 matchs stockés pour le club lié
 - **Section « Gestion du cache »** dans Mon Profil : barre de progression par type avec compteur X / 2000
 - **Indicateur de fraîcheur** : « il y a X min / X h / X j » affiché sous chaque type de cache — horodatage persisté
@@ -254,17 +241,12 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 - **Synchronisation incrémentale** : au démarrage, seule la première page (10 matchs les plus récents) est rechargée — la pagination complète n'a lieu qu'au tout premier chargement (cache vide) — évite de re-télécharger l'historique complet à chaque ouverture
 - **Compression gzip** : le fichier `settings.json` est compressé via flate2 (Rust) à chaque sauvegarde — rétrocompatible avec les anciennes sauvegardes JSON non compressées
 - Le chargement en arrière-plan s'arrête proprement à la limite — aucun téléchargement inutile
-
 ### Proxy & réseau
-
 - Support proxy configurable (HTTP/HTTPS)
 - Détection du proxy système (variables d'environnement)
 - Logs détaillés des requêtes API (URL, statut, aperçu réponse)
-
 ---
-
 ## Stack technique
-
 | Composant | Technologie |
 |-----------|-------------|
 | Desktop shell | Tauri 2 |
@@ -280,50 +262,40 @@ Application desktop pour suivre les statistiques de votre club EA FC Pro Clubs. 
 | Persistance | JSON local (`~/.local/share/com.codespace.proclubs-tauri/settings.json`) |
 | Discord | Webhook API (fetch natif, embeds formatés + upload fichier multipart) |
 | Virtualisation | react-window (FixedSizeList joueurs) |
-
+### ⚙️ Architecture Technique
+- **Web Worker** : Threads séparés pour le traitement des données massives (tri de 2000+ matchs, agrégats complexes)
+- **Logging Multiniveau** : Système de debug persistant avec export JSON pour le support technique
+- **Sécurité Native** : Utilisation de l'API Web Crypto pour le chiffrement AES-GCM des paramètres sensibles
+- **Optimisation Réseau** : Moteur de synchronisation delta limitant les appels API aux nouvelles données uniquement
+- **CI/CD Robuste** : Workflows GitHub Actions multi-OS (Windows, macOS, Linux) avec tests automatisés
 ---
-
 ## 💡 Prochaines idées
-
 ### 🎮 Compétition
-
 - **Tournois internes** : bracket élimination directe ou poule avec des joueurs du club, résultats saisis manuellement — arbre visuel collapsible, finaliste/vainqueur marqués
 - **Classement de saison** : tableau de bord — points, diff buts, podium joueurs, matchs restants, progression en % vers l'objectif de saison
 - **Défis hebdomadaires** : objectifs auto générés chaque semaine (ex: "5 clean sheets", "gagner 3 en row") avec badge récompense et historique des défis complétés
 - **Historique H2H par club** : suivi du bilan victoires/défaites face à un club adverse précis sur toutes les saisons avec graphique d'évolution
 - **Ligue personnalisée** : créer une mini-ligue entre plusieurs clubs amis avec classement, résultats, différentiel de buts et export PDF de fin de saison
 - **MVP vote après match** : vote de la session (1 voix par joueur depuis l'app) — résultat affiché sur Discord, compteur MVP cumulé en stats joueur
-
 ### 📊 Données & Analyse
-
 - **Rapport de progression joueur** : générer un bilan mensuel individuel — buts, PD, note moyenne, tendance, record personnel — exportable en PDF ou image Discord
 - **Analyse des absences** : détecter automatiquement les joueurs inactifs depuis X matchs et générer un rapport d'assiduité par période
 - **Comparaison saison N vs N-1** : panel dédié montrant côte-à-côte toutes les stats de la saison actuelle vs la précédente, avec indicateurs ↑ ↓
 - **Statistiques de possession avancées** : analyser la corrélation entre % de possession et résultats sur l'ensemble des matchs du cache
 - **Carte de chaleur des buteurs** : visualisation de qui marque à quelle minute (tranches 0–30, 30–60, 60–90) sur les matchs du cache
 - **Export rapport complet club** : PDF multi-sections (stats équipe, top joueurs, forme, historique adversaires, objectifs) en un seul clic depuis l'onglet Graphiques
-
 ### 🤝 Social & Discord
 - **Partage de comparaison de clubs** : bouton Discord dans l'onglet Comparaison — embed multi-clubs avec radar, tableau de stats et résultat Battle
 - **Digest hebdomadaire planifié** : configurer un jour/heure pour un envoi automatique chaque semaine du bilan de la semaine sur Discord
-
 ### 🎨 UX & Interface
-
 - **Animations de performance** : micro-animations plus poussées sur les KPIs (compteur animé, effet confetti sur records personnels, shimmer sur chargement)
 - **Mode présentation** : vue épurée plein écran optimisée pour streamer ou projeter les stats en live (masque les éléments de navigation)
 - **Thème personnalisé avancé** : éditeur de thème complet avec prévisualisation live, import/export de thèmes communautaires en JSON
 - **Notifications sonores** : son court configurable à chaque nouveau match détecté, victoire, ou objectif atteint — désactivable par type
 - **Sidebar redimensionnable** : drag sur le bord pour ajuster la largeur de la sidebar favoris/canaux — dimension persistée
 - **Tour guidé interactif** : bouton "?" dans le header qui lance un overlay de tutoriel étape par étape sur la vue courante (tooltips positionnés sur les éléments)
-
-
-
-
-
 ---
-
 ## ⭐ Fonctionnalité phare proposée — Profil Joueur Public
-
 Page `Mon Profil > Carte Publique` exportable et partageable :
 
 - **Carte identité joueur** : canvas style carte Pro Player — avatar initiales XL, gamertag, club, badge de division, saison en cours
