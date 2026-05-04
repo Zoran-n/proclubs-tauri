@@ -8,12 +8,7 @@ jobs:
   build:
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
-
-    runs-on: ${{ matrix.platform }}
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       
@@ -22,12 +17,6 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-      
-      - name: install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       
       - name: install rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -53,9 +42,6 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ProClubs-Stats-${{ matrix.platform }}
+          name: ProClubs-Stats-Windows
           path: |
             src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/dmg/*.dmg
-            src-tauri/target/release/bundle/appimage/*.AppImage
-            src-tauri/target/release/bundle/deb/*.deb
